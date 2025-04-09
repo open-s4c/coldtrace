@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+SO=so
+
+if [ "$(uname)" = "Darwin" ]; then
+    SO=dylib
+    DYLD=yes
+fi
+
+
+COLDTRACE_HOME="$(readlink -f $(dirname $(readlink -f $0))/../build)"
+
+unset BINGO_HOME
+if [ -z "$BINGO_HOME" ]; then
+    BINGO_HOME="$COLDTRACE_HOME/deps/bingo"
+fi
+
+# symlink tsano to possible tsan libraries
+(
+    cd "$BINGO_HOME/tsano"
+    if [ ! -f libtsan.so.0 ]; then
+        ln -s $(readlink -f libtsano.so) libtsan.so.0
+    fi
+    if [ ! -f libtsan.so.1 ]; then
+        ln -s $(readlink -f libtsano.so) libtsan.so.1
+    fi
+    if [ ! -f libclang_rt.tsan-x86_64.so ]; then
+        ln -s $(readlink -f libtsano.so) libclang_rt.tsan-x86_64.so
+    fi
+)
+
+LDPATH="$BINGO_HOME/tsano"
+PRELOAD="$BINGO_HOME/lib/libbingo.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/mod/pthread_create.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/mod/pthread_mutex.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/mod/malloc.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/mod/tsan.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/mod/stacktrace.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/mod/sem.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/mod/cxa.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/mod/autocept.$SO"
+
+PRELOAD="$PRELOAD:$COLDTRACE_HOME/src/libcoldtrace.$SO"
+
+exec env LD_LIBRARY_PATH="$LDPATH" LD_PRELOAD="$PRELOAD" "$@"
