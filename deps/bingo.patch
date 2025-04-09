@@ -1,0 +1,16 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 46543fd..e335932 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -30,7 +30,10 @@ include_directories(include)
+ add_subdirectory(lib)
+ add_subdirectory(mod)
+ add_subdirectory(tsano)
+-add_subdirectory(test)
++
++if(off)
++  add_subdirectory(test)
++endif()
+ 
+ # Installation
+ 

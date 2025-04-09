@@ -1,0 +1,6 @@
+[submodule "deps/libvsync"]
+	path = deps/libvsync
+	url = ../libvsync
+[submodule "deps/bingo"]
+	path = deps/bingo
+	url = ../bingo
