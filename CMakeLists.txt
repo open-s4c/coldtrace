@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.24)
+cmake_minimum_required(VERSION 3.20)
 project(
   coldtrace
   VERSION 0.1
@@ -6,34 +6,28 @@ project(
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-include(ExternalProject)
-
 find_package(libvsync 4.2 CONFIG)
-if(NOT libvsync_DIR)
-  ExternalProject_Add(
-    libvsync-deps
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/target
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/libvsync
-    BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/deps/libvsync
-    PATCH_COMMAND git checkout . && git apply
-                  ${CMAKE_CURRENT_SOURCE_DIR}/deps/libvsync.patch
-    INSTALL_COMMAND "")
-endif()
-
 find_package(bingo 0.1 CONFIG)
-if(NOT bingo_DIR)
-  ExternalProject_Add(
-    bingo-deps
-    PREFIX ${CMAKE_CURRENT_BINARY_DIR}/target
-    SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/deps/bingo
-    BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/deps/bingo
-    PATCH_COMMAND git checkout . && git apply
-                  ${CMAKE_CURRENT_SOURCE_DIR}/deps/bingo.patch
-    INSTALL_COMMAND "")
-endif()
+if(NOT libvsync_DIR OR NOT bingo_DIR)
+  execute_process(
+    COMMAND
+      ${CMAKE_COMMAND} #
+      -S${CMAKE_CURRENT_SOURCE_DIR}/deps #
+      -B${CMAKE_CURRENT_BINARY_DIR}/deps-build
+      -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/deps
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
 
-add_library(vsync INTERFACE IMPORTED)
-add_library(bingo INTERFACE IMPORTED)
+  execute_process(
+    COMMAND ${CMAKE_COMMAND} --build ${CMAKE_CURRENT_BINARY_DIR}/deps-build
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR})
+
+  set(CMAKE_FIND_ROOT_PATH ${CMAKE_CURRENT_BINARY_DIR}/deps)
+
+  find_package(libvsync 4.2 CONFIG REQUIRED)
+  find_package(bingo 0.1 CONFIG REQUIRED)
+endif()
+add_library(vsync ALIAS libvsync::vsync)
+add_library(bingo ALIAS bingo::bingo)
 
 add_compile_options(-fPIC -g3 -D_GNU_SOURCE)
 add_compile_options(
