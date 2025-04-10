@@ -1,13 +1,9 @@
 diff --git a/CMakeLists.txt b/CMakeLists.txt
-index 46543fd..49392a4 100644
+index 7245f52..25af8e5 100644
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
-@@ -19,10 +19,13 @@ add_compile_options(
- 
- if(CMAKE_SYSTEM_NAME MATCHES "NetBSD")
-   add_compile_options(-D_XOPEN_SOURCE=700)
-+else()
-+  add_compile_options(-D_GNU_SOURCE)
+@@ -23,8 +23,9 @@ else()
+   add_compile_options(-D_GNU_SOURCE)
  endif()
  
 -find_package(libvsync 4.2 CONFIG REQUIRED)
@@ -18,7 +14,7 @@ index 46543fd..49392a4 100644
  link_libraries(vsync)
  
  include_directories(include)
-@@ -30,7 +33,10 @@ include_directories(include)
+@@ -32,7 +33,10 @@ include_directories(include)
  add_subdirectory(lib)
  add_subdirectory(mod)
  add_subdirectory(tsano)
