@@ -9,14 +9,13 @@ fi
 
 COLDTRACE_HOME="$(readlink -f $(dirname $(readlink -f $0))/../build)"
 
-unset BINGO_HOME
 if [ -z "$BINGO_HOME" ]; then
-    BINGO_HOME="$COLDTRACE_HOME/deps/bingo"
+    BINGO_HOME="$COLDTRACE_HOME/deps/lib"
 fi
 
 # symlink tsano to possible tsan libraries
 (
-    cd "$BINGO_HOME/tsano"
+    cd "$BINGO_HOME/bingo"
     if [ ! -f libtsan.so.0 ]; then
         ln -s $(readlink -f libtsano.so) libtsan.so.0
     fi
@@ -28,16 +27,16 @@ fi
     fi
 )
 
-LDPATH="$BINGO_HOME/tsano"
-PRELOAD="$BINGO_HOME/lib/libbingo.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/mod/pthread_create.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/mod/pthread_mutex.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/mod/malloc.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/mod/tsan.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/mod/stacktrace.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/mod/sem.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/mod/cxa.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/mod/autocept.$SO"
+LDPATH="$BINGO_HOME/bingo"
+PRELOAD="$BINGO_HOME/libbingo.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/bingo/pthread_create.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/bingo/pthread_mutex.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/bingo/malloc.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/bingo/tsan.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/bingo/stacktrace.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/bingo/sem.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/bingo/cxa.$SO"
+PRELOAD="$PRELOAD:$BINGO_HOME/bingo/autocept.$SO"
 
 PRELOAD="$PRELOAD:$COLDTRACE_HOME/src/libcoldtrace.$SO"
 
