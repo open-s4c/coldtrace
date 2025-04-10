@@ -1,14 +1,15 @@
+#include "writer.h"
+
 #include <assert.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
-
-#include "writer.h"
 
 struct coldtrace_impl {
     bool initd;
@@ -68,7 +69,10 @@ _get_trace(struct coldtrace_impl *impl)
             break;
         }
     }
-    ftruncate(fd, INITIAL_SIZE);
+    if (ftruncate(fd, INITIAL_SIZE) == -1) {
+        perror("ftruncate");
+        exit(EXIT_FAILURE);
+    }
     impl->file_descriptor  = fd;
     impl->size             = INITIAL_SIZE;
     impl->next_free_offset = 0;
@@ -88,7 +92,11 @@ _new_trace(struct coldtrace_impl *impl)
     char file_name[sizeof(_path) + 20];
     sprintf(file_name, _path, impl->thread_id, impl->current_file_enumerator);
     int fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, 0666);
-    ftruncate(fd, INITIAL_SIZE);
+    if (ftruncate(fd, INITIAL_SIZE) == -1) {
+        perror("ftruncate");
+        exit(EXIT_FAILURE);
+    }
+
     impl->file_descriptor  = fd;
     impl->size             = INITIAL_SIZE;
     impl->next_free_offset = 0;

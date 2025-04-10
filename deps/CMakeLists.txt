@@ -17,4 +17,7 @@ ExternalProject_Add(
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/bingo
   PATCH_COMMAND git checkout . && git apply
                 ${CMAKE_CURRENT_SOURCE_DIR}/bingo.patch
-  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX})
+  CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}
+             -DCMAKE_C_FLAGS=-Wno-unused-result
+             -DCMAKE_CXX_FLAGS=-Wno-unused-result
+             -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
