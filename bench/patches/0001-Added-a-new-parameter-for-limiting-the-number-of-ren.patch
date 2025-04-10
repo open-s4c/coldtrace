@@ -1,0 +1,100 @@
+From f648c532b111425a51b56024984adb6e0a516c20 Mon Sep 17 00:00:00 2001
+From: Georgeta Igna 00911085 <georgeta.igna@huawei.com>
+Date: Tue, 12 Nov 2024 14:35:06 +0100
+Subject: [PATCH] Added a new parameter for limiting the number of rendering
+ iterations
+
+Signed-off-by: Diogo Behrens <diogo.behrens@huawei.com>
+---
+ main.cpp | 38 +++++++++++++++++++++-----------------
+ 1 file changed, 21 insertions(+), 17 deletions(-)
+
+diff --git a/main.cpp b/main.cpp
+index 3f99fe4..9bd90dc 100644
+--- a/main.cpp
++++ b/main.cpp
+@@ -39,6 +39,7 @@ int main (int argc, char **argv) {
+     
+     cout << "ri1.0 FILENAME    : view the a file" << endl;
+     cout << "ri1.0 FILENAME z  : view the z-buffer" << endl;
++    cout << "ri1.0 FILENAME NUMBER  : run rendering for a given NUMBER of iterations" << endl;
+     return -1;
+   }
+ 
+@@ -62,19 +63,6 @@ int main (int argc, char **argv) {
+   renderer.zBuffer = &zbuffer;
+   
+   RI_Texture tex (600,304);
+-
+-  /*
+-  memset (tex.pixelBuffer.data, 0x00, 64*64*4); // Black texture
+-
+-  int i,j;
+-  for (i=0;i<64;i++) {
+-    for (j=0;j<64;j++) {
+-      if (i%8 < 4 && j%8 < 4)
+-	tex.pixelBuffer.setPixel(i,j,0xFFFF00FF);
+-    }
+-  }
+-  */
+-
+   tex.pixelBuffer.loadFromBitmap ("hdri_01.bmp");
+ 
+   string file = string (argv[1]);
+@@ -101,16 +89,26 @@ int main (int argc, char **argv) {
+   tri.vertices[2].texCoord = vec2 (1,1);
+ 
+   tri.texture = &tex;
+-
+-  //renderer.world->triangles.push_back (tri);
+   
+   renderer.world->triangles = loader.triangles;
+ 
+   // for fps calc
+   double old_time = 0;
+   int fpsc=0;
++  int maxIterationNo = 0;
++
++  if (argc >= 3 && argv[2][0] != 'z') {
++    std::istringstream ss(argv[2]);
++    
++    if (!(ss >> maxIterationNo)) {
++      std::cerr << "Invalid number: " << argv[2] << '\n';
++    }
++  }
++
++  bool cond = true;
++  int currentIteration =0;
+ 	
+-  while (1) {
++  while (cond) {
+     // + FPS
+     struct timeval tv;
+     struct timezone tz;
+@@ -118,9 +116,11 @@ int main (int argc, char **argv) {
+     gettimeofday(&tv, &tz);
+     tm=localtime(&tv.tv_sec);
+ 
++    cout << "\n Iteration  " << currentIteration << " out of " << maxIterationNo;
++
+     if ((int)tm->tm_sec-old_time > 0) {
+       old_time = (int)tm->tm_sec;
+-      cout << fpsc << endl;
++      cout <<"\n fpsc =" << fpsc << endl;
+       fpsc = 0;
+     }
+     // - FPS
+@@ -131,6 +131,10 @@ int main (int argc, char **argv) {
+     screen.update();
+ 
+     fpsc++;
++    currentIteration++;
++
++    if (maxIterationNo > 0) 
++      cond = (currentIteration < maxIterationNo);
+   }	
+ 
+   return 0;
+-- 
+2.43.0
+
