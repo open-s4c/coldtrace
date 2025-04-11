@@ -9,6 +9,7 @@ fi
 
 COLDTRACE_HOME="$(readlink -f $(dirname $(readlink -f $0))/../build)"
 
+unset BINGO_HOME
 if [ -z "$BINGO_HOME" ]; then
     BINGO_HOME="$COLDTRACE_HOME/deps/lib"
 fi
@@ -22,12 +23,14 @@ fi
     if [ ! -f libtsan.so.1 ]; then
         ln -s $(readlink -f libtsano.so) libtsan.so.1
     fi
+    if [ ! -f libtsan.so.2 ]; then
+        ln -s $(readlink -f libtsano.so) libtsan.so.2
+    fi
     if [ ! -f libclang_rt.tsan-x86_64.so ]; then
         ln -s $(readlink -f libtsano.so) libclang_rt.tsan-x86_64.so
     fi
 )
 
-LDPATH="$BINGO_HOME/bingo"
 PRELOAD="$BINGO_HOME/libbingo.$SO"
 PRELOAD="$PRELOAD:$BINGO_HOME/bingo/pthread_create.$SO"
 PRELOAD="$PRELOAD:$BINGO_HOME/bingo/pthread_mutex.$SO"
@@ -37,7 +40,27 @@ PRELOAD="$PRELOAD:$BINGO_HOME/bingo/stacktrace.$SO"
 PRELOAD="$PRELOAD:$BINGO_HOME/bingo/sem.$SO"
 PRELOAD="$PRELOAD:$BINGO_HOME/bingo/cxa.$SO"
 PRELOAD="$PRELOAD:$BINGO_HOME/bingo/autocept.$SO"
+args=""
 
-PRELOAD="$PRELOAD:$COLDTRACE_HOME/src/libcoldtrace.$SO"
+while [ "$#" != "0" ]; do
+    case "$1" in
+        -lto)
+            SO="lto.$SO"
+            PRELOAD=""
+        ;;
+        *)
+            args="${args} $1"
+        ;;
+    esac
+    shift
+done
 
-exec env LD_LIBRARY_PATH="$LDPATH" LD_PRELOAD="$PRELOAD" "$@"
+LDPATH="$BINGO_HOME/bingo"
+COLDTRACESO="$COLDTRACE_HOME/src/libcoldtrace.$SO"
+if [ -z "$PRELOAD" ]; then
+    PRELOAD="$COLDTRACESO"
+else
+    PRELOAD="$PRELOAD:$COLDTRACESO"
+fi
+
+exec env LD_LIBRARY_PATH="$LDPATH" LD_PRELOAD="$PRELOAD" $args

@@ -5,6 +5,7 @@ project(
   LANGUAGES C CXX)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
 
 find_package(libvsync 4.2 CONFIG)
 find_package(bingo 0.1 CONFIG)

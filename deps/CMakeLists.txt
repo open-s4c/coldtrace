@@ -1,5 +1,3 @@
-cmake_minimum_required(VERSION 3.20)
-project(deps)
 include(ExternalProject)
 
 # configure and install libvsync in build/deps
