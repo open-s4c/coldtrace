@@ -12,7 +12,7 @@ extern "C" {
 }
 BINGO_MODULE_INIT()
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_AFTER, EVENT_SEM_WAIT, {
+PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_SEM_WAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th            = coldthread_get();
     cold_thread_prepare(th);
@@ -22,7 +22,7 @@ PS_SUBSCRIBE_EVENT(INTERCEPT_AFTER, EVENT_SEM_WAIT, {
     }
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_AFTER, EVENT_SEM_TRYWAIT, {
+PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_SEM_TRYWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th            = coldthread_get();
     cold_thread_prepare(th);
@@ -32,7 +32,7 @@ PS_SUBSCRIBE_EVENT(INTERCEPT_AFTER, EVENT_SEM_TRYWAIT, {
     }
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_AFTER, EVENT_SEM_TIMEDWAIT, {
+PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_SEM_TIMEDWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th            = coldthread_get();
     cold_thread_prepare(th);
@@ -42,7 +42,7 @@ PS_SUBSCRIBE_EVENT(INTERCEPT_AFTER, EVENT_SEM_TIMEDWAIT, {
     }
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_BEFORE, EVENT_SEM_POST, {
+PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_SEM_POST, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th            = coldthread_get();
     cold_thread_prepare(th);

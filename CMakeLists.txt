@@ -14,9 +14,10 @@ if(NOT libvsync_DIR OR NOT bingo_DIR)
   find_package(libvsync 4.2 CONFIG REQUIRED)
   find_package(bingo 0.1 CONFIG REQUIRED)
 endif()
-#add_library(vsync ALIAS libvsync::vsync)
-#add_library(bingo.h ALIAS bingo::bingo.h)
-#add_library(bingo ALIAS bingo::bingo)
+add_library(vsync ALIAS libvsync::vsync)
+add_library(bingo.h ALIAS bingo::bingo.h)
+add_library(bingo.a ALIAS bingo::bingo.a)
+add_library(bingo ALIAS bingo::bingo)
 
 add_compile_options(-fPIC -g3 -D_GNU_SOURCE)
 add_compile_options(

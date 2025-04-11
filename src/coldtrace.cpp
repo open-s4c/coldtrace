@@ -60,19 +60,19 @@ get_next_atomic_idx()
     return vatomic64_get_inc_rlx(&next_atomic_index);
 }
 
-PS_SUBSCRIBE(ANY_CHAIN, {
+PS_SUBSCRIBE(ANY_CHAIN, ANY_EVENT, {
     if (!_enabled)
         return false;
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_AT, EVENT_THREAD_INIT, {
+PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_INIT, {
     cold_thread *th = coldthread_get();
     cold_thread_prepare(th);
     coldtrace_init(&th->ct, self_id());
 })
 
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_AT, EVENT_THREAD_FINI, {
+PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_FINI, {
     cold_thread *th = coldthread_get();
     cold_thread_prepare(th);
     coldtrace_fini(&th->ct);

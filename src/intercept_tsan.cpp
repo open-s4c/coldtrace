@@ -15,7 +15,7 @@ extern "C" {
 
 BINGO_MODULE_INIT()
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_BEFORE, EVENT_STACKTRACE_ENTER, {
+PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th              = coldthread_get();
     cold_thread_prepare(th);
@@ -23,7 +23,7 @@ PS_SUBSCRIBE_EVENT(INTERCEPT_BEFORE, EVENT_STACKTRACE_ENTER, {
     th->stack.push_back((void *)ev->pc);
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_BEFORE, EVENT_STACKTRACE_EXIT, {
+PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_STACKTRACE_EXIT, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th              = coldthread_get();
     cold_thread_prepare(th);
@@ -36,7 +36,7 @@ PS_SUBSCRIBE_EVENT(INTERCEPT_BEFORE, EVENT_STACKTRACE_EXIT, {
     }
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_AT, EVENT_MA_READ, {
+PS_SUBSCRIBE(INTERCEPT_AT, EVENT_MA_READ, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get();
     cold_thread_prepare(th);
@@ -51,7 +51,7 @@ PS_SUBSCRIBE_EVENT(INTERCEPT_AT, EVENT_MA_READ, {
     th->stack_bottom = th->stack.size();
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_AT, EVENT_MA_WRITE, {
+PS_SUBSCRIBE(INTERCEPT_AT, EVENT_MA_WRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get();
     cold_thread_prepare(th);
@@ -122,48 +122,48 @@ area_t _areas[AREAS];
     }
 
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_BEFORE, EVENT_MA_AREAD, {
+PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_AREAD, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_AFTER, EVENT_MA_AREAD, {
+PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_AREAD, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get();
     cold_thread_prepare(th);
     REL_LOG_R(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_BEFORE, EVENT_MA_AWRITE, {
+PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_AWRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_AFTER, EVENT_MA_AWRITE, {
+PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_AWRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get();
     cold_thread_prepare(th);
     REL_LOG_W(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_BEFORE, EVENT_MA_RMW, {
+PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_RMW, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_AFTER, EVENT_MA_RMW, {
+PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_RMW, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get();
     cold_thread_prepare(th);
     REL_LOG_RW(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_BEFORE, EVENT_MA_CMPXCHG, {
+PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_CMPXCHG, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE_EVENT(INTERCEPT_AFTER, EVENT_MA_CMPXCHG, {
+PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_CMPXCHG, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get();
     cold_thread_prepare(th);
