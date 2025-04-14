@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <bingo/compiler.h>
+#include <bingo/log.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -28,7 +29,10 @@ static char _path[128];
 BINGO_HIDE void
 coldtrace_config(const char *path)
 {
-    assert(strlen(path) < (128 - sizeof(COLDTRACE_FILE_SUFFIX)));
+    if (strlen(path) >= (128 - sizeof(COLDTRACE_FILE_SUFFIX))) {
+        log_printf("error: path too long\n");
+        exit(EXIT_FAILURE);
+    }
     strcpy(_path, path);
     strcpy(_path + strlen(path), COLDTRACE_FILE_SUFFIX);
 }
@@ -36,6 +40,8 @@ coldtrace_config(const char *path)
 BINGO_HIDE void
 coldtrace_init(coldtrace_t *ct, uint64_t id)
 {
+    // Ensure the size of implementation matches the public size
+    assert(sizeof(struct coldtrace_impl) == sizeof(coldtrace_t));
     struct coldtrace_impl *impl;
     impl            = (struct coldtrace_impl *)ct;
     impl->initd     = true;
@@ -71,7 +77,7 @@ _get_trace(struct coldtrace_impl *impl)
         }
     }
     if (ftruncate(fd, INITIAL_SIZE) == -1) {
-        perror("ftruncate");
+        perror("ftruncate get_trace");
         exit(EXIT_FAILURE);
     }
     impl->file_descriptor  = fd;
@@ -94,7 +100,7 @@ _new_trace(struct coldtrace_impl *impl)
     sprintf(file_name, _path, impl->thread_id, impl->current_file_enumerator);
     int fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, 0666);
     if (ftruncate(fd, INITIAL_SIZE) == -1) {
-        perror("ftruncate");
+        perror("ftruncate new_trace");
         exit(EXIT_FAILURE);
     }
 

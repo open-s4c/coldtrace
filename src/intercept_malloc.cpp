@@ -14,9 +14,9 @@ extern "C" {
 
 BINGO_MODULE_INIT()
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MALLOC, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -28,9 +28,9 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MALLOC, {
     stack_bottom = stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_CALLOC, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_CALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -42,9 +42,9 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_CALLOC, {
     stack_bottom = stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_REALLOC, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -56,9 +56,9 @@ PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_REALLOC, {
     stack_bottom = stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_REALLOC, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -69,9 +69,9 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_REALLOC, {
                            stack.size(), (uint64_t *)&stack[0]));
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_FREE, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_FREE, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -83,9 +83,9 @@ PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_FREE, {
     stack_bottom = stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_POSIX_MEMALIGN, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_POSIX_MEMALIGN, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -97,9 +97,9 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_POSIX_MEMALIGN, {
     stack_bottom = stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_ALIGNED_ALLOC, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_ALIGNED_ALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;

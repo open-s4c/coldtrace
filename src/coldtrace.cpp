@@ -21,21 +21,24 @@ static bool _initd = false;
 static cold_thread _tls_key;
 
 cold_thread *
-coldthread_get(void)
+coldthread_get(token_t *token)
 {
-    cold_thread *ct = SELF_TLS(&_tls_key);
+    cold_thread *ct = SELF_TLS(token, &_tls_key);
     if (!ct->initd) {
-        // ct->stack = std::vector<void *>();
-        coldtrace_init(&ct->ct, self_id());
+        coldtrace_init(&ct->ct, self_id(token));
         ct->initd = true;
     }
     return ct;
 }
 
+// This initializer has to run before other hooks in coldtrace so that the path
+// is properly initialized. Therefore, we set BINGO_XTOR_PRIO to 300 before
+// including module.h above.
 BINGO_MODULE_INIT({
     if (_initd) {
         return;
     }
+    log_printf("Starting coldtrace\n");
     const char *path = getenv("COLDTRACE_PATH");
     if (path == NULL) {
         log_printf("Set COLDTRACE_PATH to a valid directory\n");
@@ -45,17 +48,5 @@ BINGO_MODULE_INIT({
     _initd = true;
 })
 
-static vatomic64_t next_alloc_index;
-static vatomic64_t next_atomic_index;
-
-uint64_t
-get_next_alloc_idx()
-{
-    return vatomic64_get_inc_rlx(&next_alloc_index);
-}
-
-uint64_t
-get_next_atomic_idx()
-{
-    return vatomic64_get_inc_rlx(&next_atomic_index);
-}
+vatomic64_t next_alloc_index;
+vatomic64_t next_atomic_index;

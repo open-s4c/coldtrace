@@ -13,13 +13,17 @@ extern "C" {
 
 #include <bingo/self.h>
 #include <stdint.h>
+#include <vsync/atomic.h>
+
+extern vatomic64_t next_alloc_index;
+extern vatomic64_t next_atomic_index;
 }
 
 typedef struct {
     bool initd;
-    coldtrace_t ct;
     std::vector<void *> stack;
     uint32_t stack_bottom;
+    coldtrace_t ct;
 } cold_thread;
 
 #define ensure(COND)                                                           \
@@ -30,8 +34,16 @@ typedef struct {
         }                                                                      \
     } while (0)
 
-cold_thread *coldthread_get(void);
-uint64_t get_next_alloc_idx();
-uint64_t get_next_atomic_idx();
+static inline uint64_t
+get_next_alloc_idx()
+{
+    return vatomic64_get_inc_rlx(&next_alloc_index);
+}
+
+static inline uint64_t
+get_next_atomic_idx()
+{
+    return vatomic64_get_inc_rlx(&next_atomic_index);
+}
 
 #endif
