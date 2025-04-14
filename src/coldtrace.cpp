@@ -22,7 +22,13 @@ static cold_thread _tls_key;
 cold_thread *
 coldthread_get(void)
 {
-    return SELF_TLS(&_tls_key);
+    cold_thread *ct = SELF_TLS(&_tls_key);
+    if (!ct->initd) {
+        // ct->stack = std::vector<void *>();
+        coldtrace_init(&ct->ct, self_id());
+        ct->initd = true;
+    }
+    return ct;
 }
 
 BINGO_MODULE_INIT({
@@ -55,12 +61,10 @@ get_next_atomic_idx()
 
 PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_INIT, {
     cold_thread *th = coldthread_get();
-    cold_thread_prepare(th);
     coldtrace_init(&th->ct, self_id());
 })
 
 PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_FINI, {
     cold_thread *th = coldthread_get();
-    cold_thread_prepare(th);
     coldtrace_fini(&th->ct);
 })

@@ -14,14 +14,12 @@ BINGO_MODULE_INIT()
 
 PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_THREAD_INIT, {
     cold_thread *th = coldthread_get();
-    cold_thread_prepare(th);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_START,
                             (uint64_t)self_id(), get_next_atomic_idx()));
 })
 
 PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_THREAD_FINI, {
     cold_thread *th = coldthread_get();
-    cold_thread_prepare(th);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_EXIT, (uint64_t)self_id(),
                             get_next_atomic_idx()));
 })
@@ -35,8 +33,6 @@ PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_THREAD_CREATE,
 PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_THREAD_CREATE, {
     struct pthread_create_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                 = coldthread_get();
-    cold_thread_prepare(th);
-
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_CREATE,
                             (uint64_t)*ev->thread, _created_thread_idx));
 })
@@ -44,8 +40,6 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_THREAD_CREATE, {
 PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_THREAD_JOIN, {
     struct pthread_join_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th               = coldthread_get();
-    cold_thread_prepare(th);
-
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_JOIN,
                             (uint64_t)ev->thread, get_next_atomic_idx()));
 })
@@ -53,8 +47,6 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_THREAD_JOIN, {
 PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MUTEX_LOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                = coldthread_get();
-    cold_thread_prepare(th);
-
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->mutex, get_next_atomic_idx()));
@@ -64,8 +56,6 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MUTEX_LOCK, {
 PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MUTEX_UNLOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                = coldthread_get();
-    cold_thread_prepare(th);
-
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
@@ -73,8 +63,6 @@ PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MUTEX_UNLOCK, {
 PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MUTEX_TRYLOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                = coldthread_get();
-    cold_thread_prepare(th);
-
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->mutex, get_next_atomic_idx()));

@@ -9,8 +9,9 @@
 #include <vector>
 
 extern "C" {
-#include <bingo/self.h>
 #include "writer.h"
+
+#include <bingo/self.h>
 #include <stdint.h>
 }
 
@@ -20,16 +21,6 @@ typedef struct {
     std::vector<void *> stack;
     uint32_t stack_bottom;
 } cold_thread;
-
-static void
-cold_thread_prepare(cold_thread *ct)
-{
-    if (ct->initd)
-        return;
-    // ct->stack = std::vector<void *>();
-    coldtrace_init(&ct->ct, self_id());
-    ct->initd = true;
-}
 
 #define ensure(COND)                                                           \
     do {                                                                       \

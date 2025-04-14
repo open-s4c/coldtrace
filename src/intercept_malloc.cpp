@@ -17,7 +17,6 @@ BINGO_MODULE_INIT()
 PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get();
-    cold_thread_prepare(th);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -32,7 +31,6 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MALLOC, {
 PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_CALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get();
-    cold_thread_prepare(th);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -47,7 +45,6 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_CALLOC, {
 PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get();
-    cold_thread_prepare(th);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -62,7 +59,6 @@ PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_REALLOC, {
 PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get();
-    cold_thread_prepare(th);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -76,7 +72,6 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_REALLOC, {
 PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_FREE, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get();
-    cold_thread_prepare(th);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -91,7 +86,6 @@ PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_FREE, {
 PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_POSIX_MEMALIGN, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get();
-    cold_thread_prepare(th);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -106,7 +100,6 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_POSIX_MEMALIGN, {
 PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_ALIGNED_ALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get();
-    cold_thread_prepare(th);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
