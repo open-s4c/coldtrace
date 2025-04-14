@@ -16,15 +16,8 @@ extern "C" {
 #include <vsync/atomic.h>
 }
 
-static bool _initd   = false;
-static bool _enabled = false;
+static bool _initd = false;
 static cold_thread _tls_key;
-
-bool
-coldtrace_enabled()
-{
-    return _enabled;
-}
 
 cold_thread *
 coldthread_get(void)
@@ -37,11 +30,11 @@ BINGO_MODULE_INIT({
         return;
     }
     const char *path = getenv("COLDTRACE_PATH");
-    if (path != NULL) {
-        log_printf("starting coldtracer\n");
-        coldtrace_config(path);
-        _enabled = true;
+    if (path == NULL) {
+        log_printf("Set COLDTRACE_PATH to a valid directory\n");
+        exit(EXIT_FAILURE);
     }
+    coldtrace_config(path);
     _initd = true;
 })
 
@@ -60,17 +53,11 @@ get_next_atomic_idx()
     return vatomic64_get_inc_rlx(&next_atomic_index);
 }
 
-PS_SUBSCRIBE(ANY_CHAIN, ANY_EVENT, {
-    if (!_enabled)
-        return false;
-})
-
 PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_INIT, {
     cold_thread *th = coldthread_get();
     cold_thread_prepare(th);
     coldtrace_init(&th->ct, self_id());
 })
-
 
 PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_FINI, {
     cold_thread *th = coldthread_get();
