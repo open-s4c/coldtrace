@@ -32,14 +32,6 @@ fi
 )
 
 PRELOAD="$BINGO_HOME/libbingo.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/bingo/pthread_create.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/bingo/pthread_mutex.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/bingo/malloc.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/bingo/tsan.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/bingo/stacktrace.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/bingo/sem.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/bingo/cxa.$SO"
-PRELOAD="$PRELOAD:$BINGO_HOME/bingo/autocept.$SO"
 args=""
 
 while [ "$#" != "0" ]; do
