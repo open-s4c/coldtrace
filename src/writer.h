@@ -34,7 +34,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define COLDTRACE_DESCRIPTOR_SIZE 128
+#define COLDTRACE_DESCRIPTOR_SIZE 48
 
 typedef struct coldtrace {
     char _[COLDTRACE_DESCRIPTOR_SIZE];

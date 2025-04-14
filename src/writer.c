@@ -2,6 +2,7 @@
 
 #include <assert.h>
 #include <bingo/compiler.h>
+#include <bingo/log.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -36,6 +37,11 @@ coldtrace_config(const char *path)
 BINGO_HIDE void
 coldtrace_init(coldtrace_t *ct, uint64_t id)
 {
+    // Ensure the size of implementation matches the public size
+    if (sizeof(struct coldtrace_impl) != sizeof(coldtrace_t)) {
+        log_printf("impl: %lu\n", sizeof(struct coldtrace_impl));
+    }
+    assert(sizeof(struct coldtrace_impl) == sizeof(coldtrace_t));
     struct coldtrace_impl *impl;
     impl            = (struct coldtrace_impl *)ct;
     impl->initd     = true;
