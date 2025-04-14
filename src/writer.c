@@ -29,7 +29,10 @@ static char _path[128];
 BINGO_HIDE void
 coldtrace_config(const char *path)
 {
-    assert(strlen(path) < (128 - sizeof(COLDTRACE_FILE_SUFFIX)));
+    if (strlen(path) >= (128 - sizeof(COLDTRACE_FILE_SUFFIX))) {
+        log_printf("error: path too long\n");
+        exit(EXIT_FAILURE);
+    }
     strcpy(_path, path);
     strcpy(_path + strlen(path), COLDTRACE_FILE_SUFFIX);
 }
@@ -38,9 +41,6 @@ BINGO_HIDE void
 coldtrace_init(coldtrace_t *ct, uint64_t id)
 {
     // Ensure the size of implementation matches the public size
-    if (sizeof(struct coldtrace_impl) != sizeof(coldtrace_t)) {
-        log_printf("impl: %lu\n", sizeof(struct coldtrace_impl));
-    }
     assert(sizeof(struct coldtrace_impl) == sizeof(coldtrace_t));
     struct coldtrace_impl *impl;
     impl            = (struct coldtrace_impl *)ct;

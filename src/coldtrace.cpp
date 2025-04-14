@@ -25,17 +25,20 @@ coldthread_get(void)
 {
     cold_thread *ct = SELF_TLS(&_tls_key);
     if (!ct->initd) {
-        // ct->stack = std::vector<void *>();
         coldtrace_init(&ct->ct, self_id());
         ct->initd = true;
     }
     return ct;
 }
 
+// This initializer has to run before other hooks in coldtrace so that the path
+// is properly initialized. Therefore, we set BINGO_XTOR_PRIO to 300 before
+// including module.h above.
 BINGO_MODULE_INIT({
     if (_initd) {
         return;
     }
+    log_printf("Starting coldtrace\n");
     const char *path = getenv("COLDTRACE_PATH");
     if (path == NULL) {
         log_printf("Set COLDTRACE_PATH to a valid directory\n");
