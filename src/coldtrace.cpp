@@ -6,6 +6,7 @@
 #include "coldtrace.hpp"
 
 extern "C" {
+#define BINGO_XTOR_PRIO 300
 #include <bingo/intercept/pthread.h>
 #include <bingo/module.h>
 #include <bingo/pubsub.h>
@@ -58,13 +59,3 @@ get_next_atomic_idx()
 {
     return vatomic64_get_inc_rlx(&next_atomic_index);
 }
-
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_INIT, {
-    cold_thread *th = coldthread_get();
-    coldtrace_init(&th->ct, self_id());
-})
-
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_FINI, {
-    cold_thread *th = coldthread_get();
-    coldtrace_fini(&th->ct);
-})

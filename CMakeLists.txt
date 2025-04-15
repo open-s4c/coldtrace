@@ -32,4 +32,6 @@ add_compile_options(
   -Wno-frame-address)
 include_directories(include)
 add_subdirectory(src)
+
+enable_testing()
 add_subdirectory(test)

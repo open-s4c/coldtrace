@@ -12,16 +12,18 @@ extern "C" {
 }
 BINGO_MODULE_INIT()
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_THREAD_INIT, {
+PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_INIT, {
     cold_thread *th = coldthread_get();
+    coldtrace_init(&th->ct, self_id());
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_START,
                             (uint64_t)self_id(), get_next_atomic_idx()));
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_THREAD_FINI, {
+PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_FINI, {
     cold_thread *th = coldthread_get();
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_EXIT, (uint64_t)self_id(),
                             get_next_atomic_idx()));
+    coldtrace_fini(&th->ct);
 })
 
 static uint64_t _created_thread_idx;
