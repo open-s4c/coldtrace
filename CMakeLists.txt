@@ -29,7 +29,8 @@ add_compile_options(
   -Wno-unused-parameter
   -Wno-unused-function
   -Wno-ignored-qualifiers
-  -Wno-frame-address)
+  -Wno-frame-address
+  -Wno-unused-command-line-argument)
 include_directories(include)
 add_subdirectory(src)
 
