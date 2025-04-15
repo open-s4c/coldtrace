@@ -15,14 +15,14 @@ extern "C" {
 
 BINGO_MODULE_INIT()
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_STACKTRACE_ENTER, {
+PS_SUBSCRIBE(INTERCEPT_AT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th              = coldthread_get();
 
     th->stack.push_back((void *)ev->pc);
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_STACKTRACE_EXIT, {
+PS_SUBSCRIBE(INTERCEPT_AT, EVENT_STACKTRACE_EXIT, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th              = coldthread_get();
 
