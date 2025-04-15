@@ -1,6 +1,7 @@
 #include "writer.h"
 
 #include <assert.h>
+#include <bingo/compiler.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -24,7 +25,7 @@ struct coldtrace_impl {
 static char _path[128];
 #define COLDTRACE_FILE_SUFFIX "/freezer_log_%d_%d.bin"
 
-void
+BINGO_HIDE void
 coldtrace_config(const char *path)
 {
     assert(strlen(path) < (128 - sizeof(COLDTRACE_FILE_SUFFIX)));
@@ -32,7 +33,7 @@ coldtrace_config(const char *path)
     strcpy(_path + strlen(path), COLDTRACE_FILE_SUFFIX);
 }
 
-void
+BINGO_HIDE void
 coldtrace_init(coldtrace_t *ct, uint64_t id)
 {
     struct coldtrace_impl *impl;
@@ -41,7 +42,7 @@ coldtrace_init(coldtrace_t *ct, uint64_t id)
     impl->thread_id = id;
 }
 
-void
+BINGO_HIDE void
 coldtrace_fini(coldtrace_t *ct)
 {
     // struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
@@ -117,7 +118,7 @@ write_type_ptr(uint64_t *write_location, const uint8_t type, const uint64_t ptr)
     *write_location              = ptr_masked_shifted | type_masked_shifted;
 }
 
-bool
+BINGO_HIDE bool
 coldtrace_access(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
                  const uint64_t size, const uint64_t caller,
                  const uint32_t stack_bottom, const uint32_t stack_top,
@@ -154,7 +155,7 @@ coldtrace_access(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
     return true;
 }
 
-bool
+BINGO_HIDE bool
 coldtrace_atomic(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
                  const uint64_t atomic_index)
 {
@@ -184,7 +185,7 @@ coldtrace_atomic(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
     return true;
 }
 
-bool
+BINGO_HIDE bool
 coldtrace_alloc(coldtrace_t *ct, const uint64_t ptr, const uint64_t size,
                 const uint64_t alloc_index, const uint64_t caller,
                 const uint32_t stack_bottom, const uint32_t stack_top,
@@ -220,7 +221,7 @@ coldtrace_alloc(coldtrace_t *ct, const uint64_t ptr, const uint64_t size,
     return true;
 }
 
-bool
+BINGO_HIDE bool
 coldtrace_free(coldtrace_t *ct, const uint64_t ptr, const uint64_t alloc_index,
                const uint64_t caller, const uint32_t stack_bottom,
                const uint32_t stack_top, uint64_t *stack)
