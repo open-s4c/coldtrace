@@ -644,6 +644,9 @@ ps_single_publish_before(token_t token, event_id event, const void *arg,
         case EVENT_COND_WAIT:
         case EVENT_COND_SIGNAL:
         case EVENT_COND_TIMEDWAIT:
+        case EVENT_MA_FENCE:
+        case EVENT_MA_XCHG:
+        case EVENT_MA_CMPXCHG_WEAK:
             break;
         default:
             log_fatalf("INTERCEPT_BEFORE: Unknown event %d\n", event);
@@ -737,6 +740,9 @@ ps_single_publish_after(token_t token, event_id event, const void *arg,
         case EVENT_COND_WAIT:
         case EVENT_COND_SIGNAL:
         case EVENT_COND_TIMEDWAIT:
+        case EVENT_MA_FENCE:
+        case EVENT_MA_XCHG:
+        case EVENT_MA_CMPXCHG_WEAK:
             break;
         default:
             log_fatalf("INTERCEPT_AFTER: Unknown event %d\n", event);
