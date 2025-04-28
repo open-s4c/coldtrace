@@ -15,16 +15,16 @@ extern "C" {
 
 BINGO_MODULE_INIT()
 
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_STACKTRACE_ENTER, {
+REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th              = coldthread_get();
+    cold_thread *th              = coldthread_get(token);
 
     th->stack.push_back((void *)ev->pc);
 })
 
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_STACKTRACE_EXIT, {
+REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_STACKTRACE_EXIT, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th              = coldthread_get();
+    cold_thread *th              = coldthread_get(token);
 
     if (th->stack.size() != 0) {
         ensure(th->stack.size() > 0);
@@ -34,9 +34,9 @@ PS_SUBSCRIBE(INTERCEPT_AT, EVENT_STACKTRACE_EXIT, {
     }
 })
 
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_MA_READ, {
+REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_MA_READ, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
 
     uint8_t type = COLDTRACE_READ;
     if (ev->size == sizeof(uint64_t) && *(uint64_t *)ev->addr == 0) {
@@ -48,9 +48,9 @@ PS_SUBSCRIBE(INTERCEPT_AT, EVENT_MA_READ, {
     th->stack_bottom = th->stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_MA_WRITE, {
+REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_MA_WRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
 
     ensure(coldtrace_access(&th->ct, COLDTRACE_WRITE, (uint64_t)ev->addr,
                             (uint64_t)ev->size, (uint64_t)ev->pc,
@@ -118,46 +118,46 @@ area_t _areas[AREAS];
     }
 
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_AREAD, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_AREAD, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_AREAD, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_AREAD, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
     REL_LOG_R(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_AWRITE, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_AWRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_AWRITE, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_AWRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
     REL_LOG_W(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_RMW, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_RMW, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_RMW, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_RMW, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
     REL_LOG_RW(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_CMPXCHG, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_CMPXCHG, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_CMPXCHG, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_CMPXCHG, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
     REL_LOG_RW_COND(ev->addr, ev->size, !ev->failed);
 })

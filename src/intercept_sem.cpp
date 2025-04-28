@@ -12,36 +12,36 @@ extern "C" {
 }
 BINGO_MODULE_INIT()
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_SEM_WAIT, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_SEM_WAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get();
+    cold_thread *th            = coldthread_get(token);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
     }
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_SEM_TRYWAIT, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_SEM_TRYWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get();
+    cold_thread *th            = coldthread_get(token);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
     }
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_SEM_TIMEDWAIT, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_SEM_TIMEDWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get();
+    cold_thread *th            = coldthread_get(token);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
     }
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_SEM_POST, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_SEM_POST, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get();
+    cold_thread *th            = coldthread_get(token);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE, (uint64_t)ev->sem,
                             get_next_atomic_idx()));
 })

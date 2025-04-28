@@ -18,33 +18,27 @@ extern "C" {
 }
 
 
-#undef PS_SUBSCRIBE
-#define PS_SUBSCRIBE(CHAIN, EVENT, CALLBACK)                                   \
+vatomic64_t next_alloc_index;
+vatomic64_t next_atomic_index;
+
+#undef REGISTER_CALLBACK
+#define REGISTER_CALLBACK(CHAIN, EVENT, CALLBACK)                              \
     extern "C" {                                                               \
-    static bool _ps_callback_##CHAIN##_##EVENT(token_t token, event_id event,  \
-                                               const void *arg, void *ret)     \
+    static bool _bingo_callback_##CHAIN##_##EVENT(token_t *token,              \
+                                                  const void *arg)             \
     {                                                                          \
         CALLBACK;                                                              \
         return true;                                                           \
     }                                                                          \
     }
 
-typedef union {
-    struct {
-        uint32_t index;
-        chain_id chain;
-        bool exclusive;
-    } details;
-    token_t as_token;
-} timpl_t;
-
 static bool _initd = false;
 static cold_thread _tls_key;
 
 BINGO_HIDE cold_thread *
-coldthread_get(void)
+coldthread_get(token_t *token)
 {
-    return SELF_TLS(&_tls_key);
+    return SELF_TLS(token, &_tls_key);
 }
 
 BINGO_MODULE_INIT({
@@ -60,24 +54,6 @@ BINGO_MODULE_INIT({
     _initd = true;
 })
 
-static vatomic64_t next_alloc_index;
-static vatomic64_t next_atomic_index;
-
-BINGO_HIDE uint64_t
-get_next_alloc_idx()
-{
-    return vatomic64_get_inc_rlx(&next_alloc_index);
-}
-
-BINGO_HIDE uint64_t
-get_next_atomic_idx()
-{
-    return vatomic64_get_inc_rlx(&next_atomic_index);
-}
-/*
- * Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
- * SPDX-License-Identifier: MIT
- */
 
 #include "coldtrace.hpp"
 
@@ -88,20 +64,20 @@ extern "C" {
 }
 
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_CXA_GUARD_ACQUIRE, {
-    cold_thread *th = coldthread_get();
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_CXA_GUARD_ACQUIRE, {
+    cold_thread *th = coldthread_get(token);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_ACQUIRE, (uint64_t)arg,
                             get_next_atomic_idx()));
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_CXA_GUARD_RELEASE, {
-    cold_thread *th = coldthread_get();
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_CXA_GUARD_RELEASE, {
+    cold_thread *th = coldthread_get(token);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_RELEASE, (uint64_t)arg,
                             get_next_atomic_idx()));
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_CXA_GUARD_ABORT, {
-    cold_thread *th = coldthread_get();
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_CXA_GUARD_ABORT, {
+    cold_thread *th = coldthread_get(token);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_RELEASE, (uint64_t)arg,
                             get_next_atomic_idx()));
 })
@@ -120,9 +96,9 @@ extern "C" {
 }
 
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MALLOC, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -134,9 +110,9 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MALLOC, {
     stack_bottom = stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_CALLOC, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_CALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -148,9 +124,9 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_CALLOC, {
     stack_bottom = stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_REALLOC, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -162,9 +138,9 @@ PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_REALLOC, {
     stack_bottom = stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_REALLOC, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -175,9 +151,9 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_REALLOC, {
                            stack.size(), (uint64_t *)&stack[0]));
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_FREE, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_FREE, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -189,9 +165,9 @@ PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_FREE, {
     stack_bottom = stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_POSIX_MEMALIGN, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_POSIX_MEMALIGN, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -203,9 +179,9 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_POSIX_MEMALIGN, {
     stack_bottom = stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_ALIGNED_ALLOC, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_ALIGNED_ALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get();
+    cold_thread *th         = coldthread_get(token);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -229,45 +205,45 @@ extern "C" {
 #include <bingo/self.h>
 }
 
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_INIT, {
-    cold_thread *th = coldthread_get();
-    coldtrace_init(&th->ct, self_id());
+REGISTER_CALLBACK(INTERCEPT_AT, EVENT_THREAD_INIT, {
+    cold_thread *th = coldthread_get(token);
+    coldtrace_init(&th->ct, self_id(token));
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_START,
-                            (uint64_t)self_id(), get_next_atomic_idx()));
+                            (uint64_t)self_id(token), get_next_atomic_idx()));
 })
 
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_THREAD_FINI, {
-    cold_thread *th = coldthread_get();
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_EXIT, (uint64_t)self_id(),
-                            get_next_atomic_idx()));
+REGISTER_CALLBACK(INTERCEPT_AT, EVENT_THREAD_FINI, {
+    cold_thread *th = coldthread_get(token);
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_EXIT,
+                            (uint64_t)self_id(token), get_next_atomic_idx()));
     coldtrace_fini(&th->ct);
 })
 
 static uint64_t _created_thread_idx;
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_THREAD_CREATE,
-             { _created_thread_idx = get_next_atomic_idx(); })
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_THREAD_CREATE,
+                  { _created_thread_idx = get_next_atomic_idx(); })
 
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_THREAD_CREATE, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_THREAD_CREATE, {
     struct pthread_create_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                 = coldthread_get();
+    cold_thread *th                 = coldthread_get(token);
 
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_CREATE,
                             (uint64_t)*ev->thread, _created_thread_idx));
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_THREAD_JOIN, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_THREAD_JOIN, {
     struct pthread_join_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th               = coldthread_get();
+    cold_thread *th               = coldthread_get(token);
 
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_JOIN,
                             (uint64_t)ev->thread, get_next_atomic_idx()));
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MUTEX_LOCK, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MUTEX_LOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get();
+    cold_thread *th                = coldthread_get(token);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
@@ -275,17 +251,17 @@ PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MUTEX_LOCK, {
     }
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MUTEX_UNLOCK, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MUTEX_UNLOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get();
+    cold_thread *th                = coldthread_get(token);
 
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MUTEX_TRYLOCK, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MUTEX_TRYLOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get();
+    cold_thread *th                = coldthread_get(token);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
@@ -345,36 +321,36 @@ extern "C" {
 #include <bingo/self.h>
 }
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_SEM_WAIT, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_SEM_WAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get();
+    cold_thread *th            = coldthread_get(token);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
     }
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_SEM_TRYWAIT, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_SEM_TRYWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get();
+    cold_thread *th            = coldthread_get(token);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
     }
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_SEM_TIMEDWAIT, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_SEM_TIMEDWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get();
+    cold_thread *th            = coldthread_get(token);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
     }
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_SEM_POST, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_SEM_POST, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get();
+    cold_thread *th            = coldthread_get(token);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE, (uint64_t)ev->sem,
                             get_next_atomic_idx()));
 })
@@ -394,16 +370,16 @@ extern "C" {
 }
 
 
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_STACKTRACE_ENTER, {
+REGISTER_CALLBACK(INTERCEPT_AT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th              = coldthread_get();
+    cold_thread *th              = coldthread_get(token);
 
     th->stack.push_back((void *)ev->pc);
 })
 
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_STACKTRACE_EXIT, {
+REGISTER_CALLBACK(INTERCEPT_AT, EVENT_STACKTRACE_EXIT, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th              = coldthread_get();
+    cold_thread *th              = coldthread_get(token);
 
     if (th->stack.size() != 0) {
         ensure(th->stack.size() > 0);
@@ -413,9 +389,9 @@ PS_SUBSCRIBE(INTERCEPT_AT, EVENT_STACKTRACE_EXIT, {
     }
 })
 
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_MA_READ, {
+REGISTER_CALLBACK(INTERCEPT_AT, EVENT_MA_READ, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
 
     uint8_t type = COLDTRACE_READ;
     if (ev->size == sizeof(uint64_t) && *(uint64_t *)ev->addr == 0) {
@@ -427,9 +403,9 @@ PS_SUBSCRIBE(INTERCEPT_AT, EVENT_MA_READ, {
     th->stack_bottom = th->stack.size();
 })
 
-PS_SUBSCRIBE(INTERCEPT_AT, EVENT_MA_WRITE, {
+REGISTER_CALLBACK(INTERCEPT_AT, EVENT_MA_WRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
 
     ensure(coldtrace_access(&th->ct, COLDTRACE_WRITE, (uint64_t)ev->addr,
                             (uint64_t)ev->size, (uint64_t)ev->pc,
@@ -497,72 +473,69 @@ area_t _areas[AREAS];
     }
 
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_AREAD, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_AREAD, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_AREAD, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_AREAD, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
     REL_LOG_R(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_AWRITE, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_AWRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_AWRITE, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_AWRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
     REL_LOG_W(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_RMW, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_RMW, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_RMW, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_RMW, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
     REL_LOG_RW(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_BEFORE, EVENT_MA_CMPXCHG, {
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_CMPXCHG, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(INTERCEPT_AFTER, EVENT_MA_CMPXCHG, {
+REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_CMPXCHG, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get();
+    cold_thread *th       = coldthread_get(token);
     REL_LOG_RW_COND(ev->addr, ev->size, !ev->failed);
 })
 
 extern "C" {
-void self_handle(token_t token, event_id event, const void *arg, void *ret);
-BINGO_HIDE int ps_publish(token_t token, event_id event, const void *arg,
-                          void *ret);
+void self_handle(token_t *token, const void *arg);
+BINGO_HIDE int ps_publish(token_t *token, const void *arg);
 }
 
 #define PS_CALL(CHAIN, EVENT)                                                  \
     do {                                                                       \
-        timpl.details.index++;                                                 \
-        if (!_ps_callback_##CHAIN##_##EVENT(timpl.as_token, event, arg, ret))  \
+        token->index++;                                                        \
+        if (!_bingo_callback_##CHAIN##_##EVENT(token, arg))                    \
             return PS_SUCCESS;                                                 \
     } while (0);
 
 static int
-ps_single_publish_at(token_t token, event_id event, const void *arg, void *ret)
+_ps_publish_event(token_t *token, const void *arg)
 {
-    timpl_t timpl;
-    timpl.as_token = token;
-    chain_id chain = timpl.details.chain;
-    size_t cur_idx = timpl.details.index;
+    chain_id chain = token->chain;
+    size_t cur_idx = token->index;
 
-    switch (event) {
+    switch (token->event) {
         case EVENT_MA_READ:
             PS_CALL(INTERCEPT_AT, EVENT_MA_READ);
             break;
@@ -582,20 +555,17 @@ ps_single_publish_at(token_t token, event_id event, const void *arg, void *ret)
             PS_CALL(INTERCEPT_AT, EVENT_THREAD_INIT);
             break;
         default:
-            log_fatalf("INTERCEPT_AT: Unknown event %d\n", event);
+            log_fatalf("INTERCEPT_AT: Unknown event %d\n", token->event);
     }
     return PS_SUCCESS;
 }
 
 static int
-ps_single_publish_before(token_t token, event_id event, const void *arg,
-                         void *ret)
+_ps_publish_before(token_t *token, const void *arg)
 {
-    timpl_t timpl;
-    timpl.as_token = token;
-    chain_id chain = timpl.details.chain;
+    chain_id chain = token->chain;
 
-    switch (event) {
+    switch (token->event) {
         case EVENT_CXA_GUARD_ABORT:
             PS_CALL(INTERCEPT_BEFORE, EVENT_CXA_GUARD_ABORT);
             break;
@@ -649,22 +619,19 @@ ps_single_publish_before(token_t token, event_id event, const void *arg,
         case EVENT_MA_CMPXCHG_WEAK:
             break;
         default:
-            log_fatalf("INTERCEPT_BEFORE: Unknown event %d\n", event);
+            log_fatalf("INTERCEPT_BEFORE: Unknown event %d\n", token->event);
     }
     return PS_SUCCESS;
 }
 
 static int
-ps_single_publish_after(token_t token, event_id event, const void *arg,
-                        void *ret)
+_ps_publish_after(token_t *token, const void *arg)
 
 {
-    timpl_t timpl;
-    timpl.as_token = token;
-    chain_id chain = timpl.details.chain;
-    size_t cur_idx = timpl.details.index;
+    chain_id chain = token->chain;
+    size_t cur_idx = token->index;
 
-    switch (event) {
+    switch (token->event) {
         case EVENT_ALIGNED_ALLOC:
             PS_CALL(INTERCEPT_AFTER, EVENT_ALIGNED_ALLOC);
             break;
@@ -745,36 +712,28 @@ ps_single_publish_after(token_t token, event_id event, const void *arg,
         case EVENT_MA_CMPXCHG_WEAK:
             break;
         default:
-            log_fatalf("INTERCEPT_AFTER: Unknown event %d\n", event);
+            log_fatalf("INTERCEPT_AFTER: Unknown event %d\n", token->event);
     }
     return PS_SUCCESS;
 }
 
 int
-ps_publish(token_t token, event_id event, const void *arg, void *ret)
+_ps_publish_do(token_t *token, const void *arg)
 {
-    timpl_t timpl;
-    timpl.as_token   = token;
-    chain_id chain   = timpl.details.chain;
-    size_t start_idx = timpl.details.index++;
+    size_t start_idx = token->index++;
 
-    if (!_initd)
-        return PS_NOT_READY;
-    if (chain == ANY_CHAIN || chain >= MAX_CHAINS)
-        return PS_INVALID;
-    if (event == ANY_EVENT || event >= MAX_EVENTS)
-        return PS_INVALID;
-
-    if (start_idx == 0) {
-        self_handle(timpl.as_token, event, arg, ret);
+    if (token->index++ == 0) {
+        self_handle(token, arg);
         return PS_SUCCESS;
     }
 
-    if (chain == INTERCEPT_AT)
-        return ps_single_publish_at(token, event, arg, ret);
-    if (chain == INTERCEPT_BEFORE)
-        return ps_single_publish_before(token, event, arg, ret);
-    if (chain == INTERCEPT_AFTER)
-        return ps_single_publish_after(token, event, arg, ret);
+    switch (token->chain) {
+        case INTERCEPT_EVENT:
+            return _ps_publish_event(token, arg);
+        case INTERCEPT_BEFORE:
+            return _ps_publish_before(token, arg);
+        case INTERCEPT_AFTER:
+            return _ps_publish_after(token, arg);
+    }
     return PS_INVALID;
 }

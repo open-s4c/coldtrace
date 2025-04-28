@@ -34,7 +34,7 @@ typedef struct {
         }                                                                      \
     } while (0)
 
-cold_thread *coldthread_get(void);
+cold_thread *coldthread_get(token_t *token);
 
 static inline uint64_t
 get_next_alloc_idx()
