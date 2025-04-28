@@ -23,7 +23,7 @@ struct coldtrace_impl {
     uint64_t *log_file;
 };
 
-static char _path[128];
+static char _path[128] = "/tmp/freezer_log_%d_%d.bin";
 #define COLDTRACE_FILE_SUFFIX "/freezer_log_%d_%d.bin"
 
 BINGO_HIDE void
@@ -77,7 +77,7 @@ _get_trace(struct coldtrace_impl *impl)
         }
     }
     if (ftruncate(fd, INITIAL_SIZE) == -1) {
-        perror("ftruncate");
+        perror("ftruncate get_trace");
         exit(EXIT_FAILURE);
     }
     impl->file_descriptor  = fd;
@@ -100,7 +100,7 @@ _new_trace(struct coldtrace_impl *impl)
     sprintf(file_name, _path, impl->thread_id, impl->current_file_enumerator);
     int fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, 0666);
     if (ftruncate(fd, INITIAL_SIZE) == -1) {
-        perror("ftruncate");
+        perror("ftruncate new_trace");
         exit(EXIT_FAILURE);
     }
 

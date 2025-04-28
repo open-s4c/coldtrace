@@ -35,10 +35,15 @@ vatomic64_t next_atomic_index;
 static bool _initd = false;
 static cold_thread _tls_key;
 
-BINGO_HIDE cold_thread *
+cold_thread *
 coldthread_get(token_t *token)
 {
-    return SELF_TLS(token, &_tls_key);
+    cold_thread *ct = SELF_TLS(token, &_tls_key);
+    if (!ct->initd) {
+        coldtrace_init(&ct->ct, self_id(token));
+        ct->initd = true;
+    }
+    return ct;
 }
 
 BINGO_MODULE_INIT({
@@ -205,14 +210,13 @@ extern "C" {
 #include <bingo/self.h>
 }
 
-REGISTER_CALLBACK(INTERCEPT_AT, EVENT_THREAD_INIT, {
+REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_THREAD_INIT, {
     cold_thread *th = coldthread_get(token);
-    coldtrace_init(&th->ct, self_id(token));
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_START,
                             (uint64_t)self_id(token), get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(INTERCEPT_AT, EVENT_THREAD_FINI, {
+REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_THREAD_FINI, {
     cold_thread *th = coldthread_get(token);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_EXIT,
                             (uint64_t)self_id(token), get_next_atomic_idx()));
@@ -370,14 +374,14 @@ extern "C" {
 }
 
 
-REGISTER_CALLBACK(INTERCEPT_AT, EVENT_STACKTRACE_ENTER, {
+REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th              = coldthread_get(token);
 
     th->stack.push_back((void *)ev->pc);
 })
 
-REGISTER_CALLBACK(INTERCEPT_AT, EVENT_STACKTRACE_EXIT, {
+REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_STACKTRACE_EXIT, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th              = coldthread_get(token);
 
@@ -389,7 +393,7 @@ REGISTER_CALLBACK(INTERCEPT_AT, EVENT_STACKTRACE_EXIT, {
     }
 })
 
-REGISTER_CALLBACK(INTERCEPT_AT, EVENT_MA_READ, {
+REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_MA_READ, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get(token);
 
@@ -403,7 +407,7 @@ REGISTER_CALLBACK(INTERCEPT_AT, EVENT_MA_READ, {
     th->stack_bottom = th->stack.size();
 })
 
-REGISTER_CALLBACK(INTERCEPT_AT, EVENT_MA_WRITE, {
+REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_MA_WRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get(token);
 
@@ -537,25 +541,25 @@ _ps_publish_event(token_t *token, const void *arg)
 
     switch (token->event) {
         case EVENT_MA_READ:
-            PS_CALL(INTERCEPT_AT, EVENT_MA_READ);
+            PS_CALL(INTERCEPT_EVENT, EVENT_MA_READ);
             break;
         case EVENT_MA_WRITE:
-            PS_CALL(INTERCEPT_AT, EVENT_MA_WRITE);
+            PS_CALL(INTERCEPT_EVENT, EVENT_MA_WRITE);
             break;
         case EVENT_STACKTRACE_ENTER:
-            PS_CALL(INTERCEPT_AT, EVENT_STACKTRACE_ENTER);
+            PS_CALL(INTERCEPT_EVENT, EVENT_STACKTRACE_ENTER);
             break;
         case EVENT_STACKTRACE_EXIT:
-            PS_CALL(INTERCEPT_AT, EVENT_STACKTRACE_EXIT);
+            PS_CALL(INTERCEPT_EVENT, EVENT_STACKTRACE_EXIT);
             break;
         case EVENT_THREAD_FINI:
-            PS_CALL(INTERCEPT_AT, EVENT_THREAD_FINI);
+            PS_CALL(INTERCEPT_EVENT, EVENT_THREAD_FINI);
             break;
         case EVENT_THREAD_INIT:
-            PS_CALL(INTERCEPT_AT, EVENT_THREAD_INIT);
+            PS_CALL(INTERCEPT_EVENT, EVENT_THREAD_INIT);
             break;
         default:
-            log_fatalf("INTERCEPT_AT: Unknown event %d\n", token->event);
+            log_fatalf("INTERCEPT_EVENT: Unknown event %d\n", token->event);
     }
     return PS_SUCCESS;
 }
@@ -717,11 +721,10 @@ _ps_publish_after(token_t *token, const void *arg)
     return PS_SUCCESS;
 }
 
+extern "C" {
 int
 _ps_publish_do(token_t *token, const void *arg)
 {
-    size_t start_idx = token->index++;
-
     if (token->index++ == 0) {
         self_handle(token, arg);
         return PS_SUCCESS;
@@ -736,4 +739,5 @@ _ps_publish_do(token_t *token, const void *arg)
             return _ps_publish_after(token, arg);
     }
     return PS_INVALID;
+}
 }
