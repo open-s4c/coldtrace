@@ -725,11 +725,6 @@ extern "C" {
 int
 _ps_publish_do(token_t *token, const void *arg)
 {
-    if (token->index++ == 0) {
-        self_handle(token, arg);
-        return PS_SUCCESS;
-    }
-
     switch (token->chain) {
         case INTERCEPT_EVENT:
             return _ps_publish_event(token, arg);
