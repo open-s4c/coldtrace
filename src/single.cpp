@@ -7,7 +7,8 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/intercept/pthread.h>
+#define BING_XTOR_PRIO 300
+#include <bingo/capture/pthread.h>
 #include <bingo/module.h>
 #include <bingo/pubsub.h>
 #include <bingo/self.h>
@@ -24,8 +25,9 @@ vatomic64_t next_atomic_index;
 #undef REGISTER_CALLBACK
 #define REGISTER_CALLBACK(CHAIN, EVENT, CALLBACK)                              \
     extern "C" {                                                               \
-    static bool _bingo_callback_##CHAIN##_##EVENT(token_t *token,              \
-                                                  const void *arg)             \
+    static bool _bingo_callback_##CHAIN##_##EVENT(token_t token,               \
+                                                  const void *arg,             \
+                                                  self_t *self)                \
     {                                                                          \
         CALLBACK;                                                              \
         return true;                                                           \
@@ -36,17 +38,17 @@ static bool _initd = false;
 static cold_thread _tls_key;
 
 cold_thread *
-coldthread_get(token_t *token)
+coldthread_get(self_t *self)
 {
-    cold_thread *ct = SELF_TLS(token, &_tls_key);
+    cold_thread *ct = SELF_TLS(self, &_tls_key);
     if (!ct->initd) {
-        coldtrace_init(&ct->ct, self_id(token));
+        coldtrace_init(&ct->ct, self_id(self));
         ct->initd = true;
     }
     return ct;
 }
-
 BINGO_MODULE_INIT({
+    bingo_init();
     if (_initd) {
         return;
     }
@@ -63,26 +65,26 @@ BINGO_MODULE_INIT({
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/intercept/cxa.h>
+#include <bingo/capture/cxa.h>
 #include <bingo/pubsub.h>
 #include <bingo/self.h>
 }
 
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_CXA_GUARD_ACQUIRE, {
-    cold_thread *th = coldthread_get(token);
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_CXA_GUARD_ACQUIRE, {
+    cold_thread *th = coldthread_get(self);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_ACQUIRE, (uint64_t)arg,
                             get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_CXA_GUARD_RELEASE, {
-    cold_thread *th = coldthread_get(token);
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_CXA_GUARD_RELEASE, {
+    cold_thread *th = coldthread_get(self);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_RELEASE, (uint64_t)arg,
                             get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_CXA_GUARD_ABORT, {
-    cold_thread *th = coldthread_get(token);
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_CXA_GUARD_ABORT, {
+    cold_thread *th = coldthread_get(self);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_RELEASE, (uint64_t)arg,
                             get_next_atomic_idx()));
 })
@@ -94,16 +96,16 @@ REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_CXA_GUARD_ABORT, {
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/intercept/malloc.h>
+#include <bingo/capture/malloc.h>
 #include <bingo/module.h>
 #include <bingo/pubsub.h>
 #include <bingo/self.h>
 }
 
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MALLOC, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(token);
+    cold_thread *th         = coldthread_get(self);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -115,9 +117,9 @@ REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MALLOC, {
     stack_bottom = stack.size();
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_CALLOC, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_CALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(token);
+    cold_thread *th         = coldthread_get(self);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -129,9 +131,9 @@ REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_CALLOC, {
     stack_bottom = stack.size();
 })
 
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_REALLOC, {
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(token);
+    cold_thread *th         = coldthread_get(self);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -143,9 +145,9 @@ REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_REALLOC, {
     stack_bottom = stack.size();
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_REALLOC, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(token);
+    cold_thread *th         = coldthread_get(self);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -156,9 +158,9 @@ REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_REALLOC, {
                            stack.size(), (uint64_t *)&stack[0]));
 })
 
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_FREE, {
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_FREE, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(token);
+    cold_thread *th         = coldthread_get(self);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -170,9 +172,9 @@ REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_FREE, {
     stack_bottom = stack.size();
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_POSIX_MEMALIGN, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(token);
+    cold_thread *th         = coldthread_get(self);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -184,9 +186,9 @@ REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_POSIX_MEMALIGN, {
     stack_bottom = stack.size();
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_ALIGNED_ALLOC, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_ALIGNED_ALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(token);
+    cold_thread *th         = coldthread_get(self);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -205,49 +207,49 @@ REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_ALIGNED_ALLOC, {
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/intercept/pthread.h>
+#include <bingo/capture/pthread.h>
 #include <bingo/pubsub.h>
 #include <bingo/self.h>
 }
 
-REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_THREAD_INIT, {
-    cold_thread *th = coldthread_get(token);
+REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_THREAD_INIT, {
+    cold_thread *th = coldthread_get(self);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_START,
-                            (uint64_t)self_id(token), get_next_atomic_idx()));
+                            (uint64_t)self_id(self), get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_THREAD_FINI, {
-    cold_thread *th = coldthread_get(token);
+REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_THREAD_FINI, {
+    cold_thread *th = coldthread_get(self);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_EXIT,
-                            (uint64_t)self_id(token), get_next_atomic_idx()));
+                            (uint64_t)self_id(self), get_next_atomic_idx()));
     coldtrace_fini(&th->ct);
 })
 
 static uint64_t _created_thread_idx;
 
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_THREAD_CREATE,
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_THREAD_CREATE,
                   { _created_thread_idx = get_next_atomic_idx(); })
 
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_THREAD_CREATE, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_THREAD_CREATE, {
     struct pthread_create_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                 = coldthread_get(token);
+    cold_thread *th                 = coldthread_get(self);
 
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_CREATE,
                             (uint64_t)*ev->thread, _created_thread_idx));
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_THREAD_JOIN, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_THREAD_JOIN, {
     struct pthread_join_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th               = coldthread_get(token);
+    cold_thread *th               = coldthread_get(self);
 
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_JOIN,
                             (uint64_t)ev->thread, get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MUTEX_LOCK, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get(token);
+    cold_thread *th                = coldthread_get(self);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
@@ -255,17 +257,17 @@ REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MUTEX_LOCK, {
     }
 })
 
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MUTEX_UNLOCK, {
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get(token);
+    cold_thread *th                = coldthread_get(self);
 
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MUTEX_TRYLOCK, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get(token);
+    cold_thread *th                = coldthread_get(self);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
@@ -320,41 +322,41 @@ pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/intercept/semaphore.h>
+#include <bingo/capture/semaphore.h>
 #include <bingo/pubsub.h>
 #include <bingo/self.h>
 }
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_SEM_WAIT, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_WAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get(token);
+    cold_thread *th            = coldthread_get(self);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
     }
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_SEM_TRYWAIT, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_TRYWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get(token);
+    cold_thread *th            = coldthread_get(self);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
     }
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_SEM_TIMEDWAIT, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get(token);
+    cold_thread *th            = coldthread_get(self);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
     }
 })
 
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_SEM_POST, {
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_SEM_POST, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get(token);
+    cold_thread *th            = coldthread_get(self);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE, (uint64_t)ev->sem,
                             get_next_atomic_idx()));
 })
@@ -366,24 +368,24 @@ REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_SEM_POST, {
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/intercept/memaccess.h>
-#include <bingo/intercept/stacktrace.h>
+#include <bingo/capture/memaccess.h>
+#include <bingo/capture/stacktrace.h>
 #include <bingo/pubsub.h>
 #include <bingo/self.h>
 #include <vsync/spinlock/caslock.h>
 }
 
 
-REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_STACKTRACE_ENTER, {
+REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th              = coldthread_get(token);
+    cold_thread *th              = coldthread_get(self);
 
     th->stack.push_back((void *)ev->pc);
 })
 
-REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_STACKTRACE_EXIT, {
+REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th              = coldthread_get(token);
+    cold_thread *th              = coldthread_get(self);
 
     if (th->stack.size() != 0) {
         ensure(th->stack.size() > 0);
@@ -393,9 +395,9 @@ REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_STACKTRACE_EXIT, {
     }
 })
 
-REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_MA_READ, {
+REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_MA_READ, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(token);
+    cold_thread *th       = coldthread_get(self);
 
     uint8_t type = COLDTRACE_READ;
     if (ev->size == sizeof(uint64_t) && *(uint64_t *)ev->addr == 0) {
@@ -407,9 +409,9 @@ REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_MA_READ, {
     th->stack_bottom = th->stack.size();
 })
 
-REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_MA_WRITE, {
+REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_MA_WRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(token);
+    cold_thread *th       = coldthread_get(self);
 
     ensure(coldtrace_access(&th->ct, COLDTRACE_WRITE, (uint64_t)ev->addr,
                             (uint64_t)ev->size, (uint64_t)ev->pc,
@@ -477,131 +479,121 @@ area_t _areas[AREAS];
     }
 
 
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_AREAD, {
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_AREAD, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_AREAD, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_AREAD, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(token);
+    cold_thread *th       = coldthread_get(self);
     REL_LOG_R(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_AWRITE, {
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_AWRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_AWRITE, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_AWRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(token);
+    cold_thread *th       = coldthread_get(self);
     REL_LOG_W(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_RMW, {
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_RMW, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_RMW, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_RMW, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(token);
+    cold_thread *th       = coldthread_get(self);
     REL_LOG_RW(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_MA_CMPXCHG, {
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_CMPXCHG, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MA_CMPXCHG, {
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(token);
+    cold_thread *th       = coldthread_get(self);
     REL_LOG_RW_COND(ev->addr, ev->size, !ev->failed);
 })
 
-extern "C" {
-void self_handle(token_t *token, const void *arg);
-BINGO_HIDE int ps_publish(token_t *token, const void *arg);
-}
-
 #define PS_CALL(CHAIN, EVENT)                                                  \
     do {                                                                       \
-        token->index++;                                                        \
-        if (!_bingo_callback_##CHAIN##_##EVENT(token, arg))                    \
+        token.index++;                                                         \
+        if (!_bingo_callback_##CHAIN##_##EVENT(token, arg, self))              \
             return PS_SUCCESS;                                                 \
     } while (0);
 
 static int
-_ps_publish_event(token_t *token, const void *arg)
+_ps_publish_event(token_t token, const void *arg, self_t *self)
 {
-    chain_id chain = token->chain;
-    size_t cur_idx = token->index;
-
-    switch (token->event) {
+    switch (token.event) {
         case EVENT_MA_READ:
-            PS_CALL(INTERCEPT_EVENT, EVENT_MA_READ);
+            PS_CALL(CAPTURE_EVENT, EVENT_MA_READ);
             break;
         case EVENT_MA_WRITE:
-            PS_CALL(INTERCEPT_EVENT, EVENT_MA_WRITE);
+            PS_CALL(CAPTURE_EVENT, EVENT_MA_WRITE);
             break;
         case EVENT_STACKTRACE_ENTER:
-            PS_CALL(INTERCEPT_EVENT, EVENT_STACKTRACE_ENTER);
+            PS_CALL(CAPTURE_EVENT, EVENT_STACKTRACE_ENTER);
             break;
         case EVENT_STACKTRACE_EXIT:
-            PS_CALL(INTERCEPT_EVENT, EVENT_STACKTRACE_EXIT);
+            PS_CALL(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT);
             break;
         case EVENT_THREAD_FINI:
-            PS_CALL(INTERCEPT_EVENT, EVENT_THREAD_FINI);
+            PS_CALL(CAPTURE_EVENT, EVENT_THREAD_FINI);
             break;
         case EVENT_THREAD_INIT:
-            PS_CALL(INTERCEPT_EVENT, EVENT_THREAD_INIT);
+            PS_CALL(CAPTURE_EVENT, EVENT_THREAD_INIT);
             break;
         default:
-            log_fatalf("INTERCEPT_EVENT: Unknown event %d\n", token->event);
+            log_fatalf("CAPTURE_EVENT: Unknown event %d\n", token.event);
     }
     return PS_SUCCESS;
 }
 
 static int
-_ps_publish_before(token_t *token, const void *arg)
+_ps_publish_before(token_t token, const void *arg, self_t *self)
 {
-    chain_id chain = token->chain;
-
-    switch (token->event) {
+    switch (token.event) {
         case EVENT_CXA_GUARD_ABORT:
-            PS_CALL(INTERCEPT_BEFORE, EVENT_CXA_GUARD_ABORT);
+            PS_CALL(CAPTURE_BEFORE, EVENT_CXA_GUARD_ABORT);
             break;
         case EVENT_CXA_GUARD_RELEASE:
-            PS_CALL(INTERCEPT_BEFORE, EVENT_CXA_GUARD_RELEASE);
+            PS_CALL(CAPTURE_BEFORE, EVENT_CXA_GUARD_RELEASE);
             break;
         case EVENT_FREE:
-            PS_CALL(INTERCEPT_BEFORE, EVENT_FREE);
+            PS_CALL(CAPTURE_BEFORE, EVENT_FREE);
             break;
         case EVENT_MA_AREAD:
-            PS_CALL(INTERCEPT_BEFORE, EVENT_MA_AREAD);
+            PS_CALL(CAPTURE_BEFORE, EVENT_MA_AREAD);
             break;
         case EVENT_MA_AWRITE:
-            PS_CALL(INTERCEPT_BEFORE, EVENT_MA_AWRITE);
+            PS_CALL(CAPTURE_BEFORE, EVENT_MA_AWRITE);
             break;
         case EVENT_MA_CMPXCHG:
-            PS_CALL(INTERCEPT_BEFORE, EVENT_MA_CMPXCHG);
+            PS_CALL(CAPTURE_BEFORE, EVENT_MA_CMPXCHG);
             break;
         case EVENT_MA_RMW:
-            PS_CALL(INTERCEPT_BEFORE, EVENT_MA_RMW);
+            PS_CALL(CAPTURE_BEFORE, EVENT_MA_RMW);
             break;
         case EVENT_MUTEX_UNLOCK:
-            PS_CALL(INTERCEPT_BEFORE, EVENT_MUTEX_UNLOCK);
+            PS_CALL(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK);
             break;
         case EVENT_REALLOC:
-            PS_CALL(INTERCEPT_BEFORE, EVENT_REALLOC);
+            PS_CALL(CAPTURE_BEFORE, EVENT_REALLOC);
             break;
         case EVENT_SEM_POST:
-            PS_CALL(INTERCEPT_BEFORE, EVENT_SEM_POST);
+            PS_CALL(CAPTURE_BEFORE, EVENT_SEM_POST);
             break;
         case EVENT_THREAD_CREATE:
-            PS_CALL(INTERCEPT_BEFORE, EVENT_THREAD_CREATE);
+            PS_CALL(CAPTURE_BEFORE, EVENT_THREAD_CREATE);
             break;
         case EVENT_ALIGNED_ALLOC:
         case EVENT_CALLOC:
@@ -623,84 +615,81 @@ _ps_publish_before(token_t *token, const void *arg)
         case EVENT_MA_CMPXCHG_WEAK:
             break;
         default:
-            log_fatalf("INTERCEPT_BEFORE: Unknown event %d\n", token->event);
+            log_fatalf("CAPTURE_BEFORE: Unknown event %d\n", token.event);
     }
     return PS_SUCCESS;
 }
 
 static int
-_ps_publish_after(token_t *token, const void *arg)
+_ps_publish_after(token_t token, const void *arg, self_t *self)
 
 {
-    chain_id chain = token->chain;
-    size_t cur_idx = token->index;
-
-    switch (token->event) {
+    switch (token.event) {
         case EVENT_ALIGNED_ALLOC:
-            PS_CALL(INTERCEPT_AFTER, EVENT_ALIGNED_ALLOC);
+            PS_CALL(CAPTURE_AFTER, EVENT_ALIGNED_ALLOC);
             break;
         case EVENT_CALLOC:
-            PS_CALL(INTERCEPT_AFTER, EVENT_CALLOC);
+            PS_CALL(CAPTURE_AFTER, EVENT_CALLOC);
             break;
         //         case EVENT_COND_BROADCAST:
-        //             PS_CALL(INTERCEPT_AFTER, EVENT_COND_BROADCAST);
+        //             PS_CALL(CAPTURE_AFTER, EVENT_COND_BROADCAST);
         //             break;
         //         case EVENT_COND_SIGNAL:
-        //             PS_CALL(INTERCEPT_AFTER, EVENT_COND_SIGNAL);
+        //             PS_CALL(CAPTURE_AFTER, EVENT_COND_SIGNAL);
         //             break;
         //         case EVENT_COND_TIMEDWAIT:
-        //             PS_CALL(INTERCEPT_AFTER, EVENT_COND_TIMEDWAIT);
+        //             PS_CALL(CAPTURE_AFTER, EVENT_COND_TIMEDWAIT);
         //             break;
         //         case EVENT_COND_WAIT:
-        //             PS_CALL(INTERCEPT_AFTER, EVENT_COND_WAIT);
+        //             PS_CALL(CAPTURE_AFTER, EVENT_COND_WAIT);
         //             break;
         case EVENT_CXA_GUARD_ACQUIRE:
-            PS_CALL(INTERCEPT_AFTER, EVENT_CXA_GUARD_ACQUIRE);
+            PS_CALL(CAPTURE_AFTER, EVENT_CXA_GUARD_ACQUIRE);
             break;
         case EVENT_MA_AREAD:
-            PS_CALL(INTERCEPT_AFTER, EVENT_MA_AREAD);
+            PS_CALL(CAPTURE_AFTER, EVENT_MA_AREAD);
             break;
         case EVENT_MA_AWRITE:
-            PS_CALL(INTERCEPT_AFTER, EVENT_MA_AWRITE);
+            PS_CALL(CAPTURE_AFTER, EVENT_MA_AWRITE);
             break;
         case EVENT_MA_CMPXCHG:
-            PS_CALL(INTERCEPT_AFTER, EVENT_MA_CMPXCHG);
+            PS_CALL(CAPTURE_AFTER, EVENT_MA_CMPXCHG);
             break;
         case EVENT_MALLOC:
-            PS_CALL(INTERCEPT_AFTER, EVENT_MALLOC);
+            PS_CALL(CAPTURE_AFTER, EVENT_MALLOC);
             break;
         case EVENT_MA_RMW:
-            PS_CALL(INTERCEPT_AFTER, EVENT_MA_RMW);
+            PS_CALL(CAPTURE_AFTER, EVENT_MA_RMW);
             break;
             //        case EVENT_MA_XCHG:
-            //            PS_CALL(INTERCEPT_AFTER, EVENT_MA_XCHG);
+            //            PS_CALL(CAPTURE_AFTER, EVENT_MA_XCHG);
             //            break;
         case EVENT_MUTEX_LOCK:
-            PS_CALL(INTERCEPT_AFTER, EVENT_MUTEX_LOCK);
+            PS_CALL(CAPTURE_AFTER, EVENT_MUTEX_LOCK);
             break;
         case EVENT_MUTEX_TRYLOCK:
-            PS_CALL(INTERCEPT_AFTER, EVENT_MUTEX_TRYLOCK);
+            PS_CALL(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK);
             break;
         case EVENT_POSIX_MEMALIGN:
-            PS_CALL(INTERCEPT_AFTER, EVENT_POSIX_MEMALIGN);
+            PS_CALL(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN);
             break;
         case EVENT_REALLOC:
-            PS_CALL(INTERCEPT_AFTER, EVENT_REALLOC);
+            PS_CALL(CAPTURE_AFTER, EVENT_REALLOC);
             break;
         case EVENT_SEM_TIMEDWAIT:
-            PS_CALL(INTERCEPT_AFTER, EVENT_SEM_TIMEDWAIT);
+            PS_CALL(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT);
             break;
         case EVENT_SEM_TRYWAIT:
-            PS_CALL(INTERCEPT_AFTER, EVENT_SEM_TRYWAIT);
+            PS_CALL(CAPTURE_AFTER, EVENT_SEM_TRYWAIT);
             break;
         case EVENT_SEM_WAIT:
-            PS_CALL(INTERCEPT_AFTER, EVENT_SEM_WAIT);
+            PS_CALL(CAPTURE_AFTER, EVENT_SEM_WAIT);
             break;
         case EVENT_THREAD_CREATE:
-            PS_CALL(INTERCEPT_AFTER, EVENT_THREAD_CREATE);
+            PS_CALL(CAPTURE_AFTER, EVENT_THREAD_CREATE);
             break;
         case EVENT_THREAD_JOIN:
-            PS_CALL(INTERCEPT_AFTER, EVENT_THREAD_JOIN);
+            PS_CALL(CAPTURE_AFTER, EVENT_THREAD_JOIN);
             break;
         case EVENT_CXA_GUARD_ABORT:
         case EVENT_CXA_GUARD_RELEASE:
@@ -716,22 +705,22 @@ _ps_publish_after(token_t *token, const void *arg)
         case EVENT_MA_CMPXCHG_WEAK:
             break;
         default:
-            log_fatalf("INTERCEPT_AFTER: Unknown event %d\n", token->event);
+            log_fatalf("CAPTURE_AFTER: Unknown event %d\n", token.event);
     }
     return PS_SUCCESS;
 }
 
 extern "C" {
-int
-_ps_publish_do(token_t *token, const void *arg)
+BINGO_HIDE int
+_ps_publish_do(token_t token, const void *arg, self_t *self)
 {
-    switch (token->chain) {
-        case INTERCEPT_EVENT:
-            return _ps_publish_event(token, arg);
-        case INTERCEPT_BEFORE:
-            return _ps_publish_before(token, arg);
-        case INTERCEPT_AFTER:
-            return _ps_publish_after(token, arg);
+    switch (token.chain) {
+        case CAPTURE_EVENT:
+            return _ps_publish_event(token, arg, self);
+        case CAPTURE_BEFORE:
+            return _ps_publish_before(token, arg, self);
+        case CAPTURE_AFTER:
+            return _ps_publish_after(token, arg, self);
     }
     return PS_INVALID;
 }
