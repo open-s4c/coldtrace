@@ -215,6 +215,14 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_THREAD_JOIN, {
                             (uint64_t)ev->thread, get_next_atomic_idx()));
 })
 
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK, {
+    struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                = coldthread_get(md);
+
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
+                            (uint64_t)ev->mutex, get_next_atomic_idx()));
+})
+
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                = coldthread_get(md);
@@ -223,14 +231,6 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->mutex, get_next_atomic_idx()));
     }
-})
-
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK, {
-    struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get(md);
-
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
-                            (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK, {
@@ -243,45 +243,113 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK, {
     }
 })
 
-#if 0
-int
-pthread_mutex_timedlock(pthread_mutex_t *mutex,
-                        const struct timespec *abs_timeout)
-{
-    init_mem_real();
-    int res = REAL(pthread_mutex_timedlock, mutex, abs_timeout);
-    if (res == 0) {
-        ensure(coldtrace_atomic(COLDTRACE_LOCK_ACQUIRE, (uint64_t)mutex,
-                               get_next_atomic_idx()));
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK, {
+    struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                = coldthread_get(md);
+
+    if (ev->ret == 0) {
+        ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
+                                (uint64_t)ev->mutex, get_next_atomic_idx()));
     }
-    return res;
-}
+})
 
-int
-pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex)
-{
-    init_mem_real();
-    ensure(coldtrace_atomic(COLDTRACE_LOCK_RELEASE, (uint64_t)mutex,
-                           get_next_atomic_idx()));
-    int res = REAL(pthread_cond_wait, cond, mutex);
-    ensure(coldtrace_atomic(COLDTRACE_LOCK_ACQUIRE, (uint64_t)mutex,
-                           get_next_atomic_idx()));
-    return res;
-}
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_COND_WAIT, {
+    struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th               = coldthread_get(md);
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
+                            (uint64_t)ev->mutex, get_next_atomic_idx()));
+})
 
-int
-pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
-                       const struct timespec *abstime)
-{
-    init_mem_real();
-    ensure(coldtrace_atomic(COLDTRACE_LOCK_RELEASE, (uint64_t)mutex,
-                           get_next_atomic_idx()));
-    int res = REAL(pthread_cond_timedwait, cond, mutex, abstime);
-    ensure(coldtrace_atomic(COLDTRACE_LOCK_ACQUIRE, (uint64_t)mutex,
-                           get_next_atomic_idx()));
-    return res;
-}
-#endif
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_COND_WAIT, {
+    struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th               = coldthread_get(md);
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
+                            (uint64_t)ev->mutex, get_next_atomic_idx()));
+})
+
+
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_COND_TIMEDWAIT, {
+    struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th               = coldthread_get(md);
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
+                            (uint64_t)ev->mutex, get_next_atomic_idx()));
+})
+
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_COND_TIMEDWAIT, {
+    struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th               = coldthread_get(md);
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
+                            (uint64_t)ev->mutex, get_next_atomic_idx()));
+})
+
+REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_RWLOCK_UNLOCK, {
+    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                 = coldthread_get(md);
+
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_REL_EXC,
+                            (uint64_t)ev->rwlock, get_next_atomic_idx()));
+})
+
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_RDLOCK, {
+    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                 = coldthread_get(md);
+
+    if (ev->ret == 0) {
+        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
+                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+    }
+})
+
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_TRYRDLOCK, {
+    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                 = coldthread_get(md);
+
+    if (ev->ret == 0) {
+        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
+                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+    }
+})
+
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDRDLOCK, {
+    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                 = coldthread_get(md);
+
+    if (ev->ret == 0) {
+        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
+                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+    }
+})
+
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_WRLOCK, {
+    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                 = coldthread_get(md);
+
+    if (ev->ret == 0) {
+        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
+                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+    }
+})
+
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_TRYWRLOCK, {
+    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                 = coldthread_get(md);
+
+    if (ev->ret == 0) {
+        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
+                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+    }
+})
+
+REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDWRLOCK, {
+    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                 = coldthread_get(md);
+
+    if (ev->ret == 0) {
+        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
+                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+    }
+})
+
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_WAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th            = coldthread_get(md);
