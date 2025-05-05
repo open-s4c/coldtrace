@@ -8,7 +8,12 @@
 
 extern "C" {
 #define BING_XTOR_PRIO 300
+#include <bingo/capture/cxa.h>
+#include <bingo/capture/malloc.h>
+#include <bingo/capture/memaccess.h>
 #include <bingo/capture/pthread.h>
+#include <bingo/capture/semaphore.h>
+#include <bingo/capture/stacktrace.h>
 #include <bingo/module.h>
 #include <bingo/pubsub.h>
 #include <bingo/self.h>
@@ -16,8 +21,8 @@ extern "C" {
 #include <stdint.h>
 #include <stdlib.h>
 #include <vsync/atomic.h>
+#include <vsync/spinlock/caslock.h>
 }
-
 
 vatomic64_t next_alloc_index;
 vatomic64_t next_atomic_index;
@@ -25,9 +30,8 @@ vatomic64_t next_atomic_index;
 #undef REGISTER_CALLBACK
 #define REGISTER_CALLBACK(CHAIN, EVENT, CALLBACK)                              \
     extern "C" {                                                               \
-    static bool _bingo_callback_##CHAIN##_##EVENT(token_t token,               \
-                                                  const void *arg,             \
-                                                  self_t *self)                \
+    static bool _bingo_callback_##CHAIN##_##EVENT(chain_t chain, void *event,  \
+                                                  metadata_t *md)              \
     {                                                                          \
         CALLBACK;                                                              \
         return true;                                                           \
@@ -38,11 +42,11 @@ static bool _initd = false;
 static cold_thread _tls_key;
 
 cold_thread *
-coldthread_get(self_t *self)
+coldthread_get(metadata_t *md)
 {
-    cold_thread *ct = SELF_TLS(self, &_tls_key);
+    cold_thread *ct = SELF_TLS(md, &_tls_key);
     if (!ct->initd) {
-        coldtrace_init(&ct->ct, self_id(self));
+        coldtrace_init(&ct->ct, self_id(md));
         ct->initd = true;
     }
     return ct;
@@ -62,50 +66,26 @@ BINGO_MODULE_INIT({
 })
 
 
-#include "coldtrace.hpp"
-
-extern "C" {
-#include <bingo/capture/cxa.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
-}
-
-
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_CXA_GUARD_ACQUIRE, {
-    cold_thread *th = coldthread_get(self);
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_ACQUIRE, (uint64_t)arg,
-                            get_next_atomic_idx()));
+    cold_thread *th = coldthread_get(md);
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_ACQUIRE,
+                            (uint64_t)event, get_next_atomic_idx()));
 })
 
 REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_CXA_GUARD_RELEASE, {
-    cold_thread *th = coldthread_get(self);
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_RELEASE, (uint64_t)arg,
-                            get_next_atomic_idx()));
+    cold_thread *th = coldthread_get(md);
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_RELEASE,
+                            (uint64_t)event, get_next_atomic_idx()));
 })
 
 REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_CXA_GUARD_ABORT, {
-    cold_thread *th = coldthread_get(self);
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_RELEASE, (uint64_t)arg,
-                            get_next_atomic_idx()));
+    cold_thread *th = coldthread_get(md);
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_RELEASE,
+                            (uint64_t)event, get_next_atomic_idx()));
 })
-/*
- * Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
- * SPDX-License-Identifier: MIT
- */
-
-#include "coldtrace.hpp"
-
-extern "C" {
-#include <bingo/capture/malloc.h>
-#include <bingo/module.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
-}
-
-
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(self);
+    cold_thread *th         = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -119,7 +99,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MALLOC, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_CALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(self);
+    cold_thread *th         = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -133,7 +113,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_CALLOC, {
 
 REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(self);
+    cold_thread *th         = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -147,7 +127,7 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_REALLOC, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(self);
+    cold_thread *th         = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -160,7 +140,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_REALLOC, {
 
 REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_FREE, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(self);
+    cold_thread *th         = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -174,7 +154,7 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_FREE, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(self);
+    cold_thread *th         = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -188,7 +168,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_ALIGNED_ALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(self);
+    cold_thread *th         = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -199,29 +179,17 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_ALIGNED_ALLOC, {
                            stack.size(), (uint64_t *)&stack[0]));
     stack_bottom = stack.size();
 })
-/*
- * Copyright (C) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
- * SPDX-License-Identifier: MIT
- */
-
-#include "coldtrace.hpp"
-
-extern "C" {
-#include <bingo/capture/pthread.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
-}
 
 REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_THREAD_INIT, {
-    cold_thread *th = coldthread_get(self);
+    cold_thread *th = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_START,
-                            (uint64_t)self_id(self), get_next_atomic_idx()));
+                            (uint64_t)self_id(md), get_next_atomic_idx()));
 })
 
 REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_THREAD_FINI, {
-    cold_thread *th = coldthread_get(self);
+    cold_thread *th = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_EXIT,
-                            (uint64_t)self_id(self), get_next_atomic_idx()));
+                            (uint64_t)self_id(md), get_next_atomic_idx()));
     coldtrace_fini(&th->ct);
 })
 
@@ -233,7 +201,7 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_THREAD_CREATE,
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_THREAD_CREATE, {
     struct pthread_create_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                 = coldthread_get(self);
+    cold_thread *th                 = coldthread_get(md);
 
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_CREATE,
                             (uint64_t)*ev->thread, _created_thread_idx));
@@ -241,7 +209,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_THREAD_CREATE, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_THREAD_JOIN, {
     struct pthread_join_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th               = coldthread_get(self);
+    cold_thread *th               = coldthread_get(md);
 
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_JOIN,
                             (uint64_t)ev->thread, get_next_atomic_idx()));
@@ -249,7 +217,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_THREAD_JOIN, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get(self);
+    cold_thread *th                = coldthread_get(md);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
@@ -259,7 +227,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
 
 REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get(self);
+    cold_thread *th                = coldthread_get(md);
 
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
@@ -267,7 +235,7 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get(self);
+    cold_thread *th                = coldthread_get(md);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
@@ -314,22 +282,9 @@ pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex,
     return res;
 }
 #endif
-/*
- * Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
- * SPDX-License-Identifier: MIT
- */
-
-#include "coldtrace.hpp"
-
-extern "C" {
-#include <bingo/capture/semaphore.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
-}
-
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_WAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get(self);
+    cold_thread *th            = coldthread_get(md);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
@@ -338,7 +293,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_WAIT, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_TRYWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get(self);
+    cold_thread *th            = coldthread_get(md);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
@@ -347,7 +302,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_TRYWAIT, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get(self);
+    cold_thread *th            = coldthread_get(md);
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                                 (uint64_t)ev->sem, get_next_atomic_idx()));
@@ -356,36 +311,20 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
 
 REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_SEM_POST, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get(self);
+    cold_thread *th            = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE, (uint64_t)ev->sem,
                             get_next_atomic_idx()));
 })
-/*
- * Copyright (C) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
- * SPDX-License-Identifier: MIT
- */
-
-#include "coldtrace.hpp"
-
-extern "C" {
-#include <bingo/capture/memaccess.h>
-#include <bingo/capture/stacktrace.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
-#include <vsync/spinlock/caslock.h>
-}
-
-
 REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th              = coldthread_get(self);
+    cold_thread *th              = coldthread_get(md);
 
     th->stack.push_back((void *)ev->pc);
 })
 
 REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th              = coldthread_get(self);
+    cold_thread *th              = coldthread_get(md);
 
     if (th->stack.size() != 0) {
         ensure(th->stack.size() > 0);
@@ -397,7 +336,7 @@ REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
 
 REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_MA_READ, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(self);
+    cold_thread *th       = coldthread_get(md);
 
     uint8_t type = COLDTRACE_READ;
     if (ev->size == sizeof(uint64_t) && *(uint64_t *)ev->addr == 0) {
@@ -411,7 +350,7 @@ REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_MA_READ, {
 
 REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_MA_WRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(self);
+    cold_thread *th       = coldthread_get(md);
 
     ensure(coldtrace_access(&th->ct, COLDTRACE_WRITE, (uint64_t)ev->addr,
                             (uint64_t)ev->size, (uint64_t)ev->pc,
@@ -486,7 +425,7 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_AREAD, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_AREAD, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(self);
+    cold_thread *th       = coldthread_get(md);
     REL_LOG_R(ev->addr, ev->size);
 })
 
@@ -497,7 +436,7 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_AWRITE, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_AWRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(self);
+    cold_thread *th       = coldthread_get(md);
     REL_LOG_W(ev->addr, ev->size);
 })
 
@@ -508,7 +447,7 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_RMW, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_RMW, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(self);
+    cold_thread *th       = coldthread_get(md);
     REL_LOG_RW(ev->addr, ev->size);
 })
 
@@ -519,21 +458,20 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_CMPXCHG, {
 
 REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(self);
+    cold_thread *th       = coldthread_get(md);
     REL_LOG_RW_COND(ev->addr, ev->size, !ev->failed);
 })
 
 #define PS_CALL(CHAIN, EVENT)                                                  \
     do {                                                                       \
-        token.index++;                                                         \
-        if (!_bingo_callback_##CHAIN##_##EVENT(token, arg, self))              \
+        if (!_bingo_callback_##CHAIN##_##EVENT(chain, event, md))              \
             return PS_SUCCESS;                                                 \
     } while (0);
 
 static int
-_ps_publish_event(token_t token, const void *arg, self_t *self)
+_ps_publish_event(chain_t chain, void *event, metadata_t *md)
 {
-    switch (token.event) {
+    switch (chain.type) {
         case EVENT_MA_READ:
             PS_CALL(CAPTURE_EVENT, EVENT_MA_READ);
             break;
@@ -553,15 +491,15 @@ _ps_publish_event(token_t token, const void *arg, self_t *self)
             PS_CALL(CAPTURE_EVENT, EVENT_THREAD_INIT);
             break;
         default:
-            log_fatalf("CAPTURE_EVENT: Unknown event %d\n", token.event);
+            log_fatalf("CAPTURE_EVENT: Unknown event type %d\n", chain.type);
     }
     return PS_SUCCESS;
 }
 
 static int
-_ps_publish_before(token_t token, const void *arg, self_t *self)
+_ps_publish_before(chain_t chain, void *event, metadata_t *md)
 {
-    switch (token.event) {
+    switch (chain.type) {
         case EVENT_CXA_GUARD_ABORT:
             PS_CALL(CAPTURE_BEFORE, EVENT_CXA_GUARD_ABORT);
             break;
@@ -615,16 +553,16 @@ _ps_publish_before(token_t token, const void *arg, self_t *self)
         case EVENT_MA_CMPXCHG_WEAK:
             break;
         default:
-            log_fatalf("CAPTURE_BEFORE: Unknown event %d\n", token.event);
+            log_fatalf("CAPTURE_BEFORE: Unknown event type %d\n", chain.type);
     }
     return PS_SUCCESS;
 }
 
 static int
-_ps_publish_after(token_t token, const void *arg, self_t *self)
+_ps_publish_after(chain_t chain, void *event, metadata_t *md)
 
 {
-    switch (token.event) {
+    switch (chain.type) {
         case EVENT_ALIGNED_ALLOC:
             PS_CALL(CAPTURE_AFTER, EVENT_ALIGNED_ALLOC);
             break;
@@ -705,22 +643,22 @@ _ps_publish_after(token_t token, const void *arg, self_t *self)
         case EVENT_MA_CMPXCHG_WEAK:
             break;
         default:
-            log_fatalf("CAPTURE_AFTER: Unknown event %d\n", token.event);
+            log_fatalf("CAPTURE_AFTER: Unknown event type %d\n", chain.type);
     }
     return PS_SUCCESS;
 }
 
 extern "C" {
 BINGO_HIDE int
-_ps_publish_do(token_t token, const void *arg, self_t *self)
+_ps_publish_do(chain_t chain, void *event, metadata_t *md)
 {
-    switch (token.chain) {
+    switch (chain.hook) {
         case CAPTURE_EVENT:
-            return _ps_publish_event(token, arg, self);
+            return _ps_publish_event(chain, event, md);
         case CAPTURE_BEFORE:
-            return _ps_publish_before(token, arg, self);
+            return _ps_publish_before(chain, event, md);
         case CAPTURE_AFTER:
-            return _ps_publish_after(token, arg, self);
+            return _ps_publish_after(chain, event, md);
     }
     return PS_INVALID;
 }

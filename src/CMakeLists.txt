@@ -5,7 +5,7 @@ set(SRCS
 )
 
 add_library(coldtrace SHARED ${SRCS})
-target_link_libraries(coldtrace PUBLIC vsync bingo)
+target_link_libraries(coldtrace PUBLIC vsync bingo.h bingo)
 
 add_library(coldtrace.lto SHARED ${SRCS})
 target_compile_options(coldtrace.lto PRIVATE -DBINGO_LTO)
