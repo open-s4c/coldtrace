@@ -5,7 +5,7 @@ foreach(SRC ${SRCS})
   get_filename_component(TARGET ${SRC} NAME_WLE)
   add_executable(${TARGET} ${SRC})
   add_test(${TARGET} env COLDTRACE_PATH=/tmp
-           ${PROJECT_SOURCE_DIR}/scripts/coldtracer -lto ./${TARGET})
+           ${PROJECT_SOURCE_DIR}/scripts/coldtracer ./${TARGET})
   target_compile_options(${TARGET} PRIVATE -fsanitize=thread)
   target_link_libraries(${TARGET} PRIVATE pthread vsync)
   target_link_options(${TARGET} PRIVATE -fsanitize=thread)

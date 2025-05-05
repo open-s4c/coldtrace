@@ -40,7 +40,7 @@ vatomic64_t next_atomic_index;
 static bool _initd = false;
 static cold_thread _tls_key;
 
-cold_thread *
+BINGO_HIDE cold_thread *
 coldthread_get(metadata_t *md)
 {
     cold_thread *ct = SELF_TLS(md, &_tls_key);
@@ -51,7 +51,6 @@ coldthread_get(metadata_t *md)
     return ct;
 }
 BINGO_MODULE_INIT({
-    bingo_init();
     if (_initd) {
         return;
     }
@@ -605,6 +604,7 @@ _ps_publish_before(chain_t chain, void *event, metadata_t *md)
         case EVENT_CXA_GUARD_ACQUIRE:
         case EVENT_MALLOC:
         case EVENT_MUTEX_LOCK:
+        case EVENT_MUTEX_TIMEDLOCK:
         case EVENT_MUTEX_TRYLOCK:
         case EVENT_POSIX_MEMALIGN:
         case EVENT_SEM_TIMEDWAIT:
@@ -669,6 +669,9 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
             //        case EVENT_MA_XCHG:
             //            PS_CALL(CAPTURE_AFTER, EVENT_MA_XCHG);
             //            break;
+        case EVENT_MUTEX_TIMEDLOCK:
+            PS_CALL(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK);
+            break;
         case EVENT_MUTEX_LOCK:
             PS_CALL(CAPTURE_AFTER, EVENT_MUTEX_LOCK);
             break;
@@ -716,10 +719,20 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
 }
 
 extern "C" {
+int _self_handle_event(chain_t chain, void *event, metadata_t *md);
+int _self_handle_before(chain_t chain, void *event, metadata_t *md);
+int _self_handle_after(chain_t chain, void *event, metadata_t *md);
+
 BINGO_HIDE int
 _ps_publish_do(chain_t chain, void *event, metadata_t *md)
 {
     switch (chain.hook) {
+        case RAW_CAPTURE_EVENT:
+            return _self_handle_event(chain, event, md);
+        case RAW_CAPTURE_BEFORE:
+            return _self_handle_before(chain, event, md);
+        case RAW_CAPTURE_AFTER:
+            return _self_handle_after(chain, event, md);
         case CAPTURE_EVENT:
             return _ps_publish_event(chain, event, md);
         case CAPTURE_BEFORE:

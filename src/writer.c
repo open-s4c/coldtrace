@@ -23,7 +23,7 @@ struct coldtrace_impl {
     uint64_t *log_file;
 };
 
-static char _path[128] = "/tmp/freezer_log_%d_%d.bin";
+static char _path[128];
 #define COLDTRACE_FILE_SUFFIX "/freezer_log_%d_%d.bin"
 
 BINGO_HIDE void
