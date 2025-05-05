@@ -7,5 +7,6 @@ foreach(SRC ${SRCS})
   add_test(${TARGET} env COLDTRACE_PATH=/tmp
            ${PROJECT_SOURCE_DIR}/scripts/coldtracer -lto ./${TARGET})
   target_compile_options(${TARGET} PRIVATE -fsanitize=thread)
-  target_link_libraries(${TARGET} PRIVATE pthread vsync tsan)
+  target_link_libraries(${TARGET} PRIVATE pthread vsync)
+  target_link_options(${TARGET} PRIVATE -fsanitize=thread)
 endforeach()

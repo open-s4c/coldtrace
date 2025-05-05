@@ -7,7 +7,6 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#define BING_XTOR_PRIO 300
 #include <bingo/capture/cxa.h>
 #include <bingo/capture/malloc.h>
 #include <bingo/capture/memaccess.h>

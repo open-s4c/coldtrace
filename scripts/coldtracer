@@ -11,12 +11,12 @@ COLDTRACE_HOME="$(readlink -f $(dirname $(readlink -f $0))/../build)"
 
 unset BINGO_HOME
 if [ -z "$BINGO_HOME" ]; then
-    BINGO_HOME="$COLDTRACE_HOME/deps/lib"
+    BINGO_HOME="$COLDTRACE_HOME/deps/bingo"
 fi
 
 # symlink tsano to possible tsan libraries
 (
-    cd "$BINGO_HOME/bingo"
+    cd "$BINGO_HOME/tsano"
     if [ ! -f libtsan.so.0 ]; then
         ln -s $(readlink -f libtsano.so) libtsan.so.0
     fi
@@ -31,14 +31,13 @@ fi
     fi
 )
 
-PRELOAD="$BINGO_HOME/libbingo.$SO"
 args=""
 
 while [ "$#" != "0" ]; do
     case "$1" in
-        -lto)
-            SO="lto.$SO"
-            PRELOAD=""
+        -help)
+            echo "read the source"
+            exit 1
         ;;
         *)
             args="${args} $1"
@@ -47,7 +46,7 @@ while [ "$#" != "0" ]; do
     shift
 done
 
-LDPATH="$BINGO_HOME/bingo"
+LDPATH="$BINGO_HOME/tsano"
 COLDTRACESO="$COLDTRACE_HOME/src/libcoldtrace.$SO"
 if [ -z "$PRELOAD" ]; then
     PRELOAD="$COLDTRACESO"
