@@ -93,10 +93,10 @@ area_t _areas[AREAS];
                             idx_r));
 
 #define REL_LOG_RW(addr, size)                                                 \
+    uint64_t idx_w = get_next_atomic_idx();                                    \
     area_t *area   = get_area(addr);                                           \
     uint64_t idx_r = area->idx_r;                                              \
     caslock_release(&area->lock);                                              \
-    uint64_t idx_w = get_next_atomic_idx();                                    \
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_ATOMIC_READ, (uint64_t)addr,    \
                             idx_r));                                           \
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_ATOMIC_WRITE, (uint64_t)addr,   \
