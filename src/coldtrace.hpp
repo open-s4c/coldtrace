@@ -37,7 +37,7 @@ typedef struct {
 static inline uint64_t
 get_next_alloc_idx()
 {
-    return vatomic64_get_inc_rlx(&next_alloc_index);
+    return vatomic64_get_inc(&next_alloc_index);
 }
 
 static inline uint64_t
