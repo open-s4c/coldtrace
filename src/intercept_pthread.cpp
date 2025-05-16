@@ -12,11 +12,38 @@ extern "C" {
 }
 BINGO_MODULE_INIT()
 
+#define REAL_DECLARE(T, F, ...) static T (*REAL_NAME(F))(__VA_ARGS__);
+
+// pthread_t pthread_self(void);
+REAL_DECLARE(pthread_t, pthread_self, void)
+// int pthread_attr_init(pthread_attr_t *attr);
+REAL_DECLARE(int, pthread_attr_init, pthread_attr_t *attr)
+// int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr);
+REAL_DECLARE(int, pthread_getattr_np, pthread_t thread, pthread_attr_t *attr)
+// int pthread_attr_destroy(pthread_attr_t *attr);
+REAL_DECLARE(int, pthread_attr_destroy, pthread_attr_t *attr)
+// int pthread_attr_getstack(const pthread_attr_t *restrict attr,
+//                           void **restrict stackaddr,
+//                           size_t *restrict stacksize);
+REAL_DECLARE(int, pthread_attr_getstack, const pthread_attr_t *attr,
+             void **stackaddr, size_t *stacksize)
+             void **restrict stackaddr, size_t *restrict stacksize)
+
 REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_THREAD_INIT, {
     cold_thread *th = coldthread_get(token);
     coldtrace_init(&th->ct, self_id(token));
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_START,
-                            (uint64_t)self_id(token), get_next_atomic_idx()));
+
+    void *stackaddr;
+    size_t stacksize;
+    pthread_attr_t attr;
+    REAL(pthread_attr_init, &attr);
+    REAL(pthread_getattr_np, REAL(pthread_self), &attr);
+    REAL(pthread_attr_getstack, &attr, &stackaddr, &stacksize);
+    REAL(pthread_attr_destroy, &attr);
+
+    ensure(coldtrace_thread_init(&th->ct, (uint64_t)self_id(token),
+                                 get_next_atomic_idx(), (uint64_t)stackaddr,
+                                 (uint64_t)stacksize));
 })
 
 REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_THREAD_FINI, {
@@ -30,7 +57,6 @@ REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_THREAD_CREATE, {
     cold_thread *th        = coldthread_get(token);
     th->created_thread_idx = get_next_atomic_idx();
 })
-
 
 REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_THREAD_CREATE, {
     struct pthread_create_event *ev = EVENT_PAYLOAD(ev);
