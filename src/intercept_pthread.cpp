@@ -26,17 +26,17 @@ REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_THREAD_FINI, {
     coldtrace_fini(&th->ct);
 })
 
-static uint64_t _created_thread_idx;
-
-REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_THREAD_CREATE,
-                  { _created_thread_idx = get_next_atomic_idx(); })
+REGISTER_CALLBACK(INTERCEPT_BEFORE, EVENT_THREAD_CREATE, {
+    cold_thread *th        = coldthread_get(token);
+    th->created_thread_idx = get_next_atomic_idx();
+})
 
 
 REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_THREAD_CREATE, {
     struct pthread_create_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                 = coldthread_get(token);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_CREATE,
-                            (uint64_t)*ev->thread, _created_thread_idx));
+                            (uint64_t)*ev->thread, th->created_thread_idx));
 })
 
 REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_THREAD_JOIN, {
