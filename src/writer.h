@@ -52,6 +52,11 @@ bool coldtrace_access(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
 bool coldtrace_atomic(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
                       const uint64_t atomic_index);
 
+bool coldtrace_thread_init(coldtrace_t *ct, const uint64_t ptr,
+                           const uint64_t atomic_index,
+                           const uint64_t thread_stack_ptr,
+                           const uint64_t thread_stack_size);
+
 bool coldtrace_alloc(coldtrace_t *ct, const uint64_t ptr, const uint64_t size,
                      const uint64_t alloc_index, const uint64_t caller,
                      const uint32_t stack_bottom, const uint32_t stack_top,
@@ -117,5 +122,16 @@ typedef struct cold_log_atomic_entry {
     uint64_t ptr;
     uint64_t atomic_index;
 } COLDTRACE_ATOMIC_ENTRY;
+
+/**
+ * Cold Log thread init entry Structure definitions:
+ */
+typedef struct cold_log_thread_init {
+    // ptr = ptr (u48) | padding (u8) | type (u8)
+    uint64_t ptr;
+    uint64_t atomic_index;
+    uint64_t thread_stack_ptr;
+    uint64_t thread_stack_size;
+} COLDTRACE_THREAD_INIT_ENTRY;
 
 #endif

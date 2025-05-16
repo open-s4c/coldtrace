@@ -192,6 +192,38 @@ coldtrace_atomic(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
 }
 
 BINGO_HIDE bool
+coldtrace_thread_init(coldtrace_t *ct, const uint64_t ptr,
+                      const uint64_t atomic_index,
+                      const uint64_t thread_stack_ptr,
+                      const uint64_t thread_stack_size)
+{
+    struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
+
+    _get_trace(impl);
+    if (impl->log_file == MAP_FAILED) {
+        return false;
+    }
+    uint64_t space_needed = sizeof(COLDTRACE_THREAD_INIT_ENTRY);
+    if ((impl->next_free_offset + space_needed) > impl->size) {
+        _new_trace(impl);
+        if (impl->log_file == MAP_FAILED) {
+            return false;
+        }
+    }
+
+    COLDTRACE_THREAD_INIT_ENTRY *entry_ptr =
+        (COLDTRACE_THREAD_INIT_ENTRY *)(impl->log_file +
+                                        impl->next_free_offset /
+                                            sizeof(uint64_t));
+    write_type_ptr(&entry_ptr->ptr, COLDTRACE_THREAD_START, ptr);
+    entry_ptr->atomic_index      = atomic_index;
+    entry_ptr->thread_stack_ptr  = thread_stack_ptr;
+    entry_ptr->thread_stack_size = thread_stack_size;
+    impl->next_free_offset += space_needed;
+    return true;
+}
+
+BINGO_HIDE bool
 coldtrace_alloc(coldtrace_t *ct, const uint64_t ptr, const uint64_t size,
                 const uint64_t alloc_index, const uint64_t caller,
                 const uint32_t stack_bottom, const uint32_t stack_top,

@@ -39,6 +39,7 @@ COLD_ACCESS_ENTRY_SZ = 4 * 8       # bytes; sizeof(L3_ENTRY)
 COLD_ALLOC_ENTRY_SZ = 5 * 8       # bytes; sizeof(L3_ENTRY)
 COLD_FREE_ENTRY_SZ = 4 * 8       # bytes; sizeof(L3_ENTRY)
 COLD_ATOMIC_ENTRY_SZ = 2 * 8       # bytes; sizeof(L3_ENTRY)
+COLD_THREAD_ENTRY_SZ = 4 * 8       # bytes; sizeof(L3_ENTRY)
 
 if len(sys.argv) != 2 and not (len(sys.argv) == 3 and sys.argv[2] == "-d"):
     print(f"Usage: {sys.argv[0]} <logfile> [-d]")
@@ -166,6 +167,8 @@ for f in file_list:
                 caller_2 = stacks[tid][stack_depth - 2] if stack_depth - 2 >= 0 else 0
                 if debug:
                     print(stacks)
+            elif (entry_type.value == 9):
+                atomic_timestamp, thread_stack_ptr, thread_stack_size = struct.unpack('<QQQ', file.read(COLD_THREAD_ENTRY_SZ - COLD_BASE_ENTRY_SZ))
             else:
                 atomic_timestamp, = struct.unpack('<Q', file.read(COLD_ATOMIC_ENTRY_SZ - COLD_BASE_ENTRY_SZ))
 
@@ -192,7 +195,7 @@ for f in file_list:
                 case EntryType.THREAD_CREATE:
                     print(f"{nentries}) {tid}: thread create @{ptr:x} [{atomic_timestamp}]\n")
                 case EntryType.THREAD_START:
-                    print(f"{nentries}) {tid}: thread start @{ptr:x} [{atomic_timestamp}]\n")
+                    print(f"{nentries}) {tid}: thread start @{ptr:x} {thread_stack_ptr:x} {thread_stack_size} [{atomic_timestamp}]\n")
                 case EntryType.THREAD_JOIN:
                     print(f"{nentries}) {tid}: thread join @{ptr:x} [{atomic_timestamp}]\n")
                 case EntryType.THREAD_EXIT:
