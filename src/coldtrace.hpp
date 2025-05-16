@@ -21,8 +21,9 @@ extern vatomic64_t next_atomic_index;
 
 typedef struct {
     bool initd;
-    std::vector<void *> stack;
     uint32_t stack_bottom;
+    std::vector<void *> stack;
+    uint64_t created_thread_idx;
     coldtrace_t ct;
 } cold_thread;
 
