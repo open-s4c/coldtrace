@@ -5,8 +5,11 @@
 # Commands and variables for all LevelDB benchmark variants
 # ------------------------------------------------------------------------------
 ROOT!=		pwd
-RUNCMD= 	time ./ri1.0 bunny.obj 20 > /dev/null
+RUNCMD= 	./ri1.0 bunny.obj 20
 PARSE=		cat $(ROOT)/$*.run.log \
+		| grep Time | tr -s ' ' \
+		| cut -d' ' -f6,9 \
+		| tr ' ' '\;' \
 		| xargs -n1 echo "$*"';' \
 		| tee -a $(ROOT)/results.csv
 
@@ -39,7 +42,7 @@ BLD.rendertri=	$(MAKE)
 TARGET+=	tsan
 DEP.tsan=	.rendertri.bld
 DIR.tsan=	rendertri
-RUN.tsan=	env TSAN_OPTIONS=report_bugs=0 $(RUNCMD)
+RUN.tsan=	hyperfine 'env TSAN_OPTIONS=report_bugs=0 $(RUNCMD)'
 PRO.tsan=	$(PARSE)
 # Linux: if TSAN fails with "FATAL: ThreadSanitizer: unexpected memory mapping"
 # Try running this
@@ -48,14 +51,15 @@ PRO.tsan=	$(PARSE)
 TARGET+=	tsano
 DEP.tsano=	.rendertri.bld
 DIR.tsano=	rendertri
-RUN.tsano=	env BINGO_PREFIX=$(ROOT)/../build/deps/bingo \
-		$(ROOT)/../deps/bingo/scripts/tsano $(RUNCMD)
+RUN.tsano=	hyperfine 'env BINGO_PREFIX=$(ROOT)/../build/deps/bingo \
+		$(ROOT)/../deps/bingo/scripts/tsano $(RUNCMD)'
 PRO.tsano=	$(PARSE)
 
 TARGET+=	coldtrace
 DEP.coldtrace=	.rendertri.bld
 DIR.coldtrace=	rendertri
-RUN.coldtrace=	COLDTRACE_PATH=/tmp $(ROOT)/../scripts/coldtracer $(RUNCMD)
+RUN.coldtrace=	hyperfine 'env COLDTRACE_PATH=/tmp \
+		$(ROOT)/../scripts/coldtracer $(RUNCMD)'
 PRO.coldtrace=	$(PARSE)
 
 # ------------------------------------------------------------------------------
