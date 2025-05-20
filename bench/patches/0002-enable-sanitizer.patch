@@ -13,7 +13,7 @@ index 0223115..5476798 100644
  DEBG=-lX11 -g
  
 -F=$(FAST)
-+F=$(FAST) -fsanitize=thread
++F=$(FAST) -fsanitize=thread -shared-libsan
 +CPP=clang++
  
  all: ri1.0
