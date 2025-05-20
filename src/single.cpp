@@ -791,6 +791,6 @@ ps_dispatch_(chain_id chain, type_id type, void *event, metadata_t *md)
             break;
     }
     (void)err;
-    return (struct ps_dispatched){.err = PS_CB_OK, .count = 1};
+    return (struct ps_dispatched){.err = PS_CB_STOP, .count = 1};
 }
 }
