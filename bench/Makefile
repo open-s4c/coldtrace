@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: MIT
 
 # ------------------------------------------------------------------------------
-# Commands and variables for all LevelDB benchmark variants
+# Commands and variables for rendertri
 # ------------------------------------------------------------------------------
 ROOT!=		pwd
 RUNCMD= 	./ri1.0 bunny.obj 20
@@ -14,7 +14,7 @@ PARSE=		cat $(ROOT)/$*.run.log \
 		| tee -a $(ROOT)/results.csv
 
 # ------------------------------------------------------------------------------
-# clone level, apply patches, build bingo
+# clone level, apply patches, build rendertri
 # ------------------------------------------------------------------------------
 
 URL=		https://github.com/felipetavares/rendertri.git
