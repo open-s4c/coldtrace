@@ -27,6 +27,13 @@ extern "C" {
 vatomic64_t next_alloc_index;
 vatomic64_t next_atomic_index;
 
+#define PS_SUCCESS 0
+typedef chain_id hook_id;
+typedef struct {
+    chain_id hook;
+    type_id type;
+} chain_t;
+
 #undef REGISTER_CALLBACK
 #define REGISTER_CALLBACK(CHAIN, EVENT, CALLBACK)                              \
     extern "C" {                                                               \
@@ -159,7 +166,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
     uint32_t &stack_bottom     = th->stack_bottom;
     uint64_t alloc_index       = get_next_alloc_idx();
 
-    ensure(coldtrace_alloc(&th->ct, (uint64_t) * (void **)ev->ptr,
+    ensure(coldtrace_alloc(&th->ct, (uint64_t)*(void **)ev->ptr,
                            (uint64_t)ev->size, alloc_index, (uint64_t)ev->pc,
                            stack_bottom, stack.size(), (uint64_t *)&stack[0]));
     stack_bottom = stack.size();
@@ -748,27 +755,37 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
 }
 
 extern "C" {
-int _self_handle_event(chain_t chain, void *event, metadata_t *md);
-int _self_handle_before(chain_t chain, void *event, metadata_t *md);
-int _self_handle_after(chain_t chain, void *event, metadata_t *md);
+enum ps_cb_err ps_callback_1_0_200_(const chain_id chain, const type_id type,
+                                    void *event, metadata_t *md);
+enum ps_cb_err ps_callback_2_0_200_(const chain_id chain, const type_id type,
+                                    void *event, metadata_t *md);
+enum ps_cb_err ps_callback_3_0_200_(const chain_id chain, const type_id type,
+                                    void *event, metadata_t *md);
 
-BINGO_HIDE int
-_ps_publish_do(chain_t chain, void *event, metadata_t *md)
+BINGO_HIDE enum ps_cb_err
+ps_dispatch_(chain_id chain, type_id type, void *event, metadata_t *md)
 {
-    switch (chain.hook) {
+    chain_t ch = {.hook = chain, .type = type};
+    int err    = 0;
+    switch (chain) {
         case RAW_CAPTURE_EVENT:
-            return _self_handle_event(chain, event, md);
+            return ps_callback_1_0_200_(chain, type, event, md);
         case RAW_CAPTURE_BEFORE:
-            return _self_handle_before(chain, event, md);
+            return ps_callback_2_0_200_(chain, type, event, md);
         case RAW_CAPTURE_AFTER:
-            return _self_handle_after(chain, event, md);
+            return ps_callback_3_0_200_(chain, type, event, md);
         case CAPTURE_EVENT:
-            return _ps_publish_event(chain, event, md);
+            err = _ps_publish_event(ch, event, md);
+            break;
         case CAPTURE_BEFORE:
-            return _ps_publish_before(chain, event, md);
+            err = _ps_publish_before(ch, event, md);
+            break;
         case CAPTURE_AFTER:
-            return _ps_publish_after(chain, event, md);
+            err = _ps_publish_after(ch, event, md);
+            break;
     }
-    return PS_INVALID;
+    // if (err == PS_SUCCESS)
+    (void)err;
+    return PS_CB_OK;
 }
 }
