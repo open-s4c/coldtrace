@@ -62,5 +62,14 @@ RUN.coldtrace=	hyperfine 'env COLDTRACE_PATH=/tmp \
 		$(ROOT)/../scripts/coldtracer $(RUNCMD)'
 PRO.coldtrace=	$(PARSE)
 
+# file to build internal tool (freezer)
+# assumes libfreeze.so to be in the current directory
+TARGET+=	freezer
+DEP.freezer=	.rendertri.bld
+DIR.freezer=	rendertri
+RUN.freezer=	FREEZER_TRACE_PATH=/tmp hyperfine \
+		'env LD_PRELOAD=$(ROOT)/libfreeze.so $(RUNCMD)'
+PRO.freezer=	$(PARSE)
+
 # ------------------------------------------------------------------------------
 include bench.mk
