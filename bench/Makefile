@@ -17,18 +17,19 @@ PARSE=		cat $(ROOT)/$*.run.log \
 URL=		https://github.com/felipetavares/rendertri.git
 
 TARGET+=	clone
-DIR.clone=	.rendertri
+DIR.clone=	rendertri
 CFG.clone=	git clone $(URL) .
 
 TARGET+=	patch
 DEP.patch=	.clone.bld
-DIR.patch=	.rendertri
+DIR.patch=	rendertri
 CFG.patch=	git checkout .
 BLD.patch=	git apply $(ROOT)/patches/0001-add-parameter.patch && \
 		git apply $(ROOT)/patches/0002-enable-sanitizer.patch
 
 TARGET+=	rendertri
 DEP.rendertri=	.patch.bld
+DIR.rendertri=	rendertri
 BLD.rendertri=	$(MAKE)
 
 # ------------------------------------------------------------------------------
@@ -37,7 +38,7 @@ BLD.rendertri=	$(MAKE)
 
 TARGET+=	tsan
 DEP.tsan=	.rendertri.bld
-DIR.tsan=	$(DIR.rendertri)
+DIR.tsan=	rendertri
 RUN.tsan=	env TSAN_OPTIONS=report_bugs=0 $(RUNCMD)
 PRO.tsan=	$(PARSE)
 # Linux: if TSAN fails with "FATAL: ThreadSanitizer: unexpected memory mapping"
@@ -46,14 +47,14 @@ PRO.tsan=	$(PARSE)
 
 TARGET+=	tsano
 DEP.tsano=	.rendertri.bld
-DIR.tsan=	$(DIR.rendertri)
+DIR.tsano=	rendertri
 RUN.tsano=	env BINGO_PREFIX=$(ROOT)/../build/deps/bingo \
 		$(ROOT)/../deps/bingo/scripts/tsano $(RUNCMD)
 PRO.tsano=	$(PARSE)
 
 TARGET+=	coldtrace
 DEP.coldtrace=	.rendertri.bld
-DIR.tsan=	$(DIR.rendertri)
+DIR.coldtrace=	rendertri
 RUN.coldtrace=	COLDTRACE_PATH=/tmp $(ROOT)/../scripts/coldtracer $(RUNCMD)
 PRO.coldtrace=	$(PARSE)
 
