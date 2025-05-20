@@ -6,9 +6,8 @@ set(SRCS
 
 add_library(coldtrace SHARED ${SRCS})
 target_link_libraries(coldtrace PUBLIC vsync bingo.h)
-target_compile_options(coldtrace PRIVATE -DBINGO_XTOR_PRIO=201 -DBINGO_LTO
-                                         -fPIC -flto -fno-fat-lto-objects)
-
+target_compile_options(coldtrace PRIVATE -DBINGO_XTOR_PRIO=201)
+set_property(TARGET coldtrace PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(MODS
     self.o
     # pthread library
@@ -26,7 +25,6 @@ set(MODS
     tsan.o
     stacktrace.o)
 
-target_link_libraries(coldtrace PUBLIC vsync bingo.h bingo-core.o bingo-base.o)
 set(PRIO_self 200)
 set(OBJS ${MODS} bingo-core.o bingo-base.o)
 foreach(TARGET ${OBJS})
@@ -34,7 +32,6 @@ foreach(TARGET ${OBJS})
   if(PRIO_${MOD})
     target_compile_options(${TARGET} PRIVATE -DBINGO_XTOR_PRIO=${PRIO_${MOD}})
   endif()
-  target_compile_options(${TARGET} PRIVATE -fPIC -flto -fno-fat-lto-objects
-                                           -DBINGO_LTO)
+  set_property(TARGET ${TARGET} PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endforeach()
 target_link_libraries(coldtrace PUBLIC ${OBJS})
