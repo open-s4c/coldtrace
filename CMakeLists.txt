@@ -15,6 +15,7 @@ if(NOT libvsync_DIR)
 endif()
 add_library(vsync ALIAS libvsync::vsync)
 
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
 add_subdirectory(deps/bingo)
 
 add_compile_options(-fPIC -g3 -D_GNU_SOURCE)
