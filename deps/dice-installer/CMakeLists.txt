@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(bingo-installer)
+project(dice-installer)
 include(ExternalProject)
 message(STATUS "Running ${PROJECT_NAME}")
 
@@ -11,12 +11,12 @@ if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/libvsync.patch")
       &&
       git
       apply
-      ${CMAKE_CURRENT_SOURCE_DIR}/bingo.patch)
+      ${CMAKE_CURRENT_SOURCE_DIR}/dice.patch)
 endif()
 
 ExternalProject_Add(
-  bingo-deps
-  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../bingo
+  dice-deps
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../dice
   BINARY_DIR ${CMAKE_CURRENT_BINARY_DIR}/build
   PATCH_COMMAND ${PCMD}
   CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${CMAKE_INSTALL_PREFIX}

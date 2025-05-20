@@ -1,57 +1,7 @@
 #!/usr/bin/env bash
-SO=so
+COLDTRACE_BUILD="$(readlink -f $(dirname $(readlink -f $0))/../build)"
+PRELOAD="$COLDTRACE_BUILD/src/libcoldtrace.so"
+export DICE_PREFIX="$COLDTRACE_BUILD/deps/dice"
+DICE_SCRIPTS="$COLDTRACE_BUILD/../deps/dice/scripts"
 
-if [ "$(uname)" = "Darwin" ]; then
-    SO=dylib
-    DYLD=yes
-fi
-
-
-COLDTRACE_HOME="$(readlink -f $(dirname $(readlink -f $0))/../build)"
-
-unset BINGO_HOME
-if [ -z "$BINGO_HOME" ]; then
-    BINGO_HOME="$COLDTRACE_HOME/deps/bingo"
-fi
-
-# symlink tsano to possible tsan libraries
-(
-    cd "$BINGO_HOME/tsano"
-    if [ ! -f libtsan.so.0 ]; then
-        ln -s $(readlink -f libtsano.so) libtsan.so.0
-    fi
-    if [ ! -f libtsan.so.1 ]; then
-        ln -s $(readlink -f libtsano.so) libtsan.so.1
-    fi
-    if [ ! -f libtsan.so.2 ]; then
-        ln -s $(readlink -f libtsano.so) libtsan.so.2
-    fi
-    if [ ! -f libclang_rt.tsan-x86_64.so ]; then
-        ln -s $(readlink -f libtsano.so) libclang_rt.tsan-x86_64.so
-    fi
-)
-
-args=""
-
-while [ "$#" != "0" ]; do
-    case "$1" in
-        -help)
-            echo "read the source"
-            exit 1
-        ;;
-        *)
-            args="${args} $1"
-        ;;
-    esac
-    shift
-done
-
-LDPATH="$BINGO_HOME/tsano"
-COLDTRACESO="$COLDTRACE_HOME/src/libcoldtrace.$SO"
-if [ -z "$PRELOAD" ]; then
-    PRELOAD="$COLDTRACESO"
-else
-    PRELOAD="$PRELOAD:$COLDTRACESO"
-fi
-
-exec env LD_LIBRARY_PATH="$LDPATH" LD_PRELOAD="$PRELOAD" $args
+exec $DICE_SCRIPTS/tsano env LD_PRELOAD="$PRELOAD" "$@"

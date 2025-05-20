@@ -6,13 +6,13 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/intercept/malloc.h>
-#include <bingo/module.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
+#include <dice/intercept/malloc.h>
+#include <dice/module.h>
+#include <dice/pubsub.h>
+#include <dice/self.h>
 }
 
-BINGO_MODULE_INIT()
+DICE_MODULE_INIT()
 
 REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_MALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
