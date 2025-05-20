@@ -567,10 +567,10 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
 #define PS_CALL(CHAIN, EVENT)                                                  \
     do {                                                                       \
         if (!_bingo_callback_##CHAIN##_##EVENT(chain, event, md))              \
-            return PS_SUCCESS;                                                 \
+            return PS_CB_STOP;                                                 \
     } while (0);
 
-static int
+static enum ps_cb_err
 _ps_publish_event(chain_t chain, void *event, metadata_t *md)
 {
     switch (chain.type) {
@@ -592,13 +592,11 @@ _ps_publish_event(chain_t chain, void *event, metadata_t *md)
         case EVENT_THREAD_INIT:
             PS_CALL(CAPTURE_EVENT, EVENT_THREAD_INIT);
             break;
-        default:
-            log_fatalf("CAPTURE_EVENT: Unknown event type %d\n", chain.type);
     }
-    return PS_SUCCESS;
+    return PS_CB_OFF;
 }
 
-static int
+static enum ps_cb_err
 _ps_publish_before(chain_t chain, void *event, metadata_t *md)
 {
     switch (chain.type) {
@@ -655,13 +653,11 @@ _ps_publish_before(chain_t chain, void *event, metadata_t *md)
         case EVENT_MA_XCHG:
         case EVENT_MA_CMPXCHG_WEAK:
             break;
-        default:
-            log_fatalf("CAPTURE_BEFORE: Unknown event type %d\n", chain.type);
     }
-    return PS_SUCCESS;
+    return PS_CB_OFF;
 }
 
-static int
+static enum ps_cb_err
 _ps_publish_after(chain_t chain, void *event, metadata_t *md)
 
 {
@@ -748,10 +744,8 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
         case EVENT_MA_XCHG:
         case EVENT_MA_CMPXCHG_WEAK:
             break;
-        default:
-            log_fatalf("CAPTURE_AFTER: Unknown event type %d\n", chain.type);
     }
-    return PS_SUCCESS;
+    return PS_CB_OFF;
 }
 
 extern "C" {
@@ -765,8 +759,8 @@ enum ps_cb_err ps_callback_3_0_200_(const chain_id chain, const type_id type,
 BINGO_HIDE struct ps_dispatched
 ps_dispatch_(chain_id chain, type_id type, void *event, metadata_t *md)
 {
-    chain_t ch = {.hook = chain, .type = type};
-    int err    = 0;
+    chain_t ch         = {.hook = chain, .type = type};
+    enum ps_cb_err err = PS_CB_STOP;
     switch (chain) {
         case RAW_CAPTURE_EVENT:
             return (struct ps_dispatched){
@@ -790,7 +784,6 @@ ps_dispatch_(chain_id chain, type_id type, void *event, metadata_t *md)
             err = _ps_publish_after(ch, event, md);
             break;
     }
-    (void)err;
-    return (struct ps_dispatched){.err = PS_CB_STOP, .count = 1};
+    return (struct ps_dispatched){.err = err, .count = 1};
 }
 }
