@@ -207,7 +207,7 @@ REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_THREAD_INIT, {
     REAL(pthread_attr_getstack, &attr, &stackaddr, &stacksize);
     REAL(pthread_attr_destroy, &attr);
 
-    ensure(coldtrace_thread_init(&th->ct, (uint64_t)self_id(md),
+    ensure(coldtrace_thread_init(&th->ct, (uint64_t)REAL(pthread_self),
                                  get_next_atomic_idx(), (uint64_t)stackaddr,
                                  (uint64_t)stacksize));
 })
@@ -215,7 +215,8 @@ REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_THREAD_INIT, {
 REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_THREAD_FINI, {
     cold_thread *th = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_EXIT,
-                            (uint64_t)self_id(md), get_next_atomic_idx()));
+                            (uint64_t)REAL(pthread_self),
+                            get_next_atomic_idx()));
     coldtrace_fini(&th->ct);
 })
 
