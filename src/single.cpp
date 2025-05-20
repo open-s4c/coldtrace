@@ -762,18 +762,24 @@ enum ps_cb_err ps_callback_2_0_200_(const chain_id chain, const type_id type,
 enum ps_cb_err ps_callback_3_0_200_(const chain_id chain, const type_id type,
                                     void *event, metadata_t *md);
 
-BINGO_HIDE enum ps_cb_err
+BINGO_HIDE struct ps_dispatched
 ps_dispatch_(chain_id chain, type_id type, void *event, metadata_t *md)
 {
     chain_t ch = {.hook = chain, .type = type};
     int err    = 0;
     switch (chain) {
         case RAW_CAPTURE_EVENT:
-            return ps_callback_1_0_200_(chain, type, event, md);
+            return (struct ps_dispatched){
+                .err   = ps_callback_1_0_200_(chain, type, event, md),
+                .count = 1};
         case RAW_CAPTURE_BEFORE:
-            return ps_callback_2_0_200_(chain, type, event, md);
+            return (struct ps_dispatched){
+                .err   = ps_callback_2_0_200_(chain, type, event, md),
+                .count = 1};
         case RAW_CAPTURE_AFTER:
-            return ps_callback_3_0_200_(chain, type, event, md);
+            return (struct ps_dispatched){
+                .err   = ps_callback_3_0_200_(chain, type, event, md),
+                .count = 1};
         case CAPTURE_EVENT:
             err = _ps_publish_event(ch, event, md);
             break;
@@ -784,8 +790,7 @@ ps_dispatch_(chain_id chain, type_id type, void *event, metadata_t *md)
             err = _ps_publish_after(ch, event, md);
             break;
     }
-    // if (err == PS_SUCCESS)
     (void)err;
-    return PS_CB_OK;
+    return (struct ps_dispatched){.err = PS_CB_OK, .count = 1};
 }
 }
