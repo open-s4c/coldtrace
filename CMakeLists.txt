@@ -20,6 +20,7 @@ add_subdirectory(deps/bingo)
 
 add_compile_options(-fPIC -g3 -D_GNU_SOURCE)
 add_compile_options(
+  -DCOLDTRACE_DISABLE_WRITE
   -Wall
   -Werror
   -Wextra
