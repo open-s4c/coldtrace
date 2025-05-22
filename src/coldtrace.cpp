@@ -6,12 +6,12 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#define BINGO_XTOR_PRIO 300
-#include <bingo/intercept/pthread.h>
-#include <bingo/module.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
-#include <bingo/thread_id.h>
+#define DICE_XTOR_PRIO 300
+#include <dice/intercept/pthread.h>
+#include <dice/module.h>
+#include <dice/pubsub.h>
+#include <dice/self.h>
+#include <dice/thread_id.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <vsync/atomic.h>
@@ -32,9 +32,9 @@ coldthread_get(token_t *token)
 }
 
 // This initializer has to run before other hooks in coldtrace so that the path
-// is properly initialized. Therefore, we set BINGO_XTOR_PRIO to 300 before
+// is properly initialized. Therefore, we set DICE_XTOR_PRIO to 300 before
 // including module.h above.
-BINGO_MODULE_INIT({
+DICE_MODULE_INIT({
     if (_initd) {
         return;
     }

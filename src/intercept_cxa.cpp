@@ -6,12 +6,12 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/intercept/cxa.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
+#include <dice/intercept/cxa.h>
+#include <dice/pubsub.h>
+#include <dice/self.h>
 }
 
-BINGO_MODULE_INIT()
+DICE_MODULE_INIT()
 
 REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_CXA_GUARD_ACQUIRE, {
     cold_thread *th = coldthread_get(token);

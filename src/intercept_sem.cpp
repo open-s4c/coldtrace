@@ -6,11 +6,11 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/intercept/semaphore.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
+#include <dice/intercept/semaphore.h>
+#include <dice/pubsub.h>
+#include <dice/self.h>
 }
-BINGO_MODULE_INIT()
+DICE_MODULE_INIT()
 
 REGISTER_CALLBACK(INTERCEPT_AFTER, EVENT_SEM_WAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);

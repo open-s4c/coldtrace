@@ -6,11 +6,11 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/intercept/pthread.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
+#include <dice/intercept/pthread.h>
+#include <dice/pubsub.h>
+#include <dice/self.h>
 }
-BINGO_MODULE_INIT()
+DICE_MODULE_INIT()
 
 #define REAL_DECLARE(T, F, ...) static T (*REAL_NAME(F))(__VA_ARGS__);
 

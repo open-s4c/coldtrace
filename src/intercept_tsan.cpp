@@ -6,14 +6,14 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/intercept/memaccess.h>
-#include <bingo/intercept/stacktrace.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
+#include <dice/intercept/memaccess.h>
+#include <dice/intercept/stacktrace.h>
+#include <dice/pubsub.h>
+#include <dice/self.h>
 #include <vsync/spinlock/caslock.h>
 }
 
-BINGO_MODULE_INIT()
+DICE_MODULE_INIT()
 
 REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);

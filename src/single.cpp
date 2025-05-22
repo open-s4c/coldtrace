@@ -7,17 +7,17 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <bingo/capture/cxa.h>
-#include <bingo/capture/malloc.h>
-#include <bingo/capture/memaccess.h>
-#include <bingo/capture/pthread.h>
-#include <bingo/capture/semaphore.h>
-#include <bingo/capture/stacktrace.h>
-#include <bingo/interpose.h>
-#include <bingo/module.h>
-#include <bingo/pubsub.h>
-#include <bingo/self.h>
-#include <bingo/thread_id.h>
+#include <dice/intercept/cxa.h>
+#include <dice/intercept/malloc.h>
+#include <dice/intercept/memaccess.h>
+#include <dice/intercept/pthread.h>
+#include <dice/intercept/semaphore.h>
+#include <dice/intercept/stacktrace.h>
+#include <dice/interpose.h>
+#include <dice/module.h>
+#include <dice/pubsub.h>
+#include <dice/self.h>
+#include <dice/thread_id.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <vsync/atomic.h>
@@ -37,8 +37,8 @@ typedef struct {
 #undef REGISTER_CALLBACK
 #define REGISTER_CALLBACK(CHAIN, EVENT, CALLBACK)                              \
     extern "C" {                                                               \
-    static bool _bingo_callback_##CHAIN##_##EVENT(chain_t chain, void *event,  \
-                                                  metadata_t *md)              \
+    static bool _dice_callback_##CHAIN##_##EVENT(chain_t chain, void *event,   \
+                                                 metadata_t *md)               \
     {                                                                          \
         CALLBACK;                                                              \
         return true;                                                           \
@@ -48,7 +48,7 @@ typedef struct {
 static bool _initd = false;
 static cold_thread _tls_key;
 
-BINGO_HIDE cold_thread *
+DICE_HIDE cold_thread *
 coldthread_get(metadata_t *md)
 {
     cold_thread *ct = SELF_TLS(md, &_tls_key);
@@ -58,7 +58,7 @@ coldthread_get(metadata_t *md)
     }
     return ct;
 }
-BINGO_MODULE_INIT({
+DICE_MODULE_INIT({
     if (_initd) {
         return;
     }
@@ -166,7 +166,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
     uint32_t &stack_bottom     = th->stack_bottom;
     uint64_t alloc_index       = get_next_alloc_idx();
 
-    ensure(coldtrace_alloc(&th->ct, (uint64_t)*(void **)ev->ptr,
+    ensure(coldtrace_alloc(&th->ct, (uint64_t) * (void **)ev->ptr,
                            (uint64_t)ev->size, alloc_index, (uint64_t)ev->pc,
                            stack_bottom, stack.size(), (uint64_t *)&stack[0]));
     stack_bottom = stack.size();
@@ -566,9 +566,9 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
 
 #define PS_CALL(CHAIN, EVENT)                                                  \
     do {                                                                       \
-        if (!_bingo_callback_##CHAIN##_##EVENT(chain, event, md))              \
+        if (!_dice_callback_##CHAIN##_##EVENT(chain, event, md))               \
             return PS_CB_STOP;                                                 \
-    } while (0);
+    } while (0)
 
 static enum ps_cb_err
 _ps_publish_event(chain_t chain, void *event, metadata_t *md)
@@ -749,30 +749,30 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
 }
 
 extern "C" {
-enum ps_cb_err ps_callback_1_0_200_(const chain_id chain, const type_id type,
+enum ps_cb_err ps_callback_1_0_201_(const chain_id chain, const type_id type,
                                     void *event, metadata_t *md);
-enum ps_cb_err ps_callback_2_0_200_(const chain_id chain, const type_id type,
+enum ps_cb_err ps_callback_2_0_201_(const chain_id chain, const type_id type,
                                     void *event, metadata_t *md);
-enum ps_cb_err ps_callback_3_0_200_(const chain_id chain, const type_id type,
+enum ps_cb_err ps_callback_3_0_201_(const chain_id chain, const type_id type,
                                     void *event, metadata_t *md);
 
-BINGO_HIDE struct ps_dispatched
+DICE_HIDE struct ps_dispatched
 ps_dispatch_(chain_id chain, type_id type, void *event, metadata_t *md)
 {
     chain_t ch         = {.hook = chain, .type = type};
     enum ps_cb_err err = PS_CB_STOP;
     switch (chain) {
-        case RAW_CAPTURE_EVENT:
+        case INTERCEPT_EVENT:
             return (struct ps_dispatched){
-                .err   = ps_callback_1_0_200_(chain, type, event, md),
+                .err   = ps_callback_1_0_201_(chain, type, event, md),
                 .count = 1};
-        case RAW_CAPTURE_BEFORE:
+        case INTERCEPT_BEFORE:
             return (struct ps_dispatched){
-                .err   = ps_callback_2_0_200_(chain, type, event, md),
+                .err   = ps_callback_2_0_201_(chain, type, event, md),
                 .count = 1};
-        case RAW_CAPTURE_AFTER:
+        case INTERCEPT_AFTER:
             return (struct ps_dispatched){
-                .err   = ps_callback_3_0_200_(chain, type, event, md),
+                .err   = ps_callback_3_0_201_(chain, type, event, md),
                 .count = 1};
         case CAPTURE_EVENT:
             err = _ps_publish_event(ch, event, md);
