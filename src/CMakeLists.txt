@@ -9,23 +9,23 @@ target_link_libraries(coldtrace PUBLIC vsync dice.h)
 target_compile_options(coldtrace PRIVATE -DDICE_XTOR_PRIO=201 -DDICE_LTO)
 set_property(TARGET coldtrace PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(MODS
-    self.o
+    mod-self.o
     # pthread library
-    pthread_create.o
-    pthread_mutex.o
-    pthread_rwlock.o
-    pthread_cond.o
+    mod-pthread_create.o
+    mod-pthread_mutex.o
+    mod-pthread_rwlock.o
+    mod-pthread_cond.o
     # malloc free and friends
-    malloc.o
+    mod-malloc.o
     # semaphore
-    sem.o
+    mod-sem.o
     # cxa guards
-    cxa.o
+    mod-cxa.o
     # tsan instrumented calls
-    tsan.o
-    stacktrace.o)
+    mod-tsan.o
+    mod-stacktrace.o)
 
-set(OBJS ${MODS} dice-core.o)
+set(OBJS ${MODS} dice.o)
 foreach(TARGET ${OBJS})
   get_filename_component(MOD ${TARGET} NAME_WLE)
   if(PRIO_${MOD})
