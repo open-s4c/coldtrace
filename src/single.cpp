@@ -421,7 +421,7 @@ REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th              = coldthread_get(md);
 
-    th->stack.push_back((void *)ev->pc);
+    th->stack.push_back((void *)ev->caller);
 })
 
 REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
