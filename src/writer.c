@@ -166,7 +166,8 @@ coldtrace_access(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
     entry_ptr->popped_stack = stack_bottom;
     entry_ptr->stack_depth  = stack_top;
     entry_ptr->caller       = caller;
-    memcpy(entry_ptr->stack, stack + stack_bottom, stack_top - stack_bottom);
+    memcpy(entry_ptr->stack, stack + stack_bottom,
+           (stack_top - stack_bottom) * sizeof(uint64_t));
     impl->next_free_offset += space_needed;
 #else
     usleep(COLDTRACE_WRITE_EMU_TIME);
@@ -276,7 +277,8 @@ coldtrace_alloc(coldtrace_t *ct, const uint64_t ptr, const uint64_t size,
     entry_ptr->popped_stack = stack_bottom;
     entry_ptr->stack_depth  = stack_top;
     entry_ptr->caller       = caller;
-    memcpy(entry_ptr->stack, stack + stack_bottom, stack_top - stack_bottom);
+    memcpy(entry_ptr->stack, stack + stack_bottom,
+           (stack_top - stack_bottom) * sizeof(uint64_t));
     impl->next_free_offset += space_needed;
 #else
     usleep(COLDTRACE_WRITE_EMU_TIME);
@@ -313,7 +315,8 @@ coldtrace_free(coldtrace_t *ct, const uint64_t ptr, const uint64_t alloc_index,
     entry_ptr->popped_stack = stack_bottom;
     entry_ptr->stack_depth  = stack_top;
     entry_ptr->caller       = caller;
-    memcpy(entry_ptr->stack, stack + stack_bottom, stack_top - stack_bottom);
+    memcpy(entry_ptr->stack, stack + stack_bottom,
+           (stack_top - stack_bottom) * sizeof(uint64_t));
     impl->next_free_offset += space_needed;
 #else
     usleep(COLDTRACE_WRITE_EMU_TIME);

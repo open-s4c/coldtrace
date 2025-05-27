@@ -19,7 +19,7 @@ REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th              = coldthread_get(token);
 
-    th->stack.push_back((void *)ev->pc);
+    th->stack.push_back((void *)ev->caller);
 })
 
 REGISTER_CALLBACK(INTERCEPT_EVENT, EVENT_STACKTRACE_EXIT, {

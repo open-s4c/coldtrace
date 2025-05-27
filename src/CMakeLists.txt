@@ -6,7 +6,7 @@ set(SRCS
 
 add_library(coldtrace SHARED ${SRCS})
 target_link_libraries(coldtrace PUBLIC vsync dice.h)
-target_compile_options(coldtrace PRIVATE -DDICE_XTOR_PRIO=201 -DDICE_LTO)
+target_compile_options(coldtrace PRIVATE -DDICE_XTOR_PRIO=202 -DDICE_LTO)
 set_property(TARGET coldtrace PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(MODS
     mod-self.o
