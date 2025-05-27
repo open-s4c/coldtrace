@@ -27,6 +27,10 @@ typedef struct {
     coldtrace_t ct;
 } cold_thread;
 
+cold_thread *coldthread_get(metadata_t *md);
+
+#define REGISTER_CALLBACK PS_SUBSCRIBE
+
 #define ensure(COND)                                                           \
     do {                                                                       \
         if (!(COND)) {                                                         \

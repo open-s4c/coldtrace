@@ -6,7 +6,6 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#define DICE_XTOR_PRIO 300
 #include <dice/intercept/pthread.h>
 #include <dice/module.h>
 #include <dice/pubsub.h>
@@ -21,11 +20,11 @@ static bool _initd = false;
 static cold_thread _tls_key;
 
 cold_thread *
-coldthread_get(token_t *token)
+coldthread_get(metadata_t *md)
 {
-    cold_thread *ct = SELF_TLS(token, &_tls_key);
+    cold_thread *ct = SELF_TLS(md, &_tls_key);
     if (!ct->initd) {
-        coldtrace_init(&ct->ct, self_id(token));
+        coldtrace_init(&ct->ct, self_id(md));
         ct->initd = true;
     }
     return ct;
