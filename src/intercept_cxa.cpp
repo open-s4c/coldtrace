@@ -15,19 +15,19 @@ extern "C" {
 
 DICE_MODULE_INIT()
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_CXA_GUARD_ACQUIRE, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_CXA_GUARD_ACQUIRE, {
     cold_thread *th = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_ACQUIRE,
                             (uint64_t)event, get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_CXA_GUARD_RELEASE, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_CXA_GUARD_RELEASE, {
     cold_thread *th = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_RELEASE,
                             (uint64_t)event, get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_CXA_GUARD_ABORT, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_CXA_GUARD_ABORT, {
     cold_thread *th = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_RELEASE,
                             (uint64_t)event, get_next_atomic_idx()));

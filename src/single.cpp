@@ -2,37 +2,23 @@
  * Copyright (C) Huawei Technologies Co., Ltd. 2023-2025. All rights reserved.
  * SPDX-License-Identifier: MIT
  */
-
-
-#include "coldtrace.hpp"
-
 extern "C" {
-#include <dice/intercept/cxa.h>
-#include <dice/intercept/malloc.h>
-#include <dice/intercept/memaccess.h>
-#include <dice/intercept/pthread.h>
-#include <dice/intercept/semaphore.h>
-#include <dice/intercept/stacktrace.h>
-#include <dice/interpose.h>
 #include <dice/module.h>
 #include <dice/pubsub.h>
-#include <dice/self.h>
 #include <dice/thread_id.h>
 #include <stdint.h>
-#include <stdlib.h>
-#include <vsync/atomic.h>
-#include <vsync/spinlock/caslock.h>
 }
 
 #define PS_SUCCESS 0
+
 typedef chain_id hook_id;
 typedef struct {
     chain_id hook;
     type_id type;
 } chain_t;
 
-#undef REGISTER_CALLBACK
-#define REGISTER_CALLBACK(CHAIN, EVENT, CALLBACK)                              \
+#undef PS_SUBSCRIBE
+#define PS_SUBSCRIBE(CHAIN, EVENT, CALLBACK)                                   \
     extern "C" {                                                               \
     static bool _dice_callback_##CHAIN##_##EVENT(chain_t chain, void *event,   \
                                                  metadata_t *md)               \

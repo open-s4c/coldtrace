@@ -17,14 +17,14 @@ extern "C" {
 
 DICE_MODULE_INIT()
 
-REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_STACKTRACE_ENTER, {
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th              = coldthread_get(md);
 
     th->stack.push_back((void *)ev->caller);
 })
 
-REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th              = coldthread_get(md);
 
@@ -36,7 +36,7 @@ REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_MA_READ, {
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get(md);
 
@@ -50,7 +50,7 @@ REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_MA_READ, {
     th->stack_bottom = th->stack.size();
 })
 
-REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_MA_WRITE, {
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_WRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get(md);
 
@@ -120,45 +120,45 @@ area_t _areas[AREAS];
     }
 
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_AREAD, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_AREAD, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_AREAD, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_AREAD, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get(md);
     REL_LOG_R(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_AWRITE, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_AWRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_AWRITE, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_AWRITE, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get(md);
     REL_LOG_W(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_RMW, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_RMW, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_RMW, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_RMW, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get(md);
     REL_LOG_RW(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MA_CMPXCHG, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_CMPXCHG, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
     const memaccess_t *ev = EVENT_PAYLOAD(ev);
     cold_thread *th       = coldthread_get(md);
     REL_LOG_RW_COND(ev->addr, ev->size, !ev->failed);

@@ -14,7 +14,7 @@ extern "C" {
 }
 DICE_MODULE_INIT()
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_WAIT, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_WAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th            = coldthread_get(md);
     if (ev->ret == 0) {
@@ -23,7 +23,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_WAIT, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_TRYWAIT, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_TRYWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th            = coldthread_get(md);
     if (ev->ret == 0) {
@@ -32,7 +32,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_TRYWAIT, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th            = coldthread_get(md);
     if (ev->ret == 0) {
@@ -41,7 +41,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_SEM_POST, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_SEM_POST, {
     const struct sem_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th            = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE, (uint64_t)ev->sem,

@@ -29,7 +29,7 @@ REAL_DECL(int, pthread_attr_destroy, pthread_attr_t *attr)
 REAL_DECL(int, pthread_attr_getstack, const pthread_attr_t *attr,
           void **stackaddr, size_t *stacksize)
 
-REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_THREAD_INIT, {
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_INIT, {
     cold_thread *th = coldthread_get(md);
     coldtrace_init(&th->ct, self_id(md));
 
@@ -46,7 +46,7 @@ REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_THREAD_INIT, {
                                  (uint64_t)stacksize));
 })
 
-REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_THREAD_FINI, {
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_FINI, {
     cold_thread *th = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_EXIT,
                             (uint64_t)REAL(pthread_self),
@@ -54,13 +54,13 @@ REGISTER_CALLBACK(CAPTURE_EVENT, EVENT_THREAD_FINI, {
     coldtrace_fini(&th->ct);
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_THREAD_CREATE, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_THREAD_CREATE, {
     cold_thread *th        = coldthread_get(md);
     th->created_thread_idx = get_next_atomic_idx();
 })
 
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_THREAD_CREATE, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_THREAD_CREATE, {
     struct pthread_create_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                 = coldthread_get(md);
 
@@ -68,7 +68,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_THREAD_CREATE, {
                             (uint64_t)*ev->thread, th->created_thread_idx));
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_THREAD_JOIN, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_THREAD_JOIN, {
     struct pthread_join_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th               = coldthread_get(md);
 
@@ -76,7 +76,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_THREAD_JOIN, {
                             (uint64_t)ev->thread, get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                = coldthread_get(md);
 
@@ -84,7 +84,7 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK, {
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                = coldthread_get(md);
 
@@ -94,7 +94,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                = coldthread_get(md);
 
@@ -104,7 +104,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK, {
     struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                = coldthread_get(md);
 
@@ -114,14 +114,14 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_COND_WAIT, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_COND_WAIT, {
     struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th               = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_COND_WAIT, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_COND_WAIT, {
     struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th               = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
@@ -129,21 +129,21 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_COND_WAIT, {
 })
 
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_COND_TIMEDWAIT, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_COND_TIMEDWAIT, {
     struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th               = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_COND_TIMEDWAIT, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_COND_TIMEDWAIT, {
     struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th               = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_RWLOCK_UNLOCK, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_RWLOCK_UNLOCK, {
     struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                 = coldthread_get(md);
 
@@ -151,7 +151,7 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_RWLOCK_UNLOCK, {
                             (uint64_t)ev->rwlock, get_next_atomic_idx()));
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_RDLOCK, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_RDLOCK, {
     struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                 = coldthread_get(md);
 
@@ -161,7 +161,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_RDLOCK, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_TRYRDLOCK, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TRYRDLOCK, {
     struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                 = coldthread_get(md);
 
@@ -171,7 +171,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_TRYRDLOCK, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDRDLOCK, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDRDLOCK, {
     struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                 = coldthread_get(md);
 
@@ -181,7 +181,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDRDLOCK, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_WRLOCK, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_WRLOCK, {
     struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                 = coldthread_get(md);
 
@@ -191,7 +191,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_WRLOCK, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_TRYWRLOCK, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TRYWRLOCK, {
     struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                 = coldthread_get(md);
 
@@ -201,7 +201,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_TRYWRLOCK, {
     }
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDWRLOCK, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDWRLOCK, {
     struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                 = coldthread_get(md);
 

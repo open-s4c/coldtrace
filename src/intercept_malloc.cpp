@@ -15,7 +15,7 @@ extern "C" {
 
 DICE_MODULE_INIT()
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MALLOC, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get(md);
 
@@ -29,7 +29,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_MALLOC, {
     stack_bottom = stack.size();
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_CALLOC, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_CALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get(md);
 
@@ -43,7 +43,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_CALLOC, {
     stack_bottom = stack.size();
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_REALLOC, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get(md);
 
@@ -57,7 +57,7 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_REALLOC, {
     stack_bottom = stack.size();
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_REALLOC, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_REALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get(md);
 
@@ -70,7 +70,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_REALLOC, {
                            stack.size(), (uint64_t *)&stack[0]));
 })
 
-REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_FREE, {
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_FREE, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get(md);
 
@@ -84,7 +84,7 @@ REGISTER_CALLBACK(CAPTURE_BEFORE, EVENT_FREE, {
     stack_bottom = stack.size();
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get(md);
 
@@ -98,7 +98,7 @@ REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
     stack_bottom = stack.size();
 })
 
-REGISTER_CALLBACK(CAPTURE_AFTER, EVENT_ALIGNED_ALLOC, {
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_ALIGNED_ALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get(md);
 
