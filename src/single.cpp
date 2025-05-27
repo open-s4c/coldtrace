@@ -751,6 +751,10 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
 extern "C" {
 enum ps_cb_err ps_callback_1_0_201_(const chain_id chain, const type_id type,
                                     void *event, metadata_t *md);
+enum ps_cb_err ps_callback_1_1_201_(const chain_id chain, const type_id type,
+                                    void *event, metadata_t *md);
+enum ps_cb_err ps_callback_1_2_201_(const chain_id chain, const type_id type,
+                                    void *event, metadata_t *md);
 enum ps_cb_err ps_callback_2_0_201_(const chain_id chain, const type_id type,
                                     void *event, metadata_t *md);
 enum ps_cb_err ps_callback_3_0_201_(const chain_id chain, const type_id type,
@@ -763,6 +767,16 @@ ps_dispatch_(chain_id chain, type_id type, void *event, metadata_t *md)
     enum ps_cb_err err = PS_CB_STOP;
     switch (chain) {
         case INTERCEPT_EVENT:
+            switch (type) {
+                case EVENT_THREAD_INIT:
+                    return (struct ps_dispatched){
+                        .err   = ps_callback_1_1_201_(chain, type, event, md),
+                        .count = 1};
+                case EVENT_THREAD_FINI:
+                    return (struct ps_dispatched){
+                        .err   = ps_callback_1_2_201_(chain, type, event, md),
+                        .count = 1};
+            }
             return (struct ps_dispatched){
                 .err   = ps_callback_1_0_201_(chain, type, event, md),
                 .count = 1};
