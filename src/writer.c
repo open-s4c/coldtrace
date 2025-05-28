@@ -56,7 +56,10 @@ coldtrace_init(coldtrace_t *ct, uint64_t id)
 DICE_HIDE void
 coldtrace_fini(coldtrace_t *ct)
 {
-    // struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
+    struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
+    if (!impl->initd)
+        return;
+    close(impl->file_descriptor);
 }
 
 

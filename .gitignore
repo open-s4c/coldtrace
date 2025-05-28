@@ -1,4 +1,5 @@
 build
 .cache
+.kakrc
 deps/bingo-installer/
 deps/libvsync-installer/

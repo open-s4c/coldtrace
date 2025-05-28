@@ -16,18 +16,18 @@ extern "C" {
 DICE_MODULE_INIT()
 
 // pthread_t pthread_self(void);
-REAL_DECL(pthread_t, pthread_self, void)
+REAL_DECL(pthread_t, pthread_self, void);
 // int pthread_attr_init(pthread_attr_t *attr);
-REAL_DECL(int, pthread_attr_init, pthread_attr_t *attr)
+REAL_DECL(int, pthread_attr_init, pthread_attr_t *attr);
 // int pthread_getattr_np(pthread_t thread, pthread_attr_t *attr);
-REAL_DECL(int, pthread_getattr_np, pthread_t thread, pthread_attr_t *attr)
+REAL_DECL(int, pthread_getattr_np, pthread_t thread, pthread_attr_t *attr);
 // int pthread_attr_destroy(pthread_attr_t *attr);
-REAL_DECL(int, pthread_attr_destroy, pthread_attr_t *attr)
+REAL_DECL(int, pthread_attr_destroy, pthread_attr_t *attr);
 // int pthread_attr_getstack(const pthread_attr_t *restrict attr,
 //                           void **restrict stackaddr,
 //                           size_t *restrict stacksize);
 REAL_DECL(int, pthread_attr_getstack, const pthread_attr_t *attr,
-          void **stackaddr, size_t *stacksize)
+          void **stackaddr, size_t *stacksize);
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_INIT, {
     cold_thread *th = coldthread_get(md);
@@ -37,7 +37,8 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_INIT, {
     size_t stacksize;
     pthread_attr_t attr;
     REAL(pthread_attr_init, &attr);
-    REAL(pthread_getattr_np, REAL(pthread_self), &attr);
+    pthread_t s = REAL(pthread_self);
+    REAL(pthread_getattr_np, s, &attr);
     REAL(pthread_attr_getstack, &attr, &stackaddr, &stacksize);
     REAL(pthread_attr_destroy, &attr);
 
