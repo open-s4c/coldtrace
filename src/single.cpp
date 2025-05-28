@@ -27,10 +27,11 @@ typedef struct {
         return true;                                                           \
     }                                                                          \
     }
+DICE_MODULE_INIT()
 #undef DICE_MODULE_INIT
 #define DICE_MODULE_INIT(...)
 
-#include "coldtrace.cpp"
+#include "coldthread.cpp"
 #include "intercept_cxa.cpp"
 #include "intercept_malloc.cpp"
 #include "intercept_pthread.cpp"

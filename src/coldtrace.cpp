@@ -3,36 +3,19 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "coldtrace.hpp"
-
 extern "C" {
-#include <dice/intercept/pthread.h>
+#include "writer.h"
 #include <dice/module.h>
-#include <dice/pubsub.h>
-#include <dice/self.h>
-#include <dice/thread_id.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <vsync/atomic.h>
 }
 
 static bool _initd = false;
-static cold_thread _tls_key;
-
-cold_thread *
-coldthread_get(metadata_t *md)
-{
-    cold_thread *ct = SELF_TLS(md, &_tls_key);
-    if (!ct->initd) {
-        coldtrace_init(&ct->ct, self_id(md));
-        ct->initd = true;
-    }
-    return ct;
-}
 
 // This initializer has to run before other hooks in coldtrace so that the path
-// is properly initialized. Therefore, we set DICE_XTOR_PRIO to 300 before
-// including module.h above.
+// is properly initialized. Therefore, we set DICE_XTOR_PRIO to lower than the
+// rest of the modules.
 DICE_MODULE_INIT({
     if (_initd) {
         return;
