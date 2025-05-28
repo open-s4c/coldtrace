@@ -52,7 +52,7 @@ TARGET+=	tsano
 DEP.tsano=	.rendertri.bld
 DIR.tsano=	rendertri
 RUN.tsano=	hyperfine 'env DICE_PREFIX=$(ROOT)/../build/deps/dice \
-		$(ROOT)/../deps/dice/scripts/tsano $(RUNCMD)'
+		$(ROOT)/../deps/dice/deps/tsano/tsano $(RUNCMD)'
 PRO.tsano=	$(PARSE)
 
 TARGET+=	coldtrace
