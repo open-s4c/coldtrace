@@ -117,6 +117,12 @@ _ps_publish_before(chain_t chain, void *event, metadata_t *md)
         case EVENT_THREAD_CREATE:
             PS_CALL(CAPTURE_BEFORE, EVENT_THREAD_CREATE);
             break;
+        case EVENT_COND_WAIT:
+            PS_CALL(CAPTURE_BEFORE, EVENT_COND_WAIT);
+            break;
+        case EVENT_COND_TIMEDWAIT:
+            PS_CALL(CAPTURE_BEFORE, EVENT_COND_TIMEDWAIT);
+            break;
         case EVENT_ALIGNED_ALLOC:
         case EVENT_CALLOC:
         case EVENT_CXA_GUARD_ACQUIRE:
@@ -130,9 +136,7 @@ _ps_publish_before(chain_t chain, void *event, metadata_t *md)
         case EVENT_SEM_WAIT:
         case EVENT_THREAD_JOIN:
         case EVENT_COND_BROADCAST:
-        case EVENT_COND_WAIT:
         case EVENT_COND_SIGNAL:
-        case EVENT_COND_TIMEDWAIT:
         case EVENT_MA_FENCE:
         case EVENT_MA_XCHG:
         case EVENT_MA_CMPXCHG_WEAK:
@@ -152,18 +156,18 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
         case EVENT_CALLOC:
             PS_CALL(CAPTURE_AFTER, EVENT_CALLOC);
             break;
-        //         case EVENT_COND_BROADCAST:
-        //             PS_CALL(CAPTURE_AFTER, EVENT_COND_BROADCAST);
-        //             break;
-        //         case EVENT_COND_SIGNAL:
-        //             PS_CALL(CAPTURE_AFTER, EVENT_COND_SIGNAL);
-        //             break;
-        //         case EVENT_COND_TIMEDWAIT:
-        //             PS_CALL(CAPTURE_AFTER, EVENT_COND_TIMEDWAIT);
-        //             break;
-        //         case EVENT_COND_WAIT:
-        //             PS_CALL(CAPTURE_AFTER, EVENT_COND_WAIT);
-        //             break;
+        // case EVENT_COND_BROADCAST:
+        //     PS_CALL(CAPTURE_AFTER, EVENT_COND_BROADCAST);
+        //     break;
+        // case EVENT_COND_SIGNAL:
+        //     PS_CALL(CAPTURE_AFTER, EVENT_COND_SIGNAL);
+        //     break;
+        case EVENT_COND_TIMEDWAIT:
+            PS_CALL(CAPTURE_AFTER, EVENT_COND_TIMEDWAIT);
+            break;
+        case EVENT_COND_WAIT:
+            PS_CALL(CAPTURE_AFTER, EVENT_COND_WAIT);
+            break;
         case EVENT_CXA_GUARD_ACQUIRE:
             PS_CALL(CAPTURE_AFTER, EVENT_CXA_GUARD_ACQUIRE);
             break;
@@ -239,9 +243,7 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
         case EVENT_MUTEX_UNLOCK:
         case EVENT_SEM_POST:
         case EVENT_COND_BROADCAST:
-        case EVENT_COND_WAIT:
         case EVENT_COND_SIGNAL:
-        case EVENT_COND_TIMEDWAIT:
         case EVENT_MA_FENCE:
         case EVENT_MA_XCHG:
         case EVENT_MA_CMPXCHG_WEAK:
