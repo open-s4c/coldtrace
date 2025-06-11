@@ -44,6 +44,11 @@ DICE_MODULE_INIT()
             return PS_CB_STOP;                                                 \
     } while (0)
 
+extern "C" {
+enum ps_cb_err ps_callback_4_1_202_(const chain_id chain, const type_id type,
+                                    void *event, metadata_t *md);
+}
+
 static enum ps_cb_err
 _ps_publish_event(chain_t chain, void *event, metadata_t *md)
 {
@@ -64,6 +69,8 @@ _ps_publish_event(chain_t chain, void *event, metadata_t *md)
             PS_CALL(CAPTURE_EVENT, EVENT_THREAD_FINI);
             break;
         case EVENT_THREAD_INIT:
+            (void)ps_callback_4_1_202_(CAPTURE_EVENT, EVENT_THREAD_INIT, event,
+                                       md);
             PS_CALL(CAPTURE_EVENT, EVENT_THREAD_INIT);
             break;
     }
