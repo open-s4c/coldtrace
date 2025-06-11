@@ -11,6 +11,7 @@
 #include <dirent.h>
 #include <ftw.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
@@ -21,25 +22,50 @@
 vatomic64_t next_alloc_index;
 vatomic64_t next_atomic_index;
 
-static int
-_unlink_cb(const char *fpath, const struct stat *sb, int typeflag,
-           struct FTW *ftwbuf)
-{
-    int rv = remove(fpath);
-    if (rv)
-        perror(fpath);
 
-    return rv;
+static bool
+_has_ext(const char *fname, const char *ext)
+{
+    const char *base = strrchr(fname, '.');
+    return base && strcmp(base, ext) == 0;
 }
 
 static int
 _ensure_dir_empty(const char *path)
 {
-    struct stat st;
-    if (stat(path, &st) == 0 && S_ISDIR(st.st_mode))
-        return nftw(path, _unlink_cb, 64, FTW_DEPTH | FTW_PHYS);
-    else
-        return 0;
+    DIR *dir = opendir(path);
+    if (!dir) {
+        perror("opendir");
+        return -1;
+    }
+
+    struct dirent *entry;
+    char filepath[4096];
+
+    while ((entry = readdir(dir)) != NULL) {
+        // Skip "." and ".."
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+
+        // Check for .bin extension
+        if (!_has_ext(entry->d_name, ".bin"))
+            continue;
+
+        // Build full path
+        snprintf(filepath, sizeof(filepath), "%s/%s", path, entry->d_name);
+
+        // Check if it's a regular file
+        struct stat st;
+        if (stat(filepath, &st) == 0 && S_ISREG(st.st_mode)) {
+            if (remove(filepath) != 0) {
+                perror(filepath);
+                return -1;
+            }
+        }
+    }
+
+    closedir(dir);
+    return 0;
 }
 
 static int
@@ -90,10 +116,10 @@ DICE_MODULE_INIT({
         exit(EXIT_FAILURE);
     }
 
-    if (_ensure_dir_empty(_path) != 0)
+    if (_ensure_dir_exists(_path) != 0)
         abort();
 
-    if (_ensure_dir_exists(_path) != 0)
+    if (_ensure_dir_empty(_path) != 0)
         abort();
 
     coldtrace_config(_path);
