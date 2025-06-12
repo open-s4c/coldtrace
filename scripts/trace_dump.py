@@ -64,11 +64,12 @@ class EntryType(Enum):
     RW_LOCK_ACQ_EXC = 13
     RW_LOCK_REL_SHR = 14
     RW_LOCK_REL_EXC = 15
-    FENCE = 16
+    RW_LOCK_REL     = 16
     CXA_GUARD_ACQUIRE = 17
     CXA_GUARD_RELEASE = 18
     THREAD_JOIN = 19
     THREAD_EXIT = 20
+    FENCE = 21
 
 ZERO_FLAG = 0b10000000
 PTR_MASK = 0x0000_FFFF_FFFF_FFFF
@@ -212,6 +213,8 @@ for f in file_list:
                     print(f"{nentries}) {tid}: rw_lock rel_shr @{ptr:x} [{atomic_timestamp}]\n")
                 case EntryType.RW_LOCK_REL_EXC:
                     print(f"{nentries}) {tid}: rw_lock rel_exc @{ptr:x} [{atomic_timestamp}]\n")
+                case EntryType.RW_LOCK_REL:
+                    print(f"{nentries}) {tid}: rw_lock rel @{ptr:x} [{atomic_timestamp}]\n")
                 case EntryType.FENCE:
                     print(f"{nentries}) {tid}: fence [{atomic_timestamp}]\n")
                 case EntryType.CXA_GUARD_ACQUIRE:
