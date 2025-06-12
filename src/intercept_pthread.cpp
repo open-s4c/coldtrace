@@ -148,7 +148,7 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_RWLOCK_UNLOCK, {
     struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th                 = coldthread_get(md);
 
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_REL_EXC,
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_REL,
                             (uint64_t)ev->rwlock, get_next_atomic_idx()));
 })
 
@@ -157,7 +157,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_RDLOCK, {
     cold_thread *th                 = coldthread_get(md);
 
     if (ev->ret == 0) {
-        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
+        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_SHR,
                                 (uint64_t)ev->rwlock, get_next_atomic_idx()));
     }
 })
@@ -167,7 +167,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TRYRDLOCK, {
     cold_thread *th                 = coldthread_get(md);
 
     if (ev->ret == 0) {
-        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
+        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_SHR,
                                 (uint64_t)ev->rwlock, get_next_atomic_idx()));
     }
 })
@@ -177,7 +177,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDRDLOCK, {
     cold_thread *th                 = coldthread_get(md);
 
     if (ev->ret == 0) {
-        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
+        ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_SHR,
                                 (uint64_t)ev->rwlock, get_next_atomic_idx()));
     }
 })

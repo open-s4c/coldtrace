@@ -105,6 +105,9 @@ _ps_publish_before(chain_t chain, void *event, metadata_t *md)
         case EVENT_MUTEX_UNLOCK:
             PS_CALL(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK);
             break;
+        case EVENT_RWLOCK_UNLOCK:
+            PS_CALL(CAPTURE_BEFORE, EVENT_RWLOCK_UNLOCK);
+            break;
         case EVENT_REALLOC:
             PS_CALL(CAPTURE_BEFORE, EVENT_REALLOC);
             break;
@@ -190,6 +193,24 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
             break;
         case EVENT_MUTEX_TRYLOCK:
             PS_CALL(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK);
+            break;
+        case EVENT_RWLOCK_RDLOCK:
+            PS_CALL(CAPTURE_AFTER, EVENT_RWLOCK_RDLOCK);
+            break;
+        case EVENT_RWLOCK_TRYRDLOCK:
+            PS_CALL(CAPTURE_AFTER, EVENT_RWLOCK_TRYRDLOCK);
+            break;
+        case EVENT_RWLOCK_TIMEDRDLOCK:
+            PS_CALL(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDRDLOCK);
+            break;
+        case EVENT_RWLOCK_WRLOCK:
+            PS_CALL(CAPTURE_AFTER, EVENT_RWLOCK_WRLOCK);
+            break;
+        case EVENT_RWLOCK_TRYWRLOCK:
+            PS_CALL(CAPTURE_AFTER, EVENT_RWLOCK_TRYWRLOCK);
+            break;
+        case EVENT_RWLOCK_TIMEDWRLOCK:
+            PS_CALL(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDWRLOCK);
             break;
         case EVENT_POSIX_MEMALIGN:
             PS_CALL(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN);
