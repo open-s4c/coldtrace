@@ -1,18 +1,3 @@
-set(MODS
-    mod-self.o
-    mod-pthread_create.o
-    mod-pthread_mutex.o
-    mod-pthread_rwlock.o
-    mod-pthread_cond.o
-    mod-malloc.o
-    mod-sem.o
-    mod-cxa.o
-    mod-tsan.o
-    mod-stacktrace.o)
-
-add_library(coldtrace.o OBJECT coldtrace.c)
-add_library(procmaps.o OBJECT procmaps.c)
-
 # Initialization order:
 #
 # * 200: coldtrace.o
@@ -24,6 +9,29 @@ add_library(procmaps.o OBJECT procmaps.c)
 # path pattern before events in CAPTURE_* chains start arriving from self.o.
 set(PRIO_coldtrace 200)
 set(PRIO_procmaps 202)
+
+# set(PRIO_pthread_mutex 204) set(PRIO_pthread_rwlock 205) set(PRIO_pthread_cond
+# 206) set(PRIO_malloc 207) set(PRIO_sem 208) set(PRIO_cxa 209) set(PRIO_tsan
+# 210) set(PRIO_stacktrace 211) set(PRIO_pthread_create 212)
+
+set(SRCS coldtrace.c procmaps.c writer.c single.cpp)
+foreach(SRC ${SRCS})
+  get_filename_component(TARGET ${SRC} NAME_WLE)
+  add_library(${TARGET}.o OBJECT ${SRC})
+  target_link_libraries(${TARGET}.o PUBLIC vsync dice.h)
+endforeach()
+
+set(MODS
+    mod-self.o
+    mod-pthread_create.o
+    mod-pthread_mutex.o
+    mod-pthread_rwlock.o
+    mod-pthread_cond.o
+    mod-malloc.o
+    mod-sem.o
+    mod-cxa.o
+    mod-tsan.o
+    mod-stacktrace.o)
 
 set(MODS ${MODS} dice.o coldtrace.o procmaps.o)
 foreach(TARGET ${MODS})
@@ -41,13 +49,12 @@ endforeach()
 add_library(coldtrace SHARED single.cpp writer.c)
 set_property(TARGET coldtrace PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 target_link_libraries(coldtrace PUBLIC vsync dice.h)
-target_compile_options(coldtrace PRIVATE -DDICE_XTOR_PRIO=203)
+# target_compile_options(coldtrace PRIVATE -DDICE_XTOR_PRIO=203)
 target_link_libraries(coldtrace PUBLIC ${MODS})
 
-add_library(
-  coldtrace2 SHARED writer.c intercept_pthread.cpp intercept_malloc.cpp
-                    intercept_sem.cpp intercept_cxa.cpp intercept_tsan.cpp)
-set_property(TARGET coldtrace2 PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
-target_link_libraries(coldtrace2 PUBLIC vsync dice.h)
-target_compile_options(coldtrace2 PRIVATE -DDICE_XTOR_PRIO=203)
-target_link_libraries(coldtrace2 PUBLIC ${MODS} dice-fastch.o)
+# add_library( coldtrace2 SHARED writer.c intercept_pthread.cpp
+# intercept_malloc.cpp intercept_sem.cpp intercept_cxa.cpp intercept_tsan.cpp)
+# set_property(TARGET coldtrace2 PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
+# target_link_libraries(coldtrace2 PUBLIC vsync dice.h)
+# target_compile_options(coldtrace2 PRIVATE -DDICE_XTOR_PRIO=203)
+# target_link_libraries(coldtrace2 PUBLIC ${MODS} dice-fastch.o)

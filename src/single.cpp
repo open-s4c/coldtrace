@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: MIT
  */
 extern "C" {
+#include <dice/chains/capture.h>
+#include <dice/chains/intercept.h>
 #include <dice/module.h>
 #include <dice/pubsub.h>
 #include <dice/thread_id.h>
@@ -45,7 +47,7 @@ DICE_MODULE_INIT()
     } while (0)
 
 extern "C" {
-enum ps_cb_err ps_callback_4_1_202_(const chain_id chain, const type_id type,
+enum ps_cb_err ps_callback_4_2_202_(const chain_id chain, const type_id type,
                                     void *event, metadata_t *md);
 }
 
@@ -66,11 +68,11 @@ _ps_publish_event(chain_t chain, void *event, metadata_t *md)
             PS_CALL(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT);
             break;
         case EVENT_THREAD_FINI:
+            (void)ps_callback_4_2_202_(CAPTURE_EVENT, EVENT_THREAD_INIT, event,
+                                       md);
             PS_CALL(CAPTURE_EVENT, EVENT_THREAD_FINI);
             break;
         case EVENT_THREAD_INIT:
-            (void)ps_callback_4_1_202_(CAPTURE_EVENT, EVENT_THREAD_INIT, event,
-                                       md);
             PS_CALL(CAPTURE_EVENT, EVENT_THREAD_INIT);
             break;
     }
@@ -101,6 +103,9 @@ _ps_publish_before(chain_t chain, void *event, metadata_t *md)
             break;
         case EVENT_MA_RMW:
             PS_CALL(CAPTURE_BEFORE, EVENT_MA_RMW);
+            break;
+        case EVENT_MA_XCHG:
+            PS_CALL(CAPTURE_BEFORE, EVENT_MA_XCHG);
             break;
         case EVENT_MUTEX_UNLOCK:
             PS_CALL(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK);
@@ -138,7 +143,6 @@ _ps_publish_before(chain_t chain, void *event, metadata_t *md)
         case EVENT_COND_BROADCAST:
         case EVENT_COND_SIGNAL:
         case EVENT_MA_FENCE:
-        case EVENT_MA_XCHG:
         case EVENT_MA_CMPXCHG_WEAK:
             break;
     }
@@ -186,9 +190,9 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
         case EVENT_MA_RMW:
             PS_CALL(CAPTURE_AFTER, EVENT_MA_RMW);
             break;
-            //        case EVENT_MA_XCHG:
-            //            PS_CALL(CAPTURE_AFTER, EVENT_MA_XCHG);
-            //            break;
+        case EVENT_MA_XCHG:
+            PS_CALL(CAPTURE_AFTER, EVENT_MA_XCHG);
+            break;
         case EVENT_MUTEX_TIMEDLOCK:
             PS_CALL(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK);
             break;
@@ -245,7 +249,6 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
         case EVENT_COND_BROADCAST:
         case EVENT_COND_SIGNAL:
         case EVENT_MA_FENCE:
-        case EVENT_MA_XCHG:
         case EVENT_MA_CMPXCHG_WEAK:
             break;
     }
@@ -253,6 +256,16 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
 }
 
 extern "C" {
+enum ps_cb_err ps_callback_0_99_197_(const chain_id chain, const type_id type,
+                                     void *event, metadata_t *md);
+enum ps_cb_err ps_callback_0_99_198_(const chain_id chain, const type_id type,
+                                     void *event, metadata_t *md);
+enum ps_cb_err ps_callback_0_99_199_(const chain_id chain, const type_id type,
+                                     void *event, metadata_t *md);
+enum ps_cb_err ps_callback_0_99_200_(const chain_id chain, const type_id type,
+                                     void *event, metadata_t *md);
+enum ps_cb_err ps_callback_0_99_201_(const chain_id chain, const type_id type,
+                                     void *event, metadata_t *md);
 enum ps_cb_err ps_callback_1_0_201_(const chain_id chain, const type_id type,
                                     void *event, metadata_t *md);
 enum ps_cb_err ps_callback_1_1_201_(const chain_id chain, const type_id type,
@@ -270,6 +283,23 @@ ps_dispatch_(chain_id chain, type_id type, void *event, metadata_t *md)
     chain_t ch         = {.hook = chain, .type = type};
     enum ps_cb_err err = PS_CB_STOP;
     switch (chain) {
+        case CHAIN_CONTROL:
+            err = ps_callback_0_99_197_(chain, type, event, md);
+            if (err != PS_CB_OK)
+                return (struct ps_dispatched){.err = err, .count = 1};
+            err = ps_callback_0_99_198_(chain, type, event, md);
+            if (err != PS_CB_OK)
+                return (struct ps_dispatched){.err = err, .count = 1};
+            err = ps_callback_0_99_199_(chain, type, event, md);
+            if (err != PS_CB_OK)
+                return (struct ps_dispatched){.err = err, .count = 1};
+            err = ps_callback_0_99_200_(chain, type, event, md);
+            if (err != PS_CB_OK)
+                return (struct ps_dispatched){.err = err, .count = 1};
+            err = ps_callback_0_99_201_(chain, type, event, md);
+            if (err != PS_CB_OK)
+                return (struct ps_dispatched){.err = err, .count = 1};
+            return (struct ps_dispatched){.err = PS_CB_OK, .count = 5};
         case INTERCEPT_EVENT:
             switch (type) {
                 case EVENT_THREAD_INIT:

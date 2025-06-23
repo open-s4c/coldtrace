@@ -6,8 +6,8 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <dice/intercept/memaccess.h>
-#include <dice/intercept/stacktrace.h>
+#include <dice/events/memaccess.h>
+#include <dice/events/stacktrace.h>
 #include <dice/interpose.h>
 #include <dice/module.h>
 #include <dice/pubsub.h>
@@ -37,8 +37,8 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
 })
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ, {
-    const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(md);
+    struct ma_read_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th          = coldthread_get(md);
 
     uint8_t type = COLDTRACE_READ;
     if (ev->size == sizeof(uint64_t) && *(uint64_t *)ev->addr == 0) {
@@ -51,8 +51,8 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ, {
 })
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_WRITE, {
-    const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(md);
+    struct ma_write_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th           = coldthread_get(md);
 
     ensure(coldtrace_access(&th->ct, COLDTRACE_WRITE, (uint64_t)ev->addr,
                             (uint64_t)ev->size, (uint64_t)ev->pc,
@@ -121,45 +121,57 @@ area_t _areas[AREAS];
 
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_AREAD, {
-    const memaccess_t *ev = EVENT_PAYLOAD(ev);
+    struct ma_aread_event *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_AREAD, {
-    const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(md);
+    struct ma_aread_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th           = coldthread_get(md);
     REL_LOG_R(ev->addr, ev->size);
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_AWRITE, {
-    const memaccess_t *ev = EVENT_PAYLOAD(ev);
+    struct ma_awrite_event *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_AWRITE, {
-    const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(md);
+    struct ma_awrite_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th            = coldthread_get(md);
     REL_LOG_W(ev->addr, ev->size);
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_RMW, {
-    const memaccess_t *ev = EVENT_PAYLOAD(ev);
+    struct ma_rmw_event *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_RMW, {
-    const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(md);
+    struct ma_rmw_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th         = coldthread_get(md);
     REL_LOG_RW(ev->addr, ev->size);
 })
 
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_XCHG, {
+    struct ma_xchg_event *ev = EVENT_PAYLOAD(ev);
+    FETCH_STACK_ACQ(ev->addr, ev->size);
+})
+
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_XCHG, {
+    struct ma_xchg_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th          = coldthread_get(md);
+    REL_LOG_RW(ev->addr, ev->size);
+})
+
+
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_CMPXCHG, {
-    const memaccess_t *ev = EVENT_PAYLOAD(ev);
+    struct ma_cmpxchg_event *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
-    const memaccess_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th       = coldthread_get(md);
-    REL_LOG_RW_COND(ev->addr, ev->size, !ev->failed);
+    struct ma_cmpxchg_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th             = coldthread_get(md);
+    REL_LOG_RW_COND(ev->addr, ev->size, ev->ok);
 })

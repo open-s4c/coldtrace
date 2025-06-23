@@ -6,7 +6,7 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <dice/intercept/malloc.h>
+#include <dice/events/malloc.h>
 #include <dice/interpose.h>
 #include <dice/module.h>
 #include <dice/pubsub.h>
@@ -23,29 +23,29 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MALLOC, {
     uint32_t &stack_bottom     = th->stack_bottom;
     uint64_t alloc_index       = get_next_alloc_idx();
 
-    ensure(coldtrace_alloc(&th->ct, (uint64_t)ev->ptr, (uint64_t)ev->size,
+    ensure(coldtrace_alloc(&th->ct, (uint64_t)ev->ret, (uint64_t)ev->size,
                            alloc_index, (uint64_t)ev->pc, stack_bottom,
                            stack.size(), (uint64_t *)&stack[0]));
     stack_bottom = stack.size();
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_CALLOC, {
-    struct malloc_event *ev = EVENT_PAYLOAD(ev);
+    struct calloc_event *ev = EVENT_PAYLOAD(ev);
     cold_thread *th         = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
     uint64_t alloc_index       = get_next_alloc_idx();
 
-    ensure(coldtrace_alloc(&th->ct, (uint64_t)ev->ptr, (uint64_t)ev->size,
+    ensure(coldtrace_alloc(&th->ct, (uint64_t)ev->ret, (uint64_t)ev->size,
                            alloc_index, (uint64_t)ev->pc, stack_bottom,
                            stack.size(), (uint64_t *)&stack[0]));
     stack_bottom = stack.size();
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_REALLOC, {
-    struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(md);
+    struct realloc_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th          = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -58,21 +58,21 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_REALLOC, {
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_REALLOC, {
-    struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(md);
+    struct realloc_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th          = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
     uint64_t alloc_index       = get_next_alloc_idx();
 
-    ensure(coldtrace_alloc(&th->ct, (uint64_t)ev->ptr, (uint64_t)ev->size,
+    ensure(coldtrace_alloc(&th->ct, (uint64_t)ev->ret, (uint64_t)ev->size,
                            alloc_index, (uint64_t)ev->pc, stack_bottom,
                            stack.size(), (uint64_t *)&stack[0]));
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_FREE, {
-    struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(md);
+    struct free_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th       = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -85,8 +85,8 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_FREE, {
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
-    struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(md);
+    struct posix_memalign_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                 = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
@@ -99,14 +99,14 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_ALIGNED_ALLOC, {
-    struct malloc_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(md);
+    struct aligned_alloc_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                = coldthread_get(md);
 
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bottom     = th->stack_bottom;
     uint64_t alloc_index       = get_next_alloc_idx();
 
-    ensure(coldtrace_alloc(&th->ct, (uint64_t)ev->ptr, (uint64_t)ev->size,
+    ensure(coldtrace_alloc(&th->ct, (uint64_t)ev->ret, (uint64_t)ev->size,
                            alloc_index, (uint64_t)ev->pc, stack_bottom,
                            stack.size(), (uint64_t *)&stack[0]));
     stack_bottom = stack.size();

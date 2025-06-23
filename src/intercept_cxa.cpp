@@ -6,7 +6,7 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <dice/intercept/cxa.h>
+#include <dice/events/cxa.h>
 #include <dice/interpose.h>
 #include <dice/module.h>
 #include <dice/pubsub.h>
