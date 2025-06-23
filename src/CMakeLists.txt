@@ -1,18 +1,3 @@
-set(MODS
-    mod-self.o
-    mod-pthread_create.o
-    mod-pthread_mutex.o
-    mod-pthread_rwlock.o
-    mod-pthread_cond.o
-    mod-malloc.o
-    mod-sem.o
-    mod-cxa.o
-    mod-tsan.o
-    mod-stacktrace.o)
-
-add_library(coldtrace.o OBJECT coldtrace.c)
-add_library(procmaps.o OBJECT procmaps.c)
-
 # Initialization order:
 #
 # * 200: coldtrace.o
@@ -24,6 +9,25 @@ add_library(procmaps.o OBJECT procmaps.c)
 # path pattern before events in CAPTURE_* chains start arriving from self.o.
 set(PRIO_coldtrace 200)
 set(PRIO_procmaps 202)
+
+set(SRCS coldtrace.c procmaps.c writer.c single.cpp)
+foreach(SRC ${SRCS})
+  get_filename_component(TARGET ${SRC} NAME_WLE)
+  add_library(${TARGET}.o OBJECT ${SRC})
+  target_link_libraries(${TARGET}.o PUBLIC vsync dice.h)
+endforeach()
+
+set(MODS
+    mod-self.o
+    mod-pthread_create.o
+    mod-pthread_mutex.o
+    mod-pthread_rwlock.o
+    mod-pthread_cond.o
+    mod-malloc.o
+    mod-sem.o
+    mod-cxa.o
+    mod-tsan.o
+    mod-stacktrace.o)
 
 set(MODS ${MODS} dice.o coldtrace.o procmaps.o)
 foreach(TARGET ${MODS})
