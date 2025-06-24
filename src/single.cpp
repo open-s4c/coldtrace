@@ -3,6 +3,8 @@
  * SPDX-License-Identifier: MIT
  */
 extern "C" {
+#include <dice/chains/capture.h>
+#include <dice/chains/intercept.h>
 #include <dice/module.h>
 #include <dice/pubsub.h>
 #include <dice/thread_id.h>

@@ -6,7 +6,7 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <dice/intercept/pthread.h>
+#include <dice/events/pthread.h>
 #include <dice/interpose.h>
 #include <dice/module.h>
 #include <dice/pubsub.h>
@@ -78,16 +78,16 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_THREAD_JOIN, {
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK, {
-    struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get(md);
+    struct pthread_mutex_unlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                       = coldthread_get(md);
 
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
-    struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get(md);
+    struct pthread_mutex_lock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                     = coldthread_get(md);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
@@ -96,8 +96,8 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK, {
-    struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get(md);
+    struct pthread_mutex_trylock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                        = coldthread_get(md);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
@@ -106,8 +106,8 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK, {
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK, {
-    struct pthread_mutex_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                = coldthread_get(md);
+    struct pthread_mutex_timedlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                          = coldthread_get(md);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
@@ -116,98 +116,98 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK, {
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_COND_WAIT, {
-    struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th               = coldthread_get(md);
+    struct pthread_cond_wait_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                    = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_COND_WAIT, {
-    struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th               = coldthread_get(md);
+    struct pthread_cond_wait_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                    = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_COND_TIMEDWAIT, {
-    struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th               = coldthread_get(md);
+    struct pthread_cond_timedwait_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                         = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_COND_TIMEDWAIT, {
-    struct pthread_cond_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th               = coldthread_get(md);
+    struct pthread_cond_timedwait_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                         = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_ACQUIRE,
                             (uint64_t)ev->mutex, get_next_atomic_idx()));
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_RWLOCK_UNLOCK, {
-    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                 = coldthread_get(md);
+    struct pthread_rwlock_unlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                        = coldthread_get(md);
 
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_REL,
-                            (uint64_t)ev->rwlock, get_next_atomic_idx()));
+    ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_REL, (uint64_t)ev->lock,
+                            get_next_atomic_idx()));
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_RDLOCK, {
-    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                 = coldthread_get(md);
+    struct pthread_rwlock_rdlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                        = coldthread_get(md);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_SHR,
-                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+                                (uint64_t)ev->lock, get_next_atomic_idx()));
     }
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TRYRDLOCK, {
-    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                 = coldthread_get(md);
+    struct pthread_rwlock_tryrdlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                           = coldthread_get(md);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_SHR,
-                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+                                (uint64_t)ev->lock, get_next_atomic_idx()));
     }
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDRDLOCK, {
-    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                 = coldthread_get(md);
+    struct pthread_rwlock_timedrdlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                             = coldthread_get(md);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_SHR,
-                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+                                (uint64_t)ev->lock, get_next_atomic_idx()));
     }
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_WRLOCK, {
-    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                 = coldthread_get(md);
+    struct pthread_rwlock_wrlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                        = coldthread_get(md);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
-                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+                                (uint64_t)ev->lock, get_next_atomic_idx()));
     }
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TRYWRLOCK, {
-    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                 = coldthread_get(md);
+    struct pthread_rwlock_trywrlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                           = coldthread_get(md);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
-                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+                                (uint64_t)ev->lock, get_next_atomic_idx()));
     }
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDWRLOCK, {
-    struct pthread_rwlock_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th                 = coldthread_get(md);
+    struct pthread_rwlock_timedwrlock_event *ev = EVENT_PAYLOAD(ev);
+    cold_thread *th                             = coldthread_get(md);
 
     if (ev->ret == 0) {
         ensure(coldtrace_atomic(&th->ct, COLDTRACE_RW_LOCK_ACQ_EXC,
-                                (uint64_t)ev->rwlock, get_next_atomic_idx()));
+                                (uint64_t)ev->lock, get_next_atomic_idx()));
     }
 })

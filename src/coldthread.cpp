@@ -6,13 +6,12 @@
 #include "coldtrace.hpp"
 
 extern "C" {
-#include <dice/intercept/pthread.h>
+#include <dice/events/pthread.h>
 #include <dice/module.h>
 #include <dice/pubsub.h>
 #include <dice/self.h>
 #include <dice/thread_id.h>
 #include <stdint.h>
-#include <stdlib.h>
 #include <vsync/atomic.h>
 }
 
@@ -28,4 +27,3 @@ coldthread_get(metadata_t *md)
     }
     return ct;
 }
-
