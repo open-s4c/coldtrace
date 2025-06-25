@@ -96,7 +96,6 @@ _ensure_dir_exists(const char *path)
 // This initializer has to run before other hooks in coldtrace so that the path
 // is properly initialized. Therefore, we set DICE_XTOR_PRIO to lower than the
 // rest of the modules.
-static bool _initd = false;
 static const char *_path;
 
 DICE_HIDE const char *
@@ -106,10 +105,6 @@ coldtrace_path(void)
 }
 
 DICE_MODULE_INIT({
-    if (_initd) {
-        return;
-    }
-
     _path = getenv("COLDTRACE_PATH");
     if (_path == NULL) {
         log_printf("Set COLDTRACE_PATH to a valid directory\n");
@@ -123,5 +118,4 @@ DICE_MODULE_INIT({
         abort();
 
     coldtrace_config(_path);
-    _initd = true;
 })

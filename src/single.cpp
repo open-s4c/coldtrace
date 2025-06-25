@@ -255,6 +255,14 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
 }
 
 extern "C" {
+enum ps_cb_err ps_callback_0_99_197_(const chain_id chain, const type_id type,
+                                     void *event, metadata_t *md);
+enum ps_cb_err ps_callback_0_99_198_(const chain_id chain, const type_id type,
+                                     void *event, metadata_t *md);
+enum ps_cb_err ps_callback_0_99_199_(const chain_id chain, const type_id type,
+                                     void *event, metadata_t *md);
+enum ps_cb_err ps_callback_0_99_200_(const chain_id chain, const type_id type,
+                                     void *event, metadata_t *md);
 enum ps_cb_err ps_callback_1_0_201_(const chain_id chain, const type_id type,
                                     void *event, metadata_t *md);
 enum ps_cb_err ps_callback_1_1_201_(const chain_id chain, const type_id type,
@@ -272,6 +280,20 @@ ps_dispatch_(chain_id chain, type_id type, void *event, metadata_t *md)
     chain_t ch         = {.hook = chain, .type = type};
     enum ps_cb_err err = PS_CB_STOP;
     switch (chain) {
+        case CHAIN_CONTROL:
+            err = ps_callback_0_99_197_(chain, type, event, md);
+            if (err != PS_CB_OK)
+                return (struct ps_dispatched){.err = err, .count = 1};
+            err = ps_callback_0_99_198_(chain, type, event, md);
+            if (err != PS_CB_OK)
+                return (struct ps_dispatched){.err = err, .count = 1};
+            err = ps_callback_0_99_199_(chain, type, event, md);
+            if (err != PS_CB_OK)
+                return (struct ps_dispatched){.err = err, .count = 1};
+            err = ps_callback_0_99_200_(chain, type, event, md);
+            if (err != PS_CB_OK)
+                return (struct ps_dispatched){.err = err, .count = 1};
+            return (struct ps_dispatched){.err = PS_CB_OK, .count = 4};
         case INTERCEPT_EVENT:
             switch (type) {
                 case EVENT_THREAD_INIT:
