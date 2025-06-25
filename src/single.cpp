@@ -104,6 +104,9 @@ _ps_publish_before(chain_t chain, void *event, metadata_t *md)
         case EVENT_MA_RMW:
             PS_CALL(CAPTURE_BEFORE, EVENT_MA_RMW);
             break;
+        case EVENT_MA_XCHG:
+            PS_CALL(CAPTURE_BEFORE, EVENT_MA_XCHG);
+            break;
         case EVENT_MUTEX_UNLOCK:
             PS_CALL(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK);
             break;
@@ -140,7 +143,6 @@ _ps_publish_before(chain_t chain, void *event, metadata_t *md)
         case EVENT_COND_BROADCAST:
         case EVENT_COND_SIGNAL:
         case EVENT_MA_FENCE:
-        case EVENT_MA_XCHG:
         case EVENT_MA_CMPXCHG_WEAK:
             break;
     }
@@ -188,9 +190,9 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
         case EVENT_MA_RMW:
             PS_CALL(CAPTURE_AFTER, EVENT_MA_RMW);
             break;
-            //        case EVENT_MA_XCHG:
-            //            PS_CALL(CAPTURE_AFTER, EVENT_MA_XCHG);
-            //            break;
+        case EVENT_MA_XCHG:
+            PS_CALL(CAPTURE_AFTER, EVENT_MA_XCHG);
+            break;
         case EVENT_MUTEX_TIMEDLOCK:
             PS_CALL(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK);
             break;
@@ -247,7 +249,6 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
         case EVENT_COND_BROADCAST:
         case EVENT_COND_SIGNAL:
         case EVENT_MA_FENCE:
-        case EVENT_MA_XCHG:
         case EVENT_MA_CMPXCHG_WEAK:
             break;
     }
