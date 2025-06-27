@@ -23,8 +23,8 @@ vatomic64_t next_alloc_index;
 vatomic64_t next_atomic_index;
 
 
-static bool
-_has_ext(const char *fname, const char *ext)
+DICE_HIDE bool
+has_ext_(const char *fname, const char *ext)
 {
     const char *base = strrchr(fname, '.');
     return base && strcmp(base, ext) == 0;
@@ -48,7 +48,7 @@ _ensure_dir_empty(const char *path)
             continue;
 
         // Check for .bin extension
-        if (!_has_ext(entry->d_name, ".bin"))
+        if (!has_ext_(entry->d_name, ".bin"))
             continue;
 
         // Build full path
