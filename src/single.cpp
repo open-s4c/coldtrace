@@ -68,11 +68,11 @@ _ps_publish_event(chain_t chain, void *event, metadata_t *md)
             PS_CALL(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT);
             break;
         case EVENT_THREAD_FINI:
+            (void)ps_callback_4_2_202_(CAPTURE_EVENT, EVENT_THREAD_INIT, event,
+                                       md);
             PS_CALL(CAPTURE_EVENT, EVENT_THREAD_FINI);
             break;
         case EVENT_THREAD_INIT:
-            (void)ps_callback_4_2_202_(CAPTURE_EVENT, EVENT_THREAD_INIT, event,
-                                       md);
             PS_CALL(CAPTURE_EVENT, EVENT_THREAD_INIT);
             break;
     }
