@@ -13,6 +13,7 @@
 #define MAX_PATH_LENGTH 1024
 
 const char *coldtrace_path(void);
+bool has_ext_(const char *fname, const char *ext);
 static int _mkdir(const char *path);
 static int _cp(const char *src, const char *dest);
 
@@ -65,7 +66,9 @@ _copy_mapped_files(const char *path)
         if (strstr(unique, src))
             continue;
 
-        log_printf("src: %s\n", src);
+        // skip files with .bin extension
+        if (!has_ext_(src, ".bin"))
+            continue;
 
         // Create the destination path.
         snprintf(dst, sizeof(dst), "%s%s", path, src);
