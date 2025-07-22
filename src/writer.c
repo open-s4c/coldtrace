@@ -290,6 +290,47 @@ coldtrace_alloc(coldtrace_t *ct, const uint64_t ptr, const uint64_t size,
 }
 
 DICE_HIDE bool
+coldtrace_mman(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
+               const uint64_t size, const uint64_t alloc_index,
+               const uint64_t caller, const uint32_t stack_bottom,
+               const uint32_t stack_top, uint64_t *stack)
+{
+#ifndef COLDTRACE_DISABLE_WRITE
+    struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
+    _get_trace(impl);
+    if (impl->log_file == MAP_FAILED) {
+        return false;
+    }
+
+    assert(stack_top >= stack_bottom);
+    uint64_t space_needed = sizeof(COLDTRACE_ALLOC_ENTRY) +
+                            (stack_top - stack_bottom) * sizeof(uint64_t);
+    if ((impl->next_free_offset + space_needed) > impl->size) {
+        _new_trace(impl);
+        if (impl->log_file == MAP_FAILED) {
+            return false;
+        }
+    }
+
+    COLDTRACE_ALLOC_ENTRY *entry_ptr =
+        (COLDTRACE_ALLOC_ENTRY *)(impl->log_file +
+                                  impl->next_free_offset / sizeof(uint64_t));
+    write_type_ptr(&entry_ptr->ptr, type, ptr);
+    entry_ptr->size         = size;
+    entry_ptr->alloc_index  = alloc_index;
+    entry_ptr->popped_stack = stack_bottom;
+    entry_ptr->stack_depth  = stack_top;
+    entry_ptr->caller       = caller;
+    memcpy(entry_ptr->stack, stack + stack_bottom,
+           (stack_top - stack_bottom) * sizeof(uint64_t));
+    impl->next_free_offset += space_needed;
+#else
+    usleep(COLDTRACE_WRITE_EMU_TIME);
+#endif
+    return true;
+}
+
+DICE_HIDE bool
 coldtrace_free(coldtrace_t *ct, const uint64_t ptr, const uint64_t alloc_index,
                const uint64_t caller, const uint32_t stack_bottom,
                const uint32_t stack_top, uint64_t *stack)

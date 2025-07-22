@@ -28,6 +28,8 @@
 #define COLDTRACE_THREAD_JOIN       19
 #define COLDTRACE_THREAD_EXIT       20
 #define COLDTRACE_FENCE             21
+#define COLDTRACE_MMAP              22
+#define COLDTRACE_MUNMAP            23
 
 #define ZERO_FLAG 0x80
 
@@ -67,6 +69,11 @@ bool coldtrace_free(coldtrace_t *ct, const uint64_t ptr,
                     const uint64_t alloc_index, const uint64_t caller,
                     const uint32_t stack_bottom, const uint32_t stack_top,
                     uint64_t *stack);
+
+bool coldtrace_mman(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
+                    const uint64_t size, const uint64_t alloc_index,
+                    const uint64_t caller, const uint32_t stack_bottom,
+                    const uint32_t stack_top, uint64_t *stack);
 
 /**
  * Size of one log file.
