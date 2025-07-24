@@ -36,6 +36,7 @@ DICE_MODULE_INIT()
 #include "coldthread.cpp"
 #include "intercept_cxa.cpp"
 #include "intercept_malloc.cpp"
+#include "intercept_mman.cpp"
 #include "intercept_pthread.cpp"
 #include "intercept_sem.cpp"
 #include "intercept_tsan.cpp"
@@ -128,6 +129,9 @@ _ps_publish_before(chain_t chain, void *event, metadata_t *md)
         case EVENT_COND_TIMEDWAIT:
             PS_CALL(CAPTURE_BEFORE, EVENT_COND_TIMEDWAIT);
             break;
+        case EVENT_MUNMAP:
+            PS_CALL(CAPTURE_BEFORE, EVENT_MUNMAP);
+            break;
         case EVENT_ALIGNED_ALLOC:
         case EVENT_CALLOC:
         case EVENT_CXA_GUARD_ACQUIRE:
@@ -144,6 +148,7 @@ _ps_publish_before(chain_t chain, void *event, metadata_t *md)
         case EVENT_COND_SIGNAL:
         case EVENT_MA_FENCE:
         case EVENT_MA_CMPXCHG_WEAK:
+        case EVENT_MMAP:
             break;
     }
     return PS_CB_OFF;
@@ -241,6 +246,9 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
         case EVENT_THREAD_JOIN:
             PS_CALL(CAPTURE_AFTER, EVENT_THREAD_JOIN);
             break;
+        case EVENT_MMAP:
+            PS_CALL(CAPTURE_AFTER, EVENT_MMAP);
+            break;
         case EVENT_CXA_GUARD_ABORT:
         case EVENT_CXA_GUARD_RELEASE:
         case EVENT_FREE:
@@ -250,6 +258,7 @@ _ps_publish_after(chain_t chain, void *event, metadata_t *md)
         case EVENT_COND_SIGNAL:
         case EVENT_MA_FENCE:
         case EVENT_MA_CMPXCHG_WEAK:
+        case EVENT_MUNMAP:
             break;
     }
     return PS_CB_OFF;

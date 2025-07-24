@@ -28,6 +28,7 @@ set(MODS
     mod-pthread_rwlock.o
     mod-pthread_cond.o
     mod-malloc.o
+    mod-mman.o
     mod-sem.o
     mod-cxa.o
     mod-tsan.o

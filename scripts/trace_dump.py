@@ -69,7 +69,9 @@ class EntryType(Enum):
     CXA_GUARD_RELEASE = 18
     THREAD_JOIN = 19
     THREAD_EXIT = 20
-    FENCE = 21
+    FENCE   = 21
+    MMAP    = 22
+    MUNMAP  = 23
 
 ZERO_FLAG = 0b10000000
 PTR_MASK = 0x0000_FFFF_FFFF_FFFF
@@ -130,7 +132,7 @@ for f in file_list:
                 caller_2 = stacks[tid][stack_depth - 2] if stack_depth - 2 >= 0 else 0
                 if debug:
                     print(stacks)
-            elif (entry_type.value == 1): # alloc
+            elif (entry_type.value == 1 or entry_type.value == 22 or entry_type.value == 23 ): # alloc
                 raw_ext = file.read(COLD_ALLOC_ENTRY_SZ - COLD_BASE_ENTRY_SZ)
 
                 size, alloc_index, caller_0, popped_stack, stack_depth = struct.unpack('<QQQII', raw_ext)
@@ -221,6 +223,11 @@ for f in file_list:
                     print(f"{nentries}) {tid}: acquire cxa_guard @{ptr:x} [{atomic_timestamp}]\n")
                 case EntryType.CXA_GUARD_RELEASE:
                     print(f"{nentries}) {tid}: release cxa_guard @{ptr:x} [{atomic_timestamp}]\n")
+                case EntryType.MMAP:
+                    print(f"{nentries}) {tid}: mmap-ed region of {size} from {ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x} [{alloc_index}]\n")
+                case EntryType.MUNMAP:
+                    print(f"{nentries}) {tid}: munmap-ed region of {size} from {ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x} [{alloc_index}]\n")
+
 
             nentries += 1
 
