@@ -21,6 +21,3 @@ execute_process(
     -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}
     -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
     -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})
-
-execute_process(COMMAND ${CMAKE_COMMAND} --build
-                        ${CMAKE_CURRENT_BINARY_DIR}/dice-installer)

@@ -12,7 +12,7 @@ extern "C" {
 #include <dice/pubsub.h>
 #include <dice/self.h>
 #include <pthread.h>
-}
+
 DICE_MODULE_INIT()
 
 // pthread_t pthread_self(void);
@@ -211,3 +211,4 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDWRLOCK, {
                                 (uint64_t)ev->lock, get_next_atomic_idx()));
     }
 })
+}

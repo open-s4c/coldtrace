@@ -11,7 +11,6 @@ extern "C" {
 #include <dice/module.h>
 #include <dice/pubsub.h>
 #include <dice/self.h>
-}
 
 DICE_MODULE_INIT()
 
@@ -32,3 +31,4 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_CXA_GUARD_ABORT, {
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_CXA_GUARD_RELEASE,
                             (uint64_t)event, get_next_atomic_idx()));
 })
+}
