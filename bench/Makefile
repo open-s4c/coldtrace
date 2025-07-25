@@ -51,7 +51,7 @@ PRO.tsan=	$(PARSE)
 TARGET+=	tsano
 DEP.tsano=	.rendertri.bld
 DIR.tsano=	rendertri
-RUN.tsano=	hyperfine 'env DICE_PREFIX=$(ROOT)/../build/deps/dice \
+RUN.tsano=	hyperfine 'env TSANO_LIBDIR=$(ROOT)/../build/deps/dice/deps/tsano \
 		$(ROOT)/../deps/dice/deps/tsano/tsano $(RUNCMD)'
 PRO.tsano=	$(PARSE)
 
@@ -68,7 +68,9 @@ TARGET+=	freezer
 DEP.freezer=	.rendertri.bld
 DIR.freezer=	rendertri
 RUN.freezer=	FREEZER_TRACE_PATH=/tmp hyperfine \
-		'env LD_PRELOAD=$(ROOT)/libfreeze.so $(RUNCMD)'
+		'env TSANO_LIBDIR=../../../build/deps/dice/deps/tsano \
+		LD_PRELOAD=$(ROOT)/libfreeze.so \
+		$(ROOT)/../deps/dice/deps/tsano/tsano $(RUNCMD)'
 PRO.freezer=	$(PARSE)
 
 # ------------------------------------------------------------------------------

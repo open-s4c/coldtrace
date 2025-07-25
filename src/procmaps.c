@@ -1,3 +1,5 @@
+#include <dice/chains/capture.h>
+#include <dice/module.h>
 #include <dice/self.h>
 #include <dice/thread_id.h>
 #include <errno.h>
@@ -121,7 +123,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_FINI, {
 
 out:
     caslock_release(&_lock);
-    return PS_CB_OK;
+    return PS_OK;
 })
 
 
