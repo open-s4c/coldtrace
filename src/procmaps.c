@@ -67,7 +67,7 @@ _copy_mapped_files(const char *path)
             continue;
 
         // skip files with .bin extension
-        if (!has_ext_(src, ".bin"))
+        if (has_ext_(src, ".bin"))
             continue;
 
         // Create the destination path.
