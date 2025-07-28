@@ -13,7 +13,6 @@ extern "C" {
 #include <dice/pubsub.h>
 #include <dice/self.h>
 #include <vsync/spinlock/caslock.h>
-}
 
 DICE_MODULE_INIT()
 
@@ -175,3 +174,4 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
     cold_thread *th             = coldthread_get(md);
     REL_LOG_RW_COND(ev->addr, ev->size, ev->ok);
 })
+}

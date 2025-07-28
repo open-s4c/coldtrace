@@ -3,7 +3,7 @@ project(dice-installer)
 include(ExternalProject)
 message(STATUS "Running ${PROJECT_NAME}")
 
-if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/libvsync.patch")
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/dice.patch")
   set(PCMD
       git
       checkout

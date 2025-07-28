@@ -12,3 +12,12 @@ execute_process(
 
 execute_process(COMMAND ${CMAKE_COMMAND} --build
                         ${CMAKE_CURRENT_BINARY_DIR}/libvsync-installer)
+
+execute_process(
+  COMMAND
+    ${CMAKE_COMMAND} #
+    -S${CMAKE_CURRENT_SOURCE_DIR}/dice-installer
+    -B${CMAKE_CURRENT_BINARY_DIR}/dice-installer
+    -DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}
+    -DCMAKE_TOOLCHAIN_FILE=${CMAKE_TOOLCHAIN_FILE}
+    -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE})

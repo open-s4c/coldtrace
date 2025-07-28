@@ -11,7 +11,6 @@ extern "C" {
 #include <dice/module.h>
 #include <dice/pubsub.h>
 #include <dice/self.h>
-}
 
 DICE_MODULE_INIT()
 
@@ -92,7 +91,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
     uint32_t &stack_bottom     = th->stack_bottom;
     uint64_t alloc_index       = get_next_alloc_idx();
 
-    ensure(coldtrace_alloc(&th->ct, (uint64_t) * (void **)ev->ptr,
+    ensure(coldtrace_alloc(&th->ct, (uint64_t)*(void **)ev->ptr,
                            (uint64_t)ev->size, alloc_index, (uint64_t)ev->pc,
                            stack_bottom, stack.size(), (uint64_t *)&stack[0]));
     stack_bottom = stack.size();
@@ -111,3 +110,4 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_ALIGNED_ALLOC, {
                            stack.size(), (uint64_t *)&stack[0]));
     stack_bottom = stack.size();
 })
+}
