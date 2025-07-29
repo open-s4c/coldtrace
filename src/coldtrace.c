@@ -125,4 +125,7 @@ DICE_MODULE_INIT({
         uint32_t val = strtoul(var, NULL, 10);
         coldtrace_set_max(val);
     }
+
+    if (getenv("COLDTRACE_DISABLE_WRITES"))
+        coldtrace_disable_writes();
 })
