@@ -31,9 +31,15 @@ struct coldtrace_impl {
 // global configuration
 
 static uint32_t _max_file_count = -1;
+static bool _disable_writes;
 static char _path[128];
 #define COLDTRACE_FILE_SUFFIX "/freezer_log_%d_%d.bin"
 
+DICE_HIDE void
+coldtrace_disable_writes(void)
+{
+    _disable_writes = true;
+}
 DICE_HIDE void
 coldtrace_set_path(const char *path)
 {
@@ -75,7 +81,8 @@ coldtrace_fini(coldtrace_t *ct)
 static void
 _get_trace(struct coldtrace_impl *impl)
 {
-#ifndef COLDTRACE_DISABLE_WRITE
+    if (_disable_writes)
+        return;
     assert(impl->initd);
     if (impl->log_file) {
         return;
@@ -106,13 +113,13 @@ _get_trace(struct coldtrace_impl *impl)
     if (fd == -1) {
         assert(impl->log_file == MAP_FAILED);
     }
-#endif
 }
 
 static void
 _new_trace(struct coldtrace_impl *impl)
 {
-#ifndef COLDTRACE_DISABLE_WRITE
+    if (_disable_writes)
+        return;
     munmap(impl->log_file, INITIAL_SIZE);
     close(impl->file_descriptor);
     impl->current_file_enumerator =
@@ -133,7 +140,6 @@ _new_trace(struct coldtrace_impl *impl)
     if (fd == -1) {
         assert(impl->log_file == MAP_FAILED);
     }
-#endif
 }
 #define TYPE_MASK 0x00000000000000FFUL
 #define PTR_MASK  0xFFFFFFFFFFFF0000UL
@@ -152,7 +158,9 @@ coldtrace_access(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
                  const uint32_t stack_bottom, const uint32_t stack_top,
                  uint64_t *stack)
 {
-#ifndef COLDTRACE_DISABLE_WRITE
+    if (_disable_writes)
+        return true;
+
     struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
 
     assert(type == COLDTRACE_READ || type == COLDTRACE_WRITE ||
@@ -182,9 +190,6 @@ coldtrace_access(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
     memcpy(entry_ptr->stack, stack + stack_bottom,
            (stack_top - stack_bottom) * sizeof(uint64_t));
     impl->next_free_offset += space_needed;
-#else
-    usleep(COLDTRACE_WRITE_EMU_TIME);
-#endif
     return true;
 }
 
@@ -192,7 +197,9 @@ DICE_HIDE bool
 coldtrace_atomic(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
                  const uint64_t atomic_index)
 {
-#ifndef COLDTRACE_DISABLE_WRITE
+    if (_disable_writes)
+        return true;
+
     struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
 
     // only synchronization should be written as slim log entries
@@ -216,9 +223,6 @@ coldtrace_atomic(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
     write_type_ptr(&entry_ptr->ptr, type, ptr);
     entry_ptr->atomic_index = atomic_index;
     impl->next_free_offset += space_needed;
-#else
-    usleep(COLDTRACE_WRITE_EMU_TIME);
-#endif
     return true;
 }
 
@@ -228,7 +232,8 @@ coldtrace_thread_init(coldtrace_t *ct, const uint64_t ptr,
                       const uint64_t thread_stack_ptr,
                       const uint64_t thread_stack_size)
 {
-#ifndef COLDTRACE_DISABLE_WRITE
+    if (_disable_writes)
+        return true;
     struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
 
     _get_trace(impl);
@@ -252,9 +257,6 @@ coldtrace_thread_init(coldtrace_t *ct, const uint64_t ptr,
     entry_ptr->thread_stack_ptr  = thread_stack_ptr;
     entry_ptr->thread_stack_size = thread_stack_size;
     impl->next_free_offset += space_needed;
-#else
-    usleep(COLDTRACE_WRITE_EMU_TIME);
-#endif
     return true;
 }
 
@@ -264,7 +266,8 @@ coldtrace_alloc(coldtrace_t *ct, const uint64_t ptr, const uint64_t size,
                 const uint32_t stack_bottom, const uint32_t stack_top,
                 uint64_t *stack)
 {
-#ifndef COLDTRACE_DISABLE_WRITE
+    if (_disable_writes)
+        return true;
     struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
     _get_trace(impl);
     if (impl->log_file == MAP_FAILED) {
@@ -293,9 +296,6 @@ coldtrace_alloc(coldtrace_t *ct, const uint64_t ptr, const uint64_t size,
     memcpy(entry_ptr->stack, stack + stack_bottom,
            (stack_top - stack_bottom) * sizeof(uint64_t));
     impl->next_free_offset += space_needed;
-#else
-    usleep(COLDTRACE_WRITE_EMU_TIME);
-#endif
     return true;
 }
 
@@ -305,7 +305,9 @@ coldtrace_mman(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
                const uint64_t caller, const uint32_t stack_bottom,
                const uint32_t stack_top, uint64_t *stack)
 {
-#ifndef COLDTRACE_DISABLE_WRITE
+    if (_disable_writes)
+        return true;
+
     struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
     _get_trace(impl);
     if (impl->log_file == MAP_FAILED) {
@@ -334,9 +336,6 @@ coldtrace_mman(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
     memcpy(entry_ptr->stack, stack + stack_bottom,
            (stack_top - stack_bottom) * sizeof(uint64_t));
     impl->next_free_offset += space_needed;
-#else
-    usleep(COLDTRACE_WRITE_EMU_TIME);
-#endif
     return true;
 }
 
@@ -345,7 +344,8 @@ coldtrace_free(coldtrace_t *ct, const uint64_t ptr, const uint64_t alloc_index,
                const uint64_t caller, const uint32_t stack_bottom,
                const uint32_t stack_top, uint64_t *stack)
 {
-#ifndef COLDTRACE_DISABLE_WRITE
+    if (_disable_writes)
+        return true;
     struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
     _get_trace(impl);
     if (impl->log_file == MAP_FAILED) {
@@ -372,8 +372,5 @@ coldtrace_free(coldtrace_t *ct, const uint64_t ptr, const uint64_t alloc_index,
     memcpy(entry_ptr->stack, stack + stack_bottom,
            (stack_top - stack_bottom) * sizeof(uint64_t));
     impl->next_free_offset += space_needed;
-#else
-    usleep(COLDTRACE_WRITE_EMU_TIME);
-#endif
     return true;
 }

@@ -45,6 +45,7 @@ typedef struct coldtrace {
 
 void coldtrace_set_path(const char *path);
 void coldtrace_set_max(uint32_t max_file_count);
+void coldtrace_disable_writes(void);
 void coldtrace_init(coldtrace_t *ct, uint64_t thread_id);
 void coldtrace_fini(coldtrace_t *ct);
 
