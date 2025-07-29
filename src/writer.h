@@ -43,7 +43,8 @@ typedef struct coldtrace {
     char _[COLDTRACE_DESCRIPTOR_SIZE];
 } coldtrace_t;
 
-void coldtrace_config(const char *path);
+void coldtrace_set_path(const char *path);
+void coldtrace_set_max(uint32_t max_file_count);
 void coldtrace_init(coldtrace_t *ct, uint64_t thread_id);
 void coldtrace_fini(coldtrace_t *ct);
 
