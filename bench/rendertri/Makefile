@@ -4,14 +4,30 @@
 # ------------------------------------------------------------------------------
 # Commands and variables for rendertri
 # ------------------------------------------------------------------------------
-ROOT!=		pwd
+PROJECT!=	readlink -f $(ROOTDIR)/../..
+BUILD_DIR=	$(PROJECT)/build
+TSANO_CMD=	$(PROJECT)/deps/dice/deps/tsano/tsano
+TSANO_LIBDIR=	$(BUILD_DIR)/deps/dice/deps/tsano
+COLDTRACE_CMD=	COLDTRACE_MAX_FILES=3 \
+		COLDTRACE_DISABLE_CLEANUP=true \
+		COLDTRACE_DISABLE_COPY=true \
+		$(PROJECT)/scripts/coldtracer
+
+CXX_FLAGS+=	-I/usr/X11R7/include -L/usr/X11R7/lib
+CXX_FLAGS+=	-fsanitize=thread
+CXX_FLAGS+=	-ltsan
+
+TESTER!=	if which hyperfine; \
+		then echo "hyperfine"; \
+		else echo "sh -c"; fi
+
 RUNCMD= 	./ri1.0 bunny.obj 20
-PARSE=		cat $(ROOT)/$*.run.log \
+PARSE=		cat $(WORKDIR)/$*.run.log \
 		| grep Time | tr -s ' ' \
 		| cut -d' ' -f6,9 \
 		| tr ' ' '\;' \
 		| xargs -n1 echo "$*"';' \
-		| tee -a $(ROOT)/results.csv
+		| tee -a $(WORKDIR)/results.csv
 
 # ------------------------------------------------------------------------------
 # clone level, apply patches, build rendertri
@@ -27,13 +43,13 @@ TARGET+=	patch
 DEP.patch=	.clone.bld
 DIR.patch=	rendertri
 CFG.patch=	git checkout .
-BLD.patch=	git apply $(ROOT)/patches/0001-add-parameter.patch && \
-		git apply $(ROOT)/patches/0002-enable-sanitizer.patch
+BLD.patch=	git apply $(ROOTDIR)/patches/0001-add-parameter.patch && \
+		git apply $(ROOTDIR)/patches/0002-enable-sanitizer.patch
 
 TARGET+=	rendertri
 DEP.rendertri=	.patch.bld
 DIR.rendertri=	rendertri
-BLD.rendertri=	$(MAKE)
+BLD.rendertri=	$(MAKE) CXX_FLAGS='$(CXX_FLAGS)'
 
 # ------------------------------------------------------------------------------
 # Variants
@@ -42,7 +58,7 @@ BLD.rendertri=	$(MAKE)
 TARGET+=	tsan
 DEP.tsan=	.rendertri.bld
 DIR.tsan=	rendertri
-RUN.tsan=	hyperfine 'env TSAN_OPTIONS=report_bugs=0 $(RUNCMD)'
+RUN.tsan=	$(TESTER) 'env TSAN_OPTIONS=report_bugs=0 $(RUNCMD)'
 PRO.tsan=	$(PARSE)
 # Linux: if TSAN fails with "FATAL: ThreadSanitizer: unexpected memory mapping"
 # Try running this
@@ -51,15 +67,14 @@ PRO.tsan=	$(PARSE)
 TARGET+=	tsano
 DEP.tsano=	.rendertri.bld
 DIR.tsano=	rendertri
-RUN.tsano=	hyperfine 'env TSANO_LIBDIR=$(ROOT)/../build/deps/dice/deps/tsano \
-		$(ROOT)/../deps/dice/deps/tsano/tsano $(RUNCMD)'
+RUN.tsano=	$(TESTER) 'env TSANO_LIBDIR=$(TSANO_LIBDIR) \
+			$(TSANO_CMD) $(RUNCMD)'
 PRO.tsano=	$(PARSE)
 
 TARGET+=	coldtrace
 DEP.coldtrace=	.rendertri.bld
 DIR.coldtrace=	rendertri
-RUN.coldtrace=	hyperfine 'env COLDTRACE_PATH=/tmp \
-		$(ROOT)/../scripts/coldtracer $(RUNCMD)'
+RUN.coldtrace=	$(TESTER) 'env COLDTRACE_PATH=traces $(COLDTRACE_CMD) $(RUNCMD)'
 PRO.coldtrace=	$(PARSE)
 
 # file to build internal tool (freezer)
@@ -67,11 +82,10 @@ PRO.coldtrace=	$(PARSE)
 TARGET+=	freezer
 DEP.freezer=	.rendertri.bld
 DIR.freezer=	rendertri
-RUN.freezer=	FREEZER_TRACE_PATH=/tmp hyperfine \
-		'env TSANO_LIBDIR=../../../build/deps/dice/deps/tsano \
-		LD_PRELOAD=$(ROOT)/libfreeze.so \
-		$(ROOT)/../deps/dice/deps/tsano/tsano $(RUNCMD)'
+RUN.freezer=	FREEZER_TRACE_PATH=traces $(TESTER) \
+		'env LD_PRELOAD=$(ROOTDIR)/libfreeze.so $(RUNCMD)'
 PRO.freezer=	$(PARSE)
 
 # ------------------------------------------------------------------------------
-include bench.mk
+BENCHMK= ../bench.mk
+include $(BENCHMK)

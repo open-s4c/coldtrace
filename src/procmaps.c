@@ -1,4 +1,5 @@
 #include <dice/chains/capture.h>
+#include <dice/events/thread.h>
 #include <dice/module.h>
 #include <dice/self.h>
 #include <dice/thread_id.h>
@@ -102,6 +103,12 @@ _copy_mapped_files(const char *path)
 
 static bool _maps_copied = false;
 static caslock_t _lock;
+
+DICE_MODULE_INIT({
+    if (getenv("COLDTRACE_DISABLE_COPY"))
+        _maps_copied = true;
+})
+
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_EXIT, {
     caslock_acquire(&_lock);
     if (_maps_copied)
@@ -109,8 +116,9 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_EXIT, {
 
     // Only copy the proc maps when the main thread finishes
     // Technicallly _lock is not necessary in this case, but I am leaving it
-    // there because I am not sure whether we should wait until the main threads
-    // finishes or another thread instead. In the latter case, we'd need lock.
+    // there because I am not sure whether we should wait until the main
+    // threads finishes or another thread instead. In the latter case, we'd
+    // need lock.
     if (self_id(md) != MAIN_THREAD)
         goto out;
 
@@ -129,7 +137,8 @@ out:
 
 /* -----------------------------------------------------------------------------
  * helper functions
- * -------------------------------------------------------------------------- */
+ * --------------------------------------------------------------------------
+ */
 
 static int
 _mkdir(const char *path)

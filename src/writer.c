@@ -28,11 +28,14 @@ struct coldtrace_impl {
 #endif
 
 
+// global configuration
+
+static uint32_t _max_file_count = -1;
 static char _path[128];
 #define COLDTRACE_FILE_SUFFIX "/freezer_log_%d_%d.bin"
 
 DICE_HIDE void
-coldtrace_config(const char *path)
+coldtrace_set_path(const char *path)
 {
     if (strlen(path) >= (128 - sizeof(COLDTRACE_FILE_SUFFIX))) {
         log_printf("error: path too long\n");
@@ -40,6 +43,12 @@ coldtrace_config(const char *path)
     }
     strcpy(_path, path);
     strcpy(_path + strlen(path), COLDTRACE_FILE_SUFFIX);
+}
+
+DICE_HIDE void
+coldtrace_set_max(uint32_t max_file_count)
+{
+    _max_file_count = max_file_count;
 }
 
 DICE_HIDE void
@@ -106,10 +115,11 @@ _new_trace(struct coldtrace_impl *impl)
 #ifndef COLDTRACE_DISABLE_WRITE
     munmap(impl->log_file, INITIAL_SIZE);
     close(impl->file_descriptor);
-    impl->current_file_enumerator += 1;
+    impl->current_file_enumerator =
+        (impl->current_file_enumerator + 1) % _max_file_count;
     char file_name[sizeof(_path) + 20];
     sprintf(file_name, _path, impl->thread_id, impl->current_file_enumerator);
-    int fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, 0666);
+    int fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (ftruncate(fd, INITIAL_SIZE) == -1) {
         perror("ftruncate new_trace");
         exit(EXIT_FAILURE);

@@ -13,7 +13,7 @@ index 0223115..5476798 100644
  DEBG=-lX11 -g
  
 -F=$(FAST)
-+F=$(FAST) -fsanitize=thread -ltsan
++F=$(FAST) $(CXX_FLAGS)
 +CPP=g++
  
  all: ri1.0
