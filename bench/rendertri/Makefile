@@ -8,7 +8,8 @@ PROJECT!=	readlink -f $(ROOTDIR)/../..
 BUILD_DIR=	$(PROJECT)/build
 TSANO_CMD=	$(PROJECT)/deps/dice/deps/tsano/tsano
 TSANO_LIBDIR=	$(BUILD_DIR)/deps/dice/deps/tsano
-COLDTRACE_CMD=	COLDTRACE_MAX_FILES=3 \
+COLDTRACE_CMD=	COLDTRACE_PATH=traces \
+		COLDTRACE_MAX_FILES=3 \
 		COLDTRACE_DISABLE_CLEANUP=true \
 		COLDTRACE_DISABLE_COPY=true \
 		$(PROJECT)/scripts/coldtracer
@@ -74,8 +75,15 @@ PRO.tsano=	$(PARSE)
 TARGET+=	coldtrace
 DEP.coldtrace=	.rendertri.bld
 DIR.coldtrace=	rendertri
-RUN.coldtrace=	$(TESTER) 'env COLDTRACE_PATH=traces $(COLDTRACE_CMD) $(RUNCMD)'
+RUN.coldtrace=	$(TESTER) 'env $(COLDTRACE_CMD) $(RUNCMD)'
 PRO.coldtrace=	$(PARSE)
+
+TARGET+=	nowrites
+DEP.nowrites=	.rendertri.bld
+DIR.nowrites=	rendertri
+RUN.nowrites=	$(TESTER) 'env COLDTRACE_DISABLE_WRITES=true \
+			$(COLDTRACE_CMD) $(RUNCMD)'
+PRO.nowrites=	$(PARSE)
 
 # file to build internal tool (freezer)
 # assumes libfreeze.so to be in the current directory
