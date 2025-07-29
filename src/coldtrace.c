@@ -94,7 +94,7 @@ _ensure_dir_exists(const char *path)
 }
 
 // This initializer has to run before other hooks in coldtrace so that the path
-// is properly initialized. Therefore, we set DICE_XTOR_PRIO to lower than the
+// is properly initialized. Therefore, we set DICE_MODULE_PRIO to lower than the
 // rest of the modules.
 static const char *_path;
 
@@ -114,8 +114,15 @@ DICE_MODULE_INIT({
     if (_ensure_dir_exists(_path) != 0)
         abort();
 
-    if (_ensure_dir_empty(_path) != 0)
-        abort();
+    if (getenv("COLDTRACE_DISABLE_CLEANUP") == NULL)
+        if (_ensure_dir_empty(_path) != 0)
+            abort();
 
-    coldtrace_config(_path);
+    coldtrace_set_path(_path);
+
+    char *var = getenv("COLDTRACE_MAX_FILES");
+    if (var) {
+        uint32_t val = strtoul(var, NULL, 10);
+        coldtrace_set_max(val);
+    }
 })
