@@ -4,34 +4,10 @@
 # ------------------------------------------------------------------------------
 # Commands and variables for all LevelDB benchmark variants
 # ------------------------------------------------------------------------------
-PROJECT!=	readlink -f $(ROOTDIR)/../..
-
-BUILD_DIR=	$(PROJECT)/build
-TSANO_CMD=	$(PROJECT)/deps/dice/deps/tsano/tsano
-TSANO_LIBDIR=	$(BUILD_DIR)/deps/dice/deps/tsano
-COLDTRACE_CMD=	COLDTRACE_PATH=traces \
-		COLDTRACE_MAX_FILES=3 \
-		COLDTRACE_DISABLE_CLEANUP=true \
-		COLDTRACE_DISABLE_COPY=true \
-		$(PROJECT)/scripts/coldtracer
-
-TESTER!=	if which hyperfine; \
-		then echo "hyperfine"; \
-		else echo "sh -c"; fi
-
 DBDIR=		/tmp/bench.db
 COMMAND=	./db_bench --db=$(DBDIR)
-OS!=		uname
-SOEXT!=		if [ "$(OS)" = "Darwin" ]; \
-		then echo .dylib; \
-		else echo .so; \
-		fi
-CONFIGURE=	cmake -S ../../leveldb -DCMAKE_BUILD_TYPE=Release \
-			-DHAVE_STD_REGEX=ON -DRUN_HAVE_STD_REGEX=1
-BUILD= 		$(MAKE)
-PREPARE= 	rm -rf $(DBDIR) && $(COMMAND) --threads=1 --benchmarks=fillseq
 RUNCMD= 	$(COMMAND) --threads=1 --benchmarks=readrandom --duration=10
-PARSE=		cat $(WORKDIR)/$*.run.log  \
+PARSECMD=	cat $(WORKDIR)/$*.run.log  \
 		| grep benchstats \
 		| cut -d: -f2 \
 		| xargs -n1 echo "$*"';' \
@@ -39,7 +15,7 @@ PARSE=		cat $(WORKDIR)/$*.run.log  \
 BUNDLE_DIR=	$(PROJECT)/build/bench/lib/
 
 # ------------------------------------------------------------------------------
-# clone level, apply patches, build dice
+# clone level, apply patches, build, populate db
 # ------------------------------------------------------------------------------
 
 URL=		https://github.com/google/leveldb.git
@@ -47,21 +23,36 @@ SHA=		068d5ee1a3ac40dabd00d211d5013af44be55bea
 
 TARGET+=	clone
 DIR.clone=	leveldb
-CFG.clone=	git clone --recurse-submodules $(URL) .
-BLD.clone=	git checkout $(SHA) && git submodule update --init --recursive
+CFG.clone=	git clone --recurse-submodules $(URL) . && \
+		git checkout $(SHA) && \
+		git submodule update --init --recursive && \
+		git apply $(ROOTDIR)/patches/01-leveldb
 
-TARGET+=	patch
-DEP.patch=	.clone.bld
-DIR.patch=	leveldb
-CFG.patch=	git checkout .
-BLD.patch=	git apply $(ROOTDIR)/patches/01-leveldb
+TARGET+=	vanilla
+DEP.vanilla=	.clone.cfg
+DIR.vanilla=	vanilla
+CFG.vanilla=	cmake -S ../$(DIR.clone) \
+			-DCMAKE_BUILD_TYPE=Release \
+			-DCMAKE_CXX_COMPILER=$(CXX) \
+			-DHAVE_STD_REGEX=ON \
+			-DRUN_HAVE_STD_REGEX=1
+BLD.vanilla=	$(MAKE) -j 8
+
+TARGET+=	sanitized
+DEP.sanitized=	.clone.cfg
+DIR.sanitized=	sanitized
+CFG.sanitized=	cmake -S ../$(DIR.clone) \
+			-DCMAKE_BUILD_TYPE=Release \
+			-DCMAKE_CXX_COMPILER=$(CXX) \
+			-DCMAKE_CXX_FLAGS=$(CXXFLAGS_EXTRA) \
+			-DCMAKE_EXE_LINKER_FLAGS=$(LDFLAGS) \
+			-DHAVE_STD_REGEX=ON \
+			-DRUN_HAVE_STD_REGEX=1
+BLD.sanitized=	$(MAKE) -j 8
 
 TARGET+=	populate
-DEP.populate=	.patch.bld
-DIR.populate=	build/leveldb
-CFG.populate= 	$(CONFIGURE)
-BLD.populate=	$(BUILD)
-RUN.populate= 	$(PREPARE)
+DIR.populate=	$(DIR.vanilla)
+RUN.populate= 	rm -rf $(DBDIR) && $(COMMAND) --threads=1 --benchmarks=fillseq
 
 TARGET+=	results
 PRO.results=	echo 'variant; time_s; count; count_1' > $(WORKDIR)/results.csv
@@ -71,53 +62,52 @@ PRO.results=	echo 'variant; time_s; count; count_1' > $(WORKDIR)/results.csv
 # ------------------------------------------------------------------------------
 
 TARGET+=	baseline
-DEP.baseline=	.populate.bld
-DIR.baseline=	build/leveldb
-CFG.baseline= 	$(CONFIGURE)
-BLD.baseline=	$(BUILD)
-RUN.baseline= 	$(TESTER) 'env $(RUNCMD)'
-PRO.baseline=	$(PARSE)
+DEP.baseline=	.populate.run
+DIR.baseline=	$(DIR.vanilla)
+RUN.baseline= 	env $(RUNCMD)
+PRO.baseline=	$(PARSECMD)
 
 TARGET+=	tsan
-DEP.tsan=	.baseline.run
-DIR.tsan=	build/leveldb-tsan
-CFG.tsan= 	$(CONFIGURE) -DCMAKE_CXX_FLAGS=-fsanitize=thread
-BLD.tsan=	$(BUILD)
-RUN.tsan=	$(TESTER) 'env TSAN_OPTIONS=report_bugs=0 $(RUNCMD)'
-PRO.tsan=	$(PARSE)
+DEP.tsan=	.populate.run
+DIR.tsan=	$(DIR.sanitized)
+RUN.tsan=	env TSAN_OPTIONS=report_bugs=0 $(RUNCMD)
+PRO.tsan=	$(PARSECMD)
 # Linux: if TSAN fails with "FATAL: ThreadSanitizer: unexpected memory mapping"
 # Try running this
 #	sudo sysctl vm.mmap_rnd_bits=30
 
 TARGET+=	tsano
-DEP.tsano=	.tsan.bld
-DIR.tsano=	$(DIR.tsan)
-RUN.tsano=	$(TESTER) 'env TSANO_LIBDIR=$(TSANO_LIBDIR) \
-			$(TSANO_CMD) $(RUNCMD)'
-PRO.tsano=	$(PARSE)
+DEP.tsano=	.populate.run
+DIR.tsano=	$(DIR.sanitized)
+RUN.tsano=	env TSANO_LIBDIR=$(TSANO_LIBDIR) $(TSANO_CMD) $(RUNCMD)
+PRO.tsano=	$(PARSECMD)
 
 TARGET+=	coldtrace
-DEP.coldtrace=	.tsan.bld
+DEP.coldtrace=	.populate.run
+DIR.coldtrace=	$(DIR.sanitized)
 DIR.coldtrace=	$(DIR.tsan)
-RUN.coldtrace=	$(TESTER) 'env $(COLDTRACE_CMD) $(RUNCMD)'
-PRO.coldtrace=	$(PARSE)
+RUN.coldtrace=	env $(COLDTRACE_CMD) $(RUNCMD)
+PRO.coldtrace=	$(PARSECMD)
 
 TARGET+=	nowrites
-DEP.nowrites=	.tsan.bld
+DEP.nowrites=	.populate.run
+DIR.nowrites=	$(DIR.sanitized)
 DIR.nowrites=	$(DIR.tsan)
-RUN.nowrites=	$(TESTER) 'env COLDTRACE_DISABLE_WRITES=true \
-			$(COLDTRACE_CMD) $(RUNCMD)'
-PRO.nowrites=	$(PARSE)
+RUN.nowrites=	env COLDTRACE_DISABLE_WRITES=true \
+			$(COLDTRACE_CMD) $(RUNCMD)
+PRO.nowrites=	$(PARSECMD)
 
 # file to build internal tool (freezer)
 # assumes libfreeze.so to be in the current directory
-TARGET+=	freezer
-DEP.freezer=	.tsan.bld
+#TARGET+=	freezer
+DEP.freezer=	.populate.run
+DIR.freezer=	$(DIR.sanitized)
 DIR.freezer=	$(DIR.tsan)
-RUN.freezer=	FREEZER_TRACE_PATH=traces $(TESTER) \
-		'env LD_PRELOAD=$(ROOTDIR)/libfreeze.so $(RUNCMD)'
-PRO.freezer=	$(PARSE)
+RUN.freezer=	env FREEZER_TRACE_PATH=traces \
+			LD_PRELOAD=$(ROOTDIR)/libfreeze.so $(RUNCMD)
+PRO.freezer=	$(PARSECMD)
 
 # ------------------------------------------------------------------------------
 BENCHMK= ../bench.mk
 include $(BENCHMK)
+include $(ROOTDIR)/../common.mk
