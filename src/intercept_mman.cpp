@@ -11,7 +11,6 @@ extern "C" {
 #include <dice/module.h>
 #include <dice/pubsub.h>
 #include <dice/self.h>
-}
 
 DICE_MODULE_INIT()
 
@@ -42,3 +41,4 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MUNMAP, {
                           stack_bottom, stack.size(), (uint64_t *)&stack[0]));
     stack_bottom = stack.size();
 })
+}

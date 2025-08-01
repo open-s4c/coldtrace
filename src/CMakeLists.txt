@@ -14,6 +14,7 @@ set(PRIO_intercept_tsan 7)
 set(PRIO_intercept_pthread 8)
 set(PRIO_intercept_malloc 9)
 set(PRIO_intercept_cxa 10)
+set(PRIO_intercept_mman 11)
 
 # set(PRIO_pthread_mutex 204) set(PRIO_pthread_rwlock 205) set(PRIO_pthread_cond
 # 206) set(PRIO_malloc 207) set(PRIO_sem 208) set(PRIO_cxa 209) set(PRIO_tsan
@@ -28,6 +29,7 @@ set(SRCS
     intercept_tsan.cpp
     intercept_pthread.cpp
     intercept_malloc.cpp
+    intercept_mman.cpp
     intercept_cxa.cpp)
 
 set(MODS)
