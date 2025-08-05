@@ -41,10 +41,7 @@ jobs:
         path: test/
     
     - name: Where am I?
-      run: |
-        find .
-    - name: Move into coldtracer folder
-      run: cd ../coldtracer
+      run: find .
 
     - name: Create testing workspace folder
       run: mkdir testing_workspace
