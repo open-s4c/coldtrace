@@ -75,6 +75,7 @@ jobs:
     - name: Run simple_malloc_test
       run:  |
         gcc test/simple_malloc_test.c -fsanitize=thread -o testing_workspace/simple_malloc_test
+        mkdir testing_workspace/simple_malloc_trace
         COLDTRACE_PATH=testing_workspace/simple_malloc_trace scripts/coldtracer testing_workspace/simple_malloc_test
         scripts/trace_dump.py testing_workspace/simple_malloc_trace/freezer_log_1_0.bin | grep "234" | grep "Allocated 234B of memory"
         scripts/trace_dump.py testing_workspace/simple_malloc_trace/freezer_log_1_0.bin | grep "432" | grep "Allocated 432B of memory"
