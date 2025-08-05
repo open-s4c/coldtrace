@@ -71,6 +71,7 @@ jobs:
         chmod 777 scripts/trace_dump.py
         chmod 777 deps/dice/deps/tsano/tsano
         chmod 777 build/deps/dice/deps/tsano/libtsano.so
+        ln -s build/deps/dice/deps/tsano/libtsano.so /home/runner/work/coldtrace/coldtrace/build/src/libcoldtrace.so
 
     - name: Run simple_malloc_test
       run:  |
