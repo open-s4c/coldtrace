@@ -15,5 +15,7 @@ jobs:
       run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=Release
     - name: Build
       run: cmake --build build
+    - name: List all subfolders
+      run: find .
     - name: Check TSAN
       run: nm -D test/simple_malloc_test | grep tsan

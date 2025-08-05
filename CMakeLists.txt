@@ -35,4 +35,5 @@ include_directories(include)
 add_subdirectory(src)
 
 enable_testing()
+add_compile_options(-fsanitize=thread)
 add_subdirectory(test)
