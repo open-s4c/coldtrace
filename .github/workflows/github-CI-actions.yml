@@ -46,6 +46,11 @@ jobs:
     - name: Create testing workspace folder
       run: mkdir testing_workspace
 
+    - name: Modify execute rights to scripts
+      run: |
+        chmod 777 scripts/coldtracer
+        chmod 777 scripts/trace_dump.py
+
     - name: Run simple_malloc_test
       run:  |
         gcc test/simple_malloc_test.c -fsanitize=thread -o testing_workspace/simple_malloc_test
