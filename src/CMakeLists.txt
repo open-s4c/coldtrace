@@ -1,20 +1,16 @@
-# Initialization order:
-#
-# * 200: coldtrace.o
-# * 201: self.o
-# * 202: procmaps.o
-# * 203: rest of coldtrace
-#
-# coldtrace must initilize before self.o because coldtrace_config() must set the
-# path pattern before events in CAPTURE_* chains start arriving from self.o.
-set(PRIO_coldtrace 3)
-set(PRIO_procmaps 5)
-set(PRIO_intercept_sem 6)
-set(PRIO_intercept_tsan 7)
-set(PRIO_intercept_pthread 8)
-set(PRIO_intercept_malloc 9)
-set(PRIO_intercept_cxa 10)
-set(PRIO_intercept_mman 11)
+if (NOT DEFINED COLDTRACE_BASE_PRIO)
+    set(COLDTRACE_BASE_PRIO 3 CACHE PATH "base prio" FORCE)
+endif()
+
+MATH(EXPR PRIO_coldtrace "${COLDTRACE_BASE_PRIO} + 1")
+MATH(EXPR PRIO_mod-self "${COLDTRACE_BASE_PRIO} + 0")
+MATH(EXPR PRIO_procmaps "${COLDTRACE_BASE_PRIO} + 2")
+MATH(EXPR PRIO_intercept_sem "${COLDTRACE_BASE_PRIO} + 3")
+MATH(EXPR PRIO_intercept_tsan "${COLDTRACE_BASE_PRIO} + 4")
+MATH(EXPR PRIO_intercept_pthread "${COLDTRACE_BASE_PRIO} + 5")
+MATH(EXPR PRIO_intercept_malloc "${COLDTRACE_BASE_PRIO} + 6")
+MATH(EXPR PRIO_intercept_cxa "${COLDTRACE_BASE_PRIO} + 7")
+MATH(EXPR PRIO_intercept_mman "${COLDTRACE_BASE_PRIO} + 8")
 
 # set(PRIO_pthread_mutex 204) set(PRIO_pthread_rwlock 205) set(PRIO_pthread_cond
 # 206) set(PRIO_malloc 207) set(PRIO_sem 208) set(PRIO_cxa 209) set(PRIO_tsan
@@ -39,11 +35,13 @@ foreach(SRC ${SRCS})
   target_link_libraries(${TARGET}.o PUBLIC vsync dice.h)
   if(PRIO_${TARGET})
     target_compile_options(${TARGET}.o
-                           PRIVATE -DDICE_MODULE_PRIO=${PRIO_${TARGET}})
+                           PRIVATE -DCOLDTRACE_BASE_PRIO=${COLDTRACE_BASE_PRIO} -DDICE_MODULE_PRIO=${PRIO_${TARGET}})
     target_compile_options(${TARGET}.o PRIVATE -DDICE_BUILTIN)
   endif()
   set(MODS ${MODS} ${TARGET}.o)
 endforeach()
+
+target_compile_options(mod-self.o PRIVATE -DCOLDTRACE_BASE_PRIO=${COLDTRACE_BASE_PRIO} -DDICE_MODULE_PRIO=${PRIO_mod-self})
 
 set(MODS
     ${MODS}
