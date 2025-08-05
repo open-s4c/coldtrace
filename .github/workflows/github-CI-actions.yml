@@ -14,6 +14,11 @@ jobs:
       run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=Release
     - name: Build
       run: cmake --build build
+    - name: Upload deps folder
+      uses: actions/upload-artifact@v4
+      with:
+        name: deps-folder
+        path: deps
     - name: Upload tests folder
       uses: actions/upload-artifact@v4
       with:
@@ -39,7 +44,11 @@ jobs:
       with:
         name: tests-folder
         path: test/
-    
+    - name: Download deps folder
+      uses: actions/download-artifact@v4
+      with:
+        name: deps-folder
+        path: deps
     - name: Where am I?
       run: find .
 
