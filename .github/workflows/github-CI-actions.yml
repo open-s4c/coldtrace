@@ -18,4 +18,4 @@ jobs:
     - name: Where am I?
       run: ls .
     - name: Check TSAN
-      run: nm -D ./build/test/simple_malloc_test | grep tsan
+      run: nm -D build/test/simple_malloc_test | grep tsan
