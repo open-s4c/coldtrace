@@ -28,7 +28,7 @@ struct coldtrace_impl {
 #endif
 
 
-static char _path[128];
+static char _path[128] = "traces/freezer_log_%d_%d.bin";
 #define COLDTRACE_FILE_SUFFIX "/freezer_log_%d_%d.bin"
 
 DICE_HIDE void
