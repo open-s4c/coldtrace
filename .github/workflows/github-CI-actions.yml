@@ -59,6 +59,7 @@ jobs:
       run: |
         chmod 777 scripts/coldtracer
         chmod 777 scripts/trace_dump.py
+        chmod 777 deps/dice/deps/tsano/tsano
 
     - name: Run simple_malloc_test
       run:  |
