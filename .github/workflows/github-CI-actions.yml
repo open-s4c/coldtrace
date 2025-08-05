@@ -16,4 +16,4 @@ jobs:
     - name: Build
       run: cmake --build build
     - name: Check TSAN
-      run: nm -D build/test/simple_malloc_test | grep tsan
+      run: nm -D test/simple_malloc_test | grep tsan
