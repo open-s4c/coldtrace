@@ -1,10 +1,6 @@
 name: C/C++ CI
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+on: [push]
 
 jobs:
   build:
@@ -13,9 +9,11 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Fetch
+    - name: Submodule dice and libvsync
       run: git submodule update --init  
     - name: Configure
       run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=Release
     - name: Build
       run: cmake --build build
+    - name: Check TSAN
+      run: nm -D build/test/simple_malloc_test | grep tsan
