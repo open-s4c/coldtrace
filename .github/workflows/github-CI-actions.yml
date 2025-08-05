@@ -18,7 +18,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: deps-folder
-        path: deps
+        path: deps/dice/deps/tsano
     - name: Upload tests folder
       uses: actions/upload-artifact@v4
       with:
@@ -48,7 +48,7 @@ jobs:
       uses: actions/download-artifact@v4
       with:
         name: deps-folder
-        path: deps
+        path: deps/dice/deps/tsano
     - name: Where am I?
       run: find .
 
