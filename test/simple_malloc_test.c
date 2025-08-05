@@ -4,8 +4,8 @@
 int
 main(void)
 {
-    void *ptr1 = malloc(1024);
-    void *ptr2 = malloc(1024);
+    void *ptr1 = malloc(432);
+    void *ptr2 = malloc(234);
 
     (void)ptr1;
     free(ptr2);

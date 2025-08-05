@@ -4,7 +4,6 @@ on: [push]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -15,7 +14,19 @@ jobs:
       run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=Release
     - name: Build
       run: cmake --build build
-    - name: Where am I?
-      run: ls .
-    - name: Check TSAN
-      run: nm -D build/test/test1 | grep tsan || echo "No tsan symbols found"
+
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Create testing workspace folder
+      run: mkdir testing_workspace
+
+    - name: Run simple_malloc_test
+      run:  |
+        gcc ./test/simple_malloc_test.c -fsanitize=thread -o ./testing_workspace/simple_malloc_test
+        COLDTRACE_PATH=./testing_workspace/simple_malloc_trace scripts/coldtracer ./testing_workspace/simple_malloc_test
+        scripts/trace_dump.py '/home/gigna/coldtrace/testing_workspace/simple_malloc_trace/freezer_log_1_0.bin' | grep "234" | grep "Allocated 234B of memory"
+        scripts/trace_dump.py '/home/gigna/coldtrace/testing_workspace/simple_malloc_trace/freezer_log_1_0.bin' | grep "432" | grep "Allocated 432B of memory"
+
+    
