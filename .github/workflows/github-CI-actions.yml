@@ -19,6 +19,11 @@ jobs:
       with:
         name: deps-folder
         path: deps/dice/deps/tsano
+    - name: Upload libtsano folder
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-tsano-folder
+        path: build/deps/dice/deps/tsano/
     - name: Upload tests folder
       uses: actions/upload-artifact@v4
       with:
@@ -39,6 +44,11 @@ jobs:
       with:
         name: scripts-folder
         path: scripts/
+    - name: Download libtsano folder
+      uses: actions/download-artifact@v4
+      with:
+        name: build-tsano-folder
+        path: build/deps/dice/deps/tsano/
     - name: Download tests folder
       uses: actions/download-artifact@v4
       with:
@@ -60,6 +70,7 @@ jobs:
         chmod 777 scripts/coldtracer
         chmod 777 scripts/trace_dump.py
         chmod 777 deps/dice/deps/tsano/tsano
+        chmod 777 build/deps/dice/deps/tsano/libtsano.so
 
     - name: Run simple_malloc_test
       run:  |
