@@ -1,3 +1,5 @@
+#include <dice/chains/capture.h>
+#include <dice/module.h>
 #include <dice/self.h>
 #include <dice/thread_id.h>
 #include <errno.h>
@@ -67,7 +69,7 @@ _copy_mapped_files(const char *path)
             continue;
 
         // skip files with .bin extension
-        if (!has_ext_(src, ".bin"))
+        if (has_ext_(src, ".bin"))
             continue;
 
         // Create the destination path.
@@ -121,7 +123,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_FINI, {
 
 out:
     caslock_release(&_lock);
-    return PS_CB_OK;
+    return PS_OK;
 })
 
 

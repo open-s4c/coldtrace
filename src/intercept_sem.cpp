@@ -11,7 +11,7 @@ extern "C" {
 #include <dice/module.h>
 #include <dice/pubsub.h>
 #include <dice/self.h>
-}
+
 DICE_MODULE_INIT()
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_WAIT, {
@@ -47,3 +47,4 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_SEM_POST, {
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_LOCK_RELEASE, (uint64_t)ev->sem,
                             get_next_atomic_idx()));
 })
+}
