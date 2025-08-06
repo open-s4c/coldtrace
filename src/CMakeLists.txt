@@ -4,30 +4,37 @@ if(NOT DEFINED COLDTRACE_BASE_PRIO)
       CACHE PATH "base prio" FORCE)
 endif()
 
-math(EXPR PRIO_coldtrace "${COLDTRACE_BASE_PRIO} + 1")
+math(EXPR PRIO_config "${COLDTRACE_BASE_PRIO} + 1")
 math(EXPR PRIO_mod-self "${COLDTRACE_BASE_PRIO} + 0")
 math(EXPR PRIO_procmaps "${COLDTRACE_BASE_PRIO} + 2")
-math(EXPR PRIO_intercept_sem "${COLDTRACE_BASE_PRIO} + 3")
-math(EXPR PRIO_intercept_tsan "${COLDTRACE_BASE_PRIO} + 4")
-math(EXPR PRIO_intercept_pthread "${COLDTRACE_BASE_PRIO} + 5")
-math(EXPR PRIO_intercept_malloc "${COLDTRACE_BASE_PRIO} + 6")
-math(EXPR PRIO_intercept_cxa "${COLDTRACE_BASE_PRIO} + 7")
-math(EXPR PRIO_intercept_mman "${COLDTRACE_BASE_PRIO} + 8")
+math(EXPR PRIO_subs_sem "${COLDTRACE_BASE_PRIO} + 3")
+math(EXPR PRIO_subs_tsan "${COLDTRACE_BASE_PRIO} + 4")
+math(EXPR PRIO_subs_pthread "${COLDTRACE_BASE_PRIO} + 5")
+math(EXPR PRIO_subs_malloc "${COLDTRACE_BASE_PRIO} + 6")
+math(EXPR PRIO_subs_cxa "${COLDTRACE_BASE_PRIO} + 7")
+math(EXPR PRIO_subs_mman "${COLDTRACE_BASE_PRIO} + 8")
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
 
+# main functionality
 set(SRCS
-    coldtrace.c
+    thread.cpp
     procmaps.c
+    counters.c
+    config.c
+    utils.c
     writer.c
-    events.c
-    coldthread.cpp
-    intercept_sem.cpp
-    intercept_tsan.cpp
-    intercept_pthread.cpp
-    intercept_malloc.cpp
-    intercept_mman.cpp
-    intercept_cxa.cpp)
+    entries.c)
+
+# subscribers
+set(SRCS
+    ${SRCS}
+    subs_sem.c
+    subs_tsan.c
+    subs_pthread.c
+    subs_malloc.c
+    subs_mman.c
+    subs_cxa.c)
 
 set(MODS)
 foreach(SRC ${SRCS})

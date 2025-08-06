@@ -9,32 +9,31 @@
 extern "C" {
 #endif
 
-#include "../../src/events.h"
-
+#include <coldtrace/entries.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
 #define CHECK_FUNC __attribute__((no_sanitize("thread")))
 
-struct entry_expect {
-    event_type type;
+struct expected_entry {
+    coldtrace_entry_type type;
     bool set;
 };
 
 #define EXPECT_ENTRY(TYPE)                                                     \
-    (struct entry_expect)                                                      \
+    (struct expected_entry)                                                    \
     {                                                                          \
         .type = TYPE, .set = true,                                             \
     }
 #define EXPECT_END                                                             \
-    (struct entry_expect)                                                      \
+    (struct expected_entry)                                                    \
     {                                                                          \
         .type = 0, .set = false,                                               \
     }
 
 
-void register_expected_trace(uint64_t tid, struct entry_expect *trace);
+void register_expected_trace(uint64_t tid, struct expected_entry *trace);
 void register_entry_callback(void (*callback)(const void *entry));
 void register_close_callback(void (*callback)(const void *page, size_t size));
 void register_final_callback(void (*callback)(void));

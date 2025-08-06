@@ -1,6 +1,6 @@
 #include <trace_checker.h>
 
-struct entry_expect trace[] = {
+struct expected_entry trace[] = {
     EXPECT_ENTRY(COLDTRACE_ALLOC),
     EXPECT_ENTRY(COLDTRACE_READ),
     EXPECT_ENTRY(COLDTRACE_THREAD_EXIT),
