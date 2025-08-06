@@ -1,0 +1,221 @@
+name: C/C++ CI
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+    - name: Submodule dice and libvsync
+      run: git submodule update --init  
+    - name: Configure
+      run: cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=Release
+    - name: Build
+      run: cmake --build build
+    - name: Upload deps folder
+      uses: actions/upload-artifact@v4
+      with:
+        name: deps-folder
+        path: deps/dice/deps/tsano
+    - name: Upload libtsano lib
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-tsano-folder
+        path: build/deps/dice/deps/tsano
+    - name: Upload libcoldtrace folder
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-coldtrace-folder
+        path: build/src
+
+    - name: Upload tests folder
+      uses: actions/upload-artifact@v4
+      with:
+        name: tests-folder
+        path: test
+    - name: Upload scripts folder
+      uses: actions/upload-artifact@v4
+      with:
+        name: scripts-folder
+        path: scripts/
+
+  test-simple-malloc:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - name: Download scripts folder
+      uses: actions/download-artifact@v4
+      with:
+        name: scripts-folder
+        path: scripts/
+    - name: Download libtsano lib
+      uses: actions/download-artifact@v4
+      with:
+        name: build-tsano-folder
+        path: build/deps/dice/deps/tsano
+
+    - name: Download libcoldtrace folder
+      uses: actions/download-artifact@v4
+      with:
+        name: build-coldtrace-folder
+        path: build/src
+
+    - name: Download tests folder
+      uses: actions/download-artifact@v4
+      with:
+        name: tests-folder
+        path: test/
+
+    - name: Download deps folder
+      uses: actions/download-artifact@v4
+      with:
+        name: deps-folder
+        path: deps/dice/deps/tsano
+    - name: Where am I?
+      run: find .
+
+    - name: Create testing workspace folder
+      run: mkdir testing_workspace
+
+    - name: Preparing the workspace for testing
+      run: |
+        chmod +x scripts/coldtracer
+        chmod +x scripts/trace_dump.py
+        chmod +x build/deps/dice/deps/tsano/libtsano.so
+        chmod +x deps/dice/deps/tsano/tsano
+        chmod +x build/src/libcoldtrace.so
+
+    - name: Run simple_malloc_test and generate trace
+      run:  |
+        gcc test/simple_malloc_test.c -fsanitize=thread -o testing_workspace/simple_malloc_test
+        mkdir testing_workspace/simple_malloc_trace
+        COLDTRACE_PATH=testing_workspace/simple_malloc_trace scripts/coldtracer testing_workspace/simple_malloc_test
+    - name: Result validation
+      run:  |
+        if ! scripts/trace_dump.py testing_workspace/simple_malloc_trace/freezer_log_1_0.bin | grep "234" | grep "Allocated 234B of memory"; then
+          echo "ERROR: Validation failed! expected alloc event for 234B not found"
+          exit 1
+        elif ! scripts/trace_dump.py testing_workspace/simple_malloc_trace/freezer_log_1_0.bin | grep "432" | grep "Allocated 432B of memory"; then 
+            echo "ERROR: Validation failed! expected alloc event for 432B not found"
+            exit 1
+          else 
+            echo "Validation passed!"
+          fi
+
+  test-simple-mmap:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - name: Download scripts folder
+      uses: actions/download-artifact@v4
+      with:
+        name: scripts-folder
+        path: scripts/
+    - name: Download libtsano lib
+      uses: actions/download-artifact@v4
+      with:
+        name: build-tsano-folder
+        path: build/deps/dice/deps/tsano
+
+    - name: Download libcoldtrace folder
+      uses: actions/download-artifact@v4
+      with:
+        name: build-coldtrace-folder
+        path: build/src
+
+    - name: Download tests folder
+      uses: actions/download-artifact@v4
+      with:
+        name: tests-folder
+        path: test/
+
+    - name: Download deps folder
+      uses: actions/download-artifact@v4
+      with:
+        name: deps-folder
+        path: deps/dice/deps/tsano
+    - name: Where am I?
+      run: find .
+
+    - name: Create testing workspace folder
+      run: mkdir testing_workspace
+
+    - name: Preparing the workspace for testing
+      run: |
+        chmod +x scripts/coldtracer
+        chmod +x scripts/trace_dump.py
+        chmod +x build/deps/dice/deps/tsano/libtsano.so
+        chmod +x deps/dice/deps/tsano/tsano
+        chmod +x build/src/libcoldtrace.so
+
+    - name: Compile simple_mmap_test
+      run: gcc test/simple_mmap_test.c -fsanitize=thread -o testing_workspace/simple_mmap_test
+    - name: Run simple_mmap_test
+      run:  |
+        mkdir testing_workspace/simple_mmap_trace
+        COLDTRACE_PATH=testing_workspace/simple_mmap_trace scripts/coldtracer testing_workspace/simple_mmap_test
+    - name: Result validation
+      run: |
+        if ! scripts/trace_dump.py testing_workspace/simple_mmap_trace/freezer_log_1_0.bin | grep "257" | grep "mmap-ed region of 257 from"; then 
+          echo "ERROR: Validation failed! expected mmap event not found"
+          exit 1
+        else 
+          echo "Validation passed!"
+        fi
+
+  test-simple-mutex:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+    - name: Download scripts folder
+      uses: actions/download-artifact@v4
+      with:
+        name: scripts-folder
+        path: scripts/
+    - name: Download libtsano lib
+      uses: actions/download-artifact@v4
+      with:
+        name: build-tsano-folder
+        path: build/deps/dice/deps/tsano
+
+    - name: Download libcoldtrace folder
+      uses: actions/download-artifact@v4
+      with:
+        name: build-coldtrace-folder
+        path: build/src
+
+    - name: Download tests folder
+      uses: actions/download-artifact@v4
+      with:
+        name: tests-folder
+        path: test/
+
+    - name: Download deps folder
+      uses: actions/download-artifact@v4
+      with:
+        name: deps-folder
+        path: deps/dice/deps/tsano
+    - name: Where am I?
+      run: find .
+
+    - name: Create testing workspace folder
+      run: mkdir testing_workspace
+
+    - name: Preparing the workspace for testing
+      run: |
+        chmod +x scripts/coldtracer
+        chmod +x scripts/trace_dump.py
+        chmod +x build/deps/dice/deps/tsano/libtsano.so
+        chmod +x deps/dice/deps/tsano/tsano
+        chmod +x build/src/libcoldtrace.so
+
+    - name: Compile simple_mutex_test
+      run: gcc test/simple_mutex_test.c -fsanitize=thread -o testing_workspace/simple_mutex_test
+    - name: Run simple_mutex_test
+      run:  |
+        mkdir testing_workspace/simple_mutex_trace
+        COLDTRACE_PATH=testing_workspace/simple_mutex_trace scripts/coldtracer testing_workspace/simple_mutex_test
+    - name: Result Validation
+      run: scripts/trace_dump.py testing_workspace/simple_mutex_trace/freezer_log_1_0.bin
