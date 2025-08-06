@@ -1,3 +1,9 @@
+/*
+ * Copyright (C) 2025 Huawei Technologies Co., Ltd.
+ * SPDX-License-Identifier: MIT
+ */
+#include <coldtrace/config.h>
+#include <coldtrace/utils.h>
 #include <dice/chains/capture.h>
 #include <dice/events/thread.h>
 #include <dice/module.h>
@@ -15,13 +21,11 @@
 #define MAX_LINE_LENGTH 256
 #define MAX_PATH_LENGTH 1024
 
-const char *coldtrace_path(void);
-bool has_ext_(const char *fname, const char *ext);
-static int _mkdir(const char *path);
-static int _cp(const char *src, const char *dest);
+static int mkdir_(const char *path);
+static int cp_(const char *src, const char *dest);
 
 static int
-_copy_proc_maps(const char *path)
+copy_proc_maps_(const char *path)
 {
     pid_t pid = getpid();
     char src[MAX_PATH_LENGTH];
@@ -30,16 +34,16 @@ _copy_proc_maps(const char *path)
     snprintf(src, sizeof(src), "/proc/%d/maps", pid);
     snprintf(dst, sizeof(dst), "%s/maps", path);
 
-    if (_mkdir(path) != 0)
+    if (mkdir_(path) != 0)
         return -1;
-    if (_cp(src, dst) != 0)
+    if (cp_(src, dst) != 0)
         return -1;
 
     return 0;
 }
 
 static int
-_copy_mapped_files(const char *path)
+copy_mapped_files_(const char *path)
 {
     char proc_maps[MAX_PATH_LENGTH];
     char line[MAX_LINE_LENGTH];
@@ -70,7 +74,7 @@ _copy_mapped_files(const char *path)
             continue;
 
         // skip files with .bin extension
-        if (has_ext_(src, ".bin"))
+        if (has_ext(src, ".bin"))
             continue;
 
         // Create the destination path.
@@ -80,12 +84,12 @@ _copy_mapped_files(const char *path)
             // Directory is up to the last slash. Remove it, create directory,
             // and then restore slash.
             *last_slash = '\0';
-            if (_mkdir(dst) != 0)
+            if (mkdir_(dst) != 0)
                 return -1;
             *last_slash = '/';
         }
 
-        if (_cp(src, dst) != 0)
+        if (cp_(src, dst) != 0)
             return -1;
 
         // Mark this file as copied.
@@ -101,51 +105,53 @@ _copy_mapped_files(const char *path)
  * subscriber callback
  * -------------------------------------------------------------------------- */
 
-static bool _maps_copied = false;
-static caslock_t _lock;
+static bool maps_copied_ = false;
+static caslock_t lock_;
 
 DICE_MODULE_INIT({
     if (getenv("COLDTRACE_DISABLE_COPY")) {
-        _maps_copied = true;
+        maps_copied_ = true;
     }
 })
 
-static inline void _copy_maps_and_mapped_files(void) {
-    _maps_copied = true;
+static inline void
+copy_maps_and_mapped_files_(void)
+{
+    maps_copied_ = true;
 
     log_info("copy procmaps");
 
-    if (_copy_proc_maps(coldtrace_path()) != 0)
+    if (copy_proc_maps_(coldtrace_get_path()) != 0)
         abort();
-    if (_copy_mapped_files(coldtrace_path()) != 0)
+    if (copy_mapped_files_(coldtrace_get_path()) != 0)
         abort();
 }
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_INIT, {
-    caslock_acquire(&_lock);
+    caslock_acquire(&lock_);
 
     // copy on main thread's init might be too early to get useful information
-    if (_maps_copied || self_id(md) == MAIN_THREAD) {
+    if (maps_copied_ || self_id(md) == MAIN_THREAD) {
         goto out;
     }
 
-    _copy_maps_and_mapped_files();
+    copy_maps_and_mapped_files_();
 
 out:
-    caslock_release(&_lock);
+    caslock_release(&lock_);
     return PS_OK;
 })
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
-    caslock_acquire(&_lock);
-    if (_maps_copied) {
+    caslock_acquire(&lock_);
+    if (maps_copied_) {
         goto out;
     }
 
-    _copy_maps_and_mapped_files();
+    copy_maps_and_mapped_files_();
 
 out:
-    caslock_release(&_lock);
+    caslock_release(&lock_);
     return PS_OK;
 })
 
@@ -155,7 +161,7 @@ out:
  */
 
 static int
-_mkdir(const char *path)
+mkdir_(const char *path)
 {
     char temp[MAX_PATH_LENGTH];
     char *p = NULL;
@@ -180,7 +186,7 @@ _mkdir(const char *path)
 }
 
 static int
-_cp(const char *src, const char *dst)
+cp_(const char *src, const char *dst)
 {
     FILE *fsrc = fopen(src, "rb");
     if (!fsrc) {
