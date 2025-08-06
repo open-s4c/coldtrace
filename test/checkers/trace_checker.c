@@ -68,13 +68,6 @@ register_final_callback(void (*foo)(void))
 #define TYPE_MASK 0x00000000000000FFUL
 #define PTR_MASK  0xFFFFFFFFFFFF0000UL
 
-static event_type
-entry_type(void *buf)
-{
-    uint64_t ptr = ((uint64_t *)buf)[0];
-    return (event_type)(ptr & TYPE_MASK & ~ZERO_FLAG);
-}
-
 #define CASE_PRINT(X)                                                          \
     case X:                                                                    \
         log_info("-> " #X "\n");                                               \
@@ -119,65 +112,6 @@ entry_print(void *entry)
         next += sizeof(COLDTRACE_ATOMIC_ENTRY);                                \
     }
 
-static size_t
-entry_size(void *buf, size_t size)
-{
-    size_t next = 0;
-    if (size < sizeof(uint64_t))
-        return 0;
-    switch (entry_type(buf)) {
-        case COLDTRACE_FREE: {
-            struct cold_log_free_entry *e = buf;
-            next += sizeof(COLDTRACE_FREE_ENTRY);
-            next += (e->stack_depth - e->popped_stack) * sizeof(uint64_t);
-        } break;
-
-        case COLDTRACE_ALLOC:
-        case COLDTRACE_MMAP:
-        case COLDTRACE_MUNMAP: {
-            struct cold_log_alloc_entry *e = buf;
-            next += sizeof(COLDTRACE_ALLOC_ENTRY);
-            next += (e->stack_depth - e->popped_stack) * sizeof(uint64_t);
-        } break;
-
-        case COLDTRACE_READ:
-        case COLDTRACE_WRITE: {
-            struct cold_log_access_entry *e = buf;
-            next += sizeof(COLDTRACE_ACCESS_ENTRY);
-            next += (e->stack_depth - e->popped_stack) * sizeof(uint64_t);
-        } break;
-
-        case COLDTRACE_THREAD_START:
-            next += sizeof(COLDTRACE_THREAD_INIT_ENTRY);
-            break;
-
-        case COLDTRACE_ATOMIC_READ:
-        case COLDTRACE_ATOMIC_WRITE:
-        case COLDTRACE_LOCK_ACQUIRE:
-        case COLDTRACE_LOCK_RELEASE:
-        case COLDTRACE_THREAD_CREATE:
-        case COLDTRACE_RW_LOCK_CREATE:
-        case COLDTRACE_RW_LOCK_DESTROY:
-        case COLDTRACE_RW_LOCK_ACQ_SHR:
-        case COLDTRACE_RW_LOCK_ACQ_EXC:
-        case COLDTRACE_RW_LOCK_REL_SHR:
-        case COLDTRACE_RW_LOCK_REL_EXC:
-        case COLDTRACE_RW_LOCK_REL:
-        case COLDTRACE_CXA_GUARD_ACQUIRE:
-        case COLDTRACE_CXA_GUARD_RELEASE:
-        case COLDTRACE_THREAD_JOIN:
-        case COLDTRACE_THREAD_EXIT:
-        case COLDTRACE_FENCE:
-            NEXT_ATOMIC;
-            break;
-
-        default:
-            log_fatal("Unknown entry size");
-            break;
-    }
-    return next;
-}
-
 // -----------------------------------------------------------------------------
 // iterator
 // -----------------------------------------------------------------------------
@@ -185,7 +119,10 @@ entry_size(void *buf, size_t size)
 static void
 iter_advance(struct entry_it *it)
 {
-    size_t size = entry_size(it->buf, it->size);
+    if (it->size < sizeof(uint64_t))
+        return;
+
+    size_t size = entry_size(it->buf);
     if (size == 0)
         return;
     if (size > it->size)
@@ -198,7 +135,9 @@ iter_advance(struct entry_it *it)
 static bool
 iter_next(struct entry_it it)
 {
-    return entry_size(it.buf, it.size) > 0;
+    if (it.size < sizeof(uint64_t))
+        return false;
+    return entry_size(it.buf) > 0;
 }
 
 struct entry_it

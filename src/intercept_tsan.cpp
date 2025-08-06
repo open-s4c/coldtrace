@@ -74,8 +74,9 @@ area_t _areas[AREAS];
 #define get_area(addr) _areas + (((uint64_t)addr >> AREA_SHIFT) % AREAS)
 
 #define FETCH_STACK_ACQ(addr, size)                                            \
-    uint64_t space_needed = sizeof(COLDTRACE_ATOMIC_ENTRY) / sizeof(uint64_t); \
-    area_t *area          = get_area(addr);                                    \
+    uint64_t space_needed =                                                    \
+        sizeof(struct coldtrace_atomic_entry) / sizeof(uint64_t);              \
+    area_t *area = get_area(addr);                                             \
     caslock_acquire(&area->lock);                                              \
     area->idx_r = get_next_atomic_idx();
 
