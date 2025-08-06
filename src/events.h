@@ -4,6 +4,12 @@
  */
 #ifndef COLDTRACE_EVENTS_H
 #define COLDTRACE_EVENTS_H
+#include <stddef.h>
+#include <stdint.h>
+
+#define TYPE_MASK 0x00000000000000FFUL
+#define PTR_MASK  0xFFFFFFFFFFFF0000UL
+#define ZERO_FLAG 0x80
 
 #define COLDTRACE_FREE              0
 #define COLDTRACE_ALLOC             1
@@ -30,8 +36,66 @@
 #define COLDTRACE_MMAP              22
 #define COLDTRACE_MUNMAP            23
 
-typedef unsigned event_type;
+typedef uint8_t event_type;
 
 const char *event_type_str(event_type type);
+event_type entry_type(void *buf);
+size_t entry_header_size(event_type type);
+size_t entry_size(void *buf);
+
+struct coldtrace_entry {
+    // ptr = ptr (u48) | padding (u8) | type (u8)
+    uint64_t typed_ptr;
+};
+
+static inline struct coldtrace_entry
+typed_ptr(const uint8_t type, const uint64_t ptr)
+{
+    uint64_t type_masked_shifted = type & TYPE_MASK;
+    uint64_t ptr_masked_shifted  = (ptr << 16) & PTR_MASK;
+    return (struct coldtrace_entry){
+        .typed_ptr = ptr_masked_shifted | type_masked_shifted,
+    };
+}
+
+struct coldtrace_stack {
+    uint32_t popped;
+    uint32_t depth;
+    uint64_t data[];
+};
+
+struct coldtrace_access_entry {
+    struct coldtrace_entry _;
+    uint64_t size;
+    uint64_t caller;
+    struct coldtrace_stack stack;
+};
+
+struct coldtrace_alloc_entry {
+    struct coldtrace_entry _;
+    uint64_t size;
+    uint64_t alloc_index;
+    uint64_t caller;
+    struct coldtrace_stack stack;
+};
+
+struct coldtrace_free_entry {
+    struct coldtrace_entry _;
+    uint64_t alloc_index;
+    uint64_t caller;
+    struct coldtrace_stack stack;
+};
+
+struct coldtrace_atomic_entry {
+    struct coldtrace_entry _;
+    uint64_t index;
+};
+
+struct coldtrace_thread_init_entry {
+    struct coldtrace_entry _;
+    uint64_t atomic_index;
+    uint64_t thread_stack_ptr;
+    uint64_t thread_stack_size;
+};
 
 #endif // COLDTRACE_EVENTS_H

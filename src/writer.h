@@ -12,7 +12,9 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define ZERO_FLAG                 0x80
+/* Size of one log file. The default size is 2MB (2097152B). When full, a new
+ * file will be created. */
+#define COLDTRACE_DEFAULT_SIZE    2097152
 #define COLDTRACE_DESCRIPTOR_SIZE 48
 
 typedef struct coldtrace {
@@ -24,6 +26,28 @@ void coldtrace_set_max(uint32_t max_file_count);
 void coldtrace_disable_writes(void);
 void coldtrace_init(coldtrace_t *ct, uint64_t thread_id);
 void coldtrace_fini(coldtrace_t *ct);
+
+#define OPAQUE(e) (&e._)
+
+#define WITH_STACK(TOP, BOT, BASE)                                             \
+    (struct stack_param)                                                       \
+    {                                                                          \
+        .depth = TOP, .popped = BOT, .ptr = (char *)(BASE + BOT),              \
+    }
+#define NO_STACK                                                               \
+    (struct stack_param)                                                       \
+    {                                                                          \
+        .popped = 0, .depth = 0, .ptr = NULL,                                  \
+    }
+
+struct stack_param {
+    uint32_t popped;
+    uint32_t depth;
+    char *ptr;
+};
+
+bool coldtrace_append(coldtrace_t *ct, struct coldtrace_entry *entry,
+                      struct stack_param stack);
 
 bool coldtrace_access(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
                       const uint64_t size, const uint64_t caller,
@@ -53,71 +77,5 @@ bool coldtrace_mman(coldtrace_t *ct, const uint8_t type, const uint64_t ptr,
                     const uint64_t caller, const uint32_t stack_bottom,
                     const uint32_t stack_top, uint64_t *stack);
 
-/**
- * Size of one log file.
- * The default size is 2MB (2097152B).
- * When full, a new file will be created.
- */
-#define INITIAL_SIZE 2097152
-
-/**
- * Cold Log entry Structure definitions:
- */
-typedef struct cold_log_access_entry {
-    // ptr = ptr (u48) | padding (u8) | type (u8)
-    uint64_t ptr;
-    uint64_t size;
-    uint64_t caller;
-    uint32_t popped_stack;
-    uint32_t stack_depth;
-    uint64_t stack[];
-} COLDTRACE_ACCESS_ENTRY;
-
-/**
- * Cold Log entry Structure definitions:
- */
-typedef struct cold_log_alloc_entry {
-    // ptr = ptr (u48) | padding (u8) | type (u8)
-    uint64_t ptr;
-    uint64_t size;
-    uint64_t alloc_index;
-    uint64_t caller;
-    uint32_t popped_stack;
-    uint32_t stack_depth;
-    uint64_t stack[];
-} COLDTRACE_ALLOC_ENTRY;
-
-/**
- * Cold Log entry Structure definitions:
- */
-typedef struct cold_log_free_entry {
-    // ptr = ptr (u48) | padding (u8) | type (u8)
-    uint64_t ptr;
-    uint64_t alloc_index;
-    uint64_t caller;
-    uint32_t popped_stack;
-    uint32_t stack_depth;
-    uint64_t stack[];
-} COLDTRACE_FREE_ENTRY;
-
-/**
- * Cold Log atomic entry Structure definitions:
- */
-typedef struct cold_log_atomic_entry {
-    // ptr = ptr (u48) | padding (u8) | type (u8)
-    uint64_t ptr;
-    uint64_t atomic_index;
-} COLDTRACE_ATOMIC_ENTRY;
-
-/**
- * Cold Log thread init entry Structure definitions:
- */
-typedef struct cold_log_thread_init {
-    // ptr = ptr (u48) | padding (u8) | type (u8)
-    uint64_t ptr;
-    uint64_t atomic_index;
-    uint64_t thread_stack_ptr;
-    uint64_t thread_stack_size;
-} COLDTRACE_THREAD_INIT_ENTRY;
 
 #endif
