@@ -16,6 +16,8 @@ MATH(EXPR PRIO_intercept_mman "${COLDTRACE_BASE_PRIO} + 8")
 # 206) set(PRIO_malloc 207) set(PRIO_sem 208) set(PRIO_cxa 209) set(PRIO_tsan
 # 210) set(PRIO_stacktrace 211) set(PRIO_pthread_create 212)
 
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
+
 set(SRCS
     coldtrace.c
     procmaps.c
