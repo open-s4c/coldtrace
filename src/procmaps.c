@@ -105,24 +105,20 @@ static bool _maps_copied = false;
 static caslock_t _lock;
 
 DICE_MODULE_INIT({
-    if (getenv("COLDTRACE_DISABLE_COPY"))
+    if (getenv("COLDTRACE_DISABLE_COPY")) {
         _maps_copied = true;
+    }
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_EXIT, {
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
     caslock_acquire(&_lock);
-    if (_maps_copied)
+    if (_maps_copied) {
         goto out;
-
-    // Only copy the proc maps when the main thread finishes
-    // Technicallly _lock is not necessary in this case, but I am leaving it
-    // there because I am not sure whether we should wait until the main
-    // threads finishes or another thread instead. In the latter case, we'd
-    // need lock.
-    if (self_id(md) != MAIN_THREAD)
-        goto out;
+    }
 
     _maps_copied = true;
+
+    log_info("copy procmaps");
 
     if (_copy_proc_maps(coldtrace_path()) != 0)
         abort();
