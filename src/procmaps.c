@@ -110,9 +110,10 @@ DICE_MODULE_INIT({
     }
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_INIT, {
     caslock_acquire(&_lock);
-    if (_maps_copied) {
+
+    if (_maps_copied || self_id(md) == MAIN_THREAD) {
         goto out;
     }
 
