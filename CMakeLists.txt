@@ -7,15 +7,12 @@ project(
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(deps)
-
 find_package(libvsync 4.2 CONFIG)
 if(NOT libvsync_DIR)
   set(CMAKE_FIND_ROOT_PATH ${CMAKE_CURRENT_BINARY_DIR}/deps)
   find_package(libvsync 4.2 CONFIG REQUIRED)
 endif()
 add_library(vsync ALIAS libvsync::vsync)
-
-add_subdirectory(deps/dice)
 
 add_compile_options(-fPIC -g3 -D_GNU_SOURCE)
 add_compile_options(
