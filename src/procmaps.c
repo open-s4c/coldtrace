@@ -110,13 +110,7 @@ DICE_MODULE_INIT({
     }
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_INIT, {
-    caslock_acquire(&_lock);
-
-    if (_maps_copied || self_id(md) == MAIN_THREAD) {
-        goto out;
-    }
-
+static inline void _copy_maps_and_mapped_files(void) {
     _maps_copied = true;
 
     log_info("copy procmaps");
@@ -125,12 +119,35 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_INIT, {
         abort();
     if (_copy_mapped_files(coldtrace_path()) != 0)
         abort();
+}
+
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_INIT, {
+    caslock_acquire(&_lock);
+
+    // copy on main thread's init might be too early to get useful information
+    if (_maps_copied || self_id(md) == MAIN_THREAD) {
+        goto out;
+    }
+
+    _copy_maps_and_mapped_files();
 
 out:
     caslock_release(&_lock);
     return PS_OK;
 })
 
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
+    caslock_acquire(&_lock);
+    if (_maps_copied) {
+        goto out;
+    }
+
+    _copy_maps_and_mapped_files();
+
+out:
+    caslock_release(&_lock);
+    return PS_OK;
+})
 
 /* -----------------------------------------------------------------------------
  * helper functions
