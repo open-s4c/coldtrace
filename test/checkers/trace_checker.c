@@ -72,7 +72,7 @@ static event_type
 entry_type(void *buf)
 {
     uint64_t ptr = ((uint64_t *)buf)[0];
-    return (event_type)(ptr & TYPE_MASK);
+    return (event_type)(ptr & TYPE_MASK & ~ZERO_FLAG);
 }
 
 #define CASE_PRINT(X)                                                          \
@@ -125,7 +125,6 @@ entry_size(void *buf, size_t size)
     size_t next = 0;
     if (size < sizeof(uint64_t))
         return 0;
-
     switch (entry_type(buf)) {
         case COLDTRACE_FREE: {
             struct cold_log_free_entry *e = buf;

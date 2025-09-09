@@ -8,7 +8,7 @@ struct entry_expect trace[] = {
     EXPECT_END,
 };
 
-volatile int x = 0;
+volatile uint64_t x = 0;
 int
 main()
 {
