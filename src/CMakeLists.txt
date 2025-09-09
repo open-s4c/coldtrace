@@ -59,10 +59,14 @@ set(MODS
     dice-cxa.o
     dice-tsan.o
     dice-stacktrace.o
-    dice-box.o
     dice.o)
 
 add_library(coldtrace SHARED)
 set_property(TARGET coldtrace PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 target_link_libraries(coldtrace PUBLIC vsync dice.h)
-target_link_libraries(coldtrace PUBLIC ${MODS} writer.o)
+target_link_libraries(coldtrace PUBLIC ${MODS} dice-box.o writer.o)
+
+# useful for testing (allows loading additional shared libraries)
+add_library(coldtrace-unboxed SHARED)
+target_link_libraries(coldtrace-unboxed PUBLIC vsync dice.h dl)
+target_link_libraries(coldtrace-unboxed PUBLIC ${MODS} writer.o)
