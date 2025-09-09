@@ -20,7 +20,7 @@ set(SRCS
     coldtrace.c
     procmaps.c
     writer.c
-    events.c
+    entries.c
     coldthread.cpp
     intercept_sem.cpp
     intercept_tsan.cpp

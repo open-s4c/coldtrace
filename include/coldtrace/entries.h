@@ -2,8 +2,8 @@
  * Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
  * SPDX-License-Identifier: MIT
  */
-#ifndef COLDTRACE_EVENTS_H
-#define COLDTRACE_EVENTS_H
+#ifndef COLDTRACE_ENTRIES_H
+#define COLDTRACE_ENTRIES_H
 #include <stddef.h>
 #include <stdint.h>
 
@@ -36,17 +36,18 @@
 #define COLDTRACE_MMAP              22
 #define COLDTRACE_MUNMAP            23
 
-typedef uint8_t event_type;
-
-const char *event_type_str(event_type type);
-event_type entry_type(void *buf);
-size_t entry_header_size(event_type type);
-size_t entry_size(void *buf);
+typedef uint8_t entry_type;
 
 struct coldtrace_entry {
     // ptr = ptr (u48) | padding (u8) | type (u8)
     uint64_t typed_ptr;
 };
+
+size_t entry_header_size(entry_type type);
+const char *entry_type_str(entry_type type);
+
+entry_type entry_parse_type(const void *buf);
+size_t entry_parse_size(const void *buf);
 
 static inline struct coldtrace_entry
 typed_ptr(const uint8_t type, const uint64_t ptr)
@@ -98,4 +99,4 @@ struct coldtrace_thread_init_entry {
     uint64_t thread_stack_size;
 };
 
-#endif // COLDTRACE_EVENTS_H
+#endif // COLDTRACE_ENTRIES_H

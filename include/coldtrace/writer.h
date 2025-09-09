@@ -6,8 +6,7 @@
 #ifndef COLDTRACE_H
 #define COLDTRACE_H
 
-#include "events.h"
-
+#include <coldtrace/entries.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>

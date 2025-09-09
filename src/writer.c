@@ -1,6 +1,5 @@
-#include "writer.h"
-
 #include <assert.h>
+#include <coldtrace/writer.h>
 #include <dice/compiler.h>
 #include <dice/log.h>
 #include <errno.h>
@@ -168,7 +167,7 @@ coldtrace_append(coldtrace_t *ct, struct coldtrace_entry *entry,
     assert(stack.depth >= stack.popped);
 
     // header, stack, and total length
-    uint64_t hlen  = entry_header_size(entry_type(entry));
+    uint64_t hlen  = entry_header_size(entry_parse_type(entry));
     uint64_t slen  = (stack.depth - stack.popped) * sizeof(uint64_t);
     uint64_t total = hlen;
 

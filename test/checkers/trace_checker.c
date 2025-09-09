@@ -10,12 +10,12 @@
 #include "trace_checker.h"
 
 #include <assert.h>
+#include <coldtrace/entries.h>
+#include <coldtrace/writer.h>
 #include <dice/chains/capture.h>
 #include <dice/log.h>
 #include <dice/module.h>
 #include <dice/self.h>
-#include <events.h>
-#include <writer.h>
 
 #define MAX_NTHREADS        128
 #define MAX_ENTRY_CALLBACKS 100
@@ -35,10 +35,10 @@ struct entry_it {
     size_t size;
 };
 
-static struct entry_expect *_expected[MAX_NTHREADS];
+static struct expected_entry *_expected[MAX_NTHREADS];
 
 void
-register_expected_trace(uint64_t tid, struct entry_expect *trace)
+register_expected_trace(uint64_t tid, struct expected_entry *trace)
 {
     assert(tid > 0 && tid < MAX_NTHREADS);
     log_info("register expected trace thread=%lu", tid);
@@ -65,47 +65,6 @@ register_final_callback(void (*foo)(void))
 // functions for trace entries
 // -----------------------------------------------------------------------------
 
-#define TYPE_MASK 0x00000000000000FFUL
-#define PTR_MASK  0xFFFFFFFFFFFF0000UL
-
-#define CASE_PRINT(X)                                                          \
-    case X:                                                                    \
-        log_info("-> " #X "\n");                                               \
-        break
-
-static void
-entry_print(void *entry)
-{
-    switch (entry_type(entry)) {
-        CASE_PRINT(COLDTRACE_FREE);
-        CASE_PRINT(COLDTRACE_ALLOC);
-        CASE_PRINT(COLDTRACE_READ);
-        CASE_PRINT(COLDTRACE_WRITE);
-        CASE_PRINT(COLDTRACE_ATOMIC_READ);
-        CASE_PRINT(COLDTRACE_ATOMIC_WRITE);
-        CASE_PRINT(COLDTRACE_LOCK_ACQUIRE);
-        CASE_PRINT(COLDTRACE_LOCK_RELEASE);
-        CASE_PRINT(COLDTRACE_THREAD_CREATE);
-        CASE_PRINT(COLDTRACE_THREAD_START);
-        CASE_PRINT(COLDTRACE_RW_LOCK_CREATE);
-        CASE_PRINT(COLDTRACE_RW_LOCK_DESTROY);
-        CASE_PRINT(COLDTRACE_RW_LOCK_ACQ_SHR);
-        CASE_PRINT(COLDTRACE_RW_LOCK_ACQ_EXC);
-        CASE_PRINT(COLDTRACE_RW_LOCK_REL_SHR);
-        CASE_PRINT(COLDTRACE_RW_LOCK_REL_EXC);
-        CASE_PRINT(COLDTRACE_RW_LOCK_REL);
-        CASE_PRINT(COLDTRACE_CXA_GUARD_ACQUIRE);
-        CASE_PRINT(COLDTRACE_CXA_GUARD_RELEASE);
-        CASE_PRINT(COLDTRACE_THREAD_JOIN);
-        CASE_PRINT(COLDTRACE_THREAD_EXIT);
-        CASE_PRINT(COLDTRACE_FENCE);
-        CASE_PRINT(COLDTRACE_MMAP);
-        CASE_PRINT(COLDTRACE_MUNMAP);
-        default:
-            printf("TRACE_CHECK: Entry type = dont know\n");
-    }
-}
-
 #define NEXT_ATOMIC                                                            \
     {                                                                          \
         struct cold_log_atomic_entry *e = buf;                                 \
@@ -122,12 +81,12 @@ iter_advance(struct entry_it *it)
     if (it->size < sizeof(uint64_t))
         return;
 
-    size_t size = entry_size(it->buf);
+    size_t size = entry_parse_size(it->buf);
     if (size == 0)
         return;
     if (size > it->size)
         log_info("unexpected size=%lu != it->size=%lu (type=%s)", size,
-                 it->size, event_type_str(entry_type(it->buf)));
+                 it->size, entry_type_str(entry_parse_type(it->buf)));
     it->buf += size;
     it->size -= size;
 }
@@ -137,7 +96,7 @@ iter_next(struct entry_it it)
 {
     if (it.size < sizeof(uint64_t))
         return false;
-    return entry_size(it.buf) > 0;
+    return entry_parse_size(it.buf) > 0;
 }
 
 struct entry_it
@@ -149,10 +108,10 @@ iter_init(void *buf, size_t size)
     };
 }
 
-event_type
+entry_type
 iter_type(struct entry_it it)
 {
-    return entry_type(it.buf);
+    return entry_parse_type(it.buf);
 }
 
 // -----------------------------------------------------------------------------
@@ -162,14 +121,14 @@ void
 writer_close(void *page, const size_t size, uint64_t tid)
 {
     log_info("checking thread=%lu", tid);
-    struct entry_it it        = iter_init(page, size);
-    struct entry_expect *next = _expected[tid];
+    struct entry_it it          = iter_init(page, size);
+    struct expected_entry *next = _expected[tid];
 
     if (_close_callback)
         _close_callback(page, size);
 
     for (int i = 0; iter_next(it); iter_advance(&it), i++) {
-        event_type type = iter_type(it);
+        entry_type type = iter_type(it);
 
         for (size_t j = 0; j < _entry_callback_count; j++)
             _entry_callbacks[j](it.buf);
@@ -179,14 +138,14 @@ writer_close(void *page, const size_t size, uint64_t tid)
 
         if (!next->set)
             log_fatal("thread=%lu entry=%d found=%s but trace empty", tid, i,
-                      event_type_str(type));
+                      entry_type_str(type));
 
         if ((type != next->type))
             log_fatal("thread=%lu entry=%d found=%s expected=%s", tid, i,
-                      event_type_str(type), event_type_str(next->type));
+                      entry_type_str(type), entry_type_str(next->type));
 
         log_info("thread=%lu entry=%d match=%s", tid, i,
-                 event_type_str(next->type));
+                 entry_type_str(next->type));
         next++;
     }
     if (next && next->set)
