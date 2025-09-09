@@ -55,6 +55,16 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_EXIT, {
     coldtrace_fini(&th->ct);
 })
 
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
+    if (self_id(md) == MAIN_THREAD) {
+        cold_thread *th = coldthread_get(md);
+        ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_EXIT,
+                                (uint64_t)REAL(pthread_self),
+                                get_next_atomic_idx()));
+        coldtrace_fini(&th->ct);
+    }
+})
+
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_THREAD_CREATE, {
     cold_thread *th        = coldthread_get(md);
     th->created_thread_idx = get_next_atomic_idx();
