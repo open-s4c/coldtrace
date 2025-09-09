@@ -27,6 +27,10 @@ struct coldtrace_impl {
     #define COLDTRACE_WRITE_EMU_TIME 10
 #endif
 
+__attribute__((weak)) void
+writer_close(void *page, size_t size, uint64_t id)
+{
+}
 
 // global configuration
 
@@ -74,6 +78,7 @@ coldtrace_fini(coldtrace_t *ct)
     struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
     if (!impl->initd)
         return;
+    writer_close(impl->log_file, impl->next_free_offset, impl->thread_id);
     close(impl->file_descriptor);
 }
 
@@ -120,6 +125,7 @@ _new_trace(struct coldtrace_impl *impl)
 {
     if (_disable_writes)
         return;
+    writer_close(impl->log_file, impl->next_free_offset, impl->thread_id);
     munmap(impl->log_file, INITIAL_SIZE);
     close(impl->file_descriptor);
     impl->current_file_enumerator =
