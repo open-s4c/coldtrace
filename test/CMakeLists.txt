@@ -1,4 +1,5 @@
-# -Wno-error=unused-command-line-argument
+include_directories(../src)
+include_directories(checkers)
 
 add_library(trace_checker SHARED checkers/trace_checker.c)
 target_link_libraries(trace_checker PUBLIC vsync coldtrace-unboxed)

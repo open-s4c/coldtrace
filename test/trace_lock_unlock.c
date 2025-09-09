@@ -1,10 +1,9 @@
-#include "checkers/trace_checker.h"
-
 #include <assert.h>
 #include <dice/log.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <trace_checker.h>
 
 struct entry_expect expected[] = {
     EXPECT_ENTRY(COLDTRACE_ALLOC),

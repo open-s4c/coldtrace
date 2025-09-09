@@ -1,8 +1,7 @@
-#include "checkers/trace_checker.h"
-
 #include <assert.h>
 #include <dice/log.h>
 #include <stdbool.h>
+#include <trace_checker.h>
 
 static bool closed;
 CHECK_FUNC void

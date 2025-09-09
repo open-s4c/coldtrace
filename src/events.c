@@ -1,0 +1,43 @@
+/*
+ * Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ * SPDX-License-Identifier: MIT
+ */
+#include "events.h"
+
+#include <stddef.h>
+
+#define TYPE_MAP(TYPE) [TYPE] = #TYPE
+static const char *_type_map[] = {
+    TYPE_MAP(COLDTRACE_FREE),
+    TYPE_MAP(COLDTRACE_ALLOC),
+    TYPE_MAP(COLDTRACE_READ),
+    TYPE_MAP(COLDTRACE_WRITE),
+    TYPE_MAP(COLDTRACE_ATOMIC_READ),
+    TYPE_MAP(COLDTRACE_ATOMIC_WRITE),
+    TYPE_MAP(COLDTRACE_LOCK_ACQUIRE),
+    TYPE_MAP(COLDTRACE_LOCK_RELEASE),
+    TYPE_MAP(COLDTRACE_THREAD_CREATE),
+    TYPE_MAP(COLDTRACE_THREAD_START),
+    TYPE_MAP(COLDTRACE_RW_LOCK_CREATE),
+    TYPE_MAP(COLDTRACE_RW_LOCK_DESTROY),
+    TYPE_MAP(COLDTRACE_RW_LOCK_ACQ_SHR),
+    TYPE_MAP(COLDTRACE_RW_LOCK_ACQ_EXC),
+    TYPE_MAP(COLDTRACE_RW_LOCK_REL_SHR),
+    TYPE_MAP(COLDTRACE_RW_LOCK_REL_EXC),
+    TYPE_MAP(COLDTRACE_RW_LOCK_REL),
+    TYPE_MAP(COLDTRACE_CXA_GUARD_ACQUIRE),
+    TYPE_MAP(COLDTRACE_CXA_GUARD_RELEASE),
+    TYPE_MAP(COLDTRACE_THREAD_JOIN),
+    TYPE_MAP(COLDTRACE_THREAD_EXIT),
+    TYPE_MAP(COLDTRACE_FENCE),
+    TYPE_MAP(COLDTRACE_MMAP),
+    TYPE_MAP(COLDTRACE_MUNMAP),
+};
+
+const char *
+event_type_str(event_type type)
+{
+    if (type >= (sizeof(_type_map) / sizeof(const char *)))
+        return "INVALID_EVENT";
+    return _type_map[type];
+}

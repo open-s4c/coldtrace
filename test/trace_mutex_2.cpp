@@ -1,10 +1,13 @@
-#include "checkers/trace_checker.h"
-
+/*
+ * Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ * SPDX-License-Identifier: MIT
+ */
 #include <cstdio>
 #include <iostream>
 #include <mutex>
 #include <pthread.h>
 #include <stdint.h>
+#include <trace_checker.h>
 #include <unistd.h>
 
 enum State : uint8_t { NotStarted, Claimed, Done };

@@ -1,9 +1,12 @@
+/*
+ * Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ * SPDX-License-Identifier: MIT
+ */
 #define LOG_PREFIX "TRACE_CHECKER: "
 #ifndef LOG_LEVEL
     #define LOG_LEVEL INFO
 #endif
 
-#include "../../src/writer.h"
 #include "trace_checker.h"
 
 #include <assert.h>
@@ -11,6 +14,8 @@
 #include <dice/log.h>
 #include <dice/module.h>
 #include <dice/self.h>
+#include <events.h>
+#include <writer.h>
 
 #define MAX_NTHREADS        128
 #define MAX_ENTRY_CALLBACKS 100
@@ -63,39 +68,11 @@ register_final_callback(void (*foo)(void))
 #define TYPE_MASK 0x00000000000000FFUL
 #define PTR_MASK  0xFFFFFFFFFFFF0000UL
 
-#define TYPE_MAP(TYPE) [TYPE] = #TYPE
-static char *_type_map[] = {
-    TYPE_MAP(COLDTRACE_FREE),
-    TYPE_MAP(COLDTRACE_ALLOC),
-    TYPE_MAP(COLDTRACE_READ),
-    TYPE_MAP(COLDTRACE_WRITE),
-    TYPE_MAP(COLDTRACE_ATOMIC_READ),
-    TYPE_MAP(COLDTRACE_ATOMIC_WRITE),
-    TYPE_MAP(COLDTRACE_LOCK_ACQUIRE),
-    TYPE_MAP(COLDTRACE_LOCK_RELEASE),
-    TYPE_MAP(COLDTRACE_THREAD_CREATE),
-    TYPE_MAP(COLDTRACE_THREAD_START),
-    TYPE_MAP(COLDTRACE_RW_LOCK_CREATE),
-    TYPE_MAP(COLDTRACE_RW_LOCK_DESTROY),
-    TYPE_MAP(COLDTRACE_RW_LOCK_ACQ_SHR),
-    TYPE_MAP(COLDTRACE_RW_LOCK_ACQ_EXC),
-    TYPE_MAP(COLDTRACE_RW_LOCK_REL_SHR),
-    TYPE_MAP(COLDTRACE_RW_LOCK_REL_EXC),
-    TYPE_MAP(COLDTRACE_RW_LOCK_REL),
-    TYPE_MAP(COLDTRACE_CXA_GUARD_ACQUIRE),
-    TYPE_MAP(COLDTRACE_CXA_GUARD_RELEASE),
-    TYPE_MAP(COLDTRACE_THREAD_JOIN),
-    TYPE_MAP(COLDTRACE_THREAD_EXIT),
-    TYPE_MAP(COLDTRACE_FENCE),
-    TYPE_MAP(COLDTRACE_MMAP),
-    TYPE_MAP(COLDTRACE_MUNMAP),
-};
-
-static uint64_t
+static event_type
 entry_type(void *buf)
 {
     uint64_t ptr = ((uint64_t *)buf)[0];
-    return ptr & TYPE_MASK;
+    return (event_type)(ptr & TYPE_MASK);
 }
 
 #define CASE_PRINT(X)                                                          \
@@ -214,7 +191,7 @@ iter_advance(struct entry_it *it)
         return;
     if (size > it->size)
         log_info("unexpected size=%lu != it->size=%lu (type=%s)", size,
-                 it->size, _type_map[entry_type(it->buf)]);
+                 it->size, event_type_str(entry_type(it->buf)));
     it->buf += size;
     it->size -= size;
 }
@@ -234,7 +211,7 @@ iter_init(void *buf, size_t size)
     };
 }
 
-int
+event_type
 iter_type(struct entry_it it)
 {
     return entry_type(it.buf);
@@ -254,7 +231,7 @@ writer_close(void *page, const size_t size, uint64_t tid)
         _close_callback(page, size);
 
     for (int i = 0; iter_next(it); iter_advance(&it), i++) {
-        int type = iter_type(it);
+        event_type type = iter_type(it);
 
         for (size_t j = 0; j < _entry_callback_count; j++)
             _entry_callbacks[j](it.buf);
@@ -264,13 +241,14 @@ writer_close(void *page, const size_t size, uint64_t tid)
 
         if (!next->set)
             log_fatal("thread=%lu entry=%d found=%s but trace empty", tid, i,
-                      _type_map[type]);
+                      event_type_str(type));
 
         if ((type != next->type))
             log_fatal("thread=%lu entry=%d found=%s expected=%s", tid, i,
-                      _type_map[type], _type_map[next->type]);
+                      event_type_str(type), event_type_str(next->type));
 
-        log_info("thread=%lu entry=%d match=%s", tid, i, _type_map[next->type]);
+        log_info("thread=%lu entry=%d match=%s", tid, i,
+                 event_type_str(next->type));
         next++;
     }
     if (next && next->set)
