@@ -3,8 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "writer.h"
-
+#include <coldtrace/writer.h>
 #include <dice/module.h>
 #include <dice/self.h>
 #include <dice/thread_id.h>

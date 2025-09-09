@@ -2,9 +2,7 @@
  * Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
  * SPDX-License-Identifier: MIT
  */
-#include "events.h"
-#include "writer.h"
-
+#include <coldtrace/entries.h>
 #include <dice/log.h>
 #include <stddef.h>
 
@@ -37,7 +35,7 @@ static const char *_type_map[] = {
 };
 
 const char *
-event_type_str(event_type type)
+entry_type_str(entry_type type)
 {
     if (type >= (sizeof(_type_map) / sizeof(const char *)))
         return "INVALID_EVENT";
@@ -47,26 +45,26 @@ event_type_str(event_type type)
 #define TYPE_MASK 0x00000000000000FFUL
 #define PTR_MASK  0xFFFFFFFFFFFF0000UL
 
-event_type
-entry_type(void *buf)
+entry_type
+entry_parse_type(const void *buf)
 {
     uint64_t ptr = ((uint64_t *)buf)[0];
-    return (event_type)(ptr & TYPE_MASK & ~ZERO_FLAG);
+    return (entry_type)(ptr & TYPE_MASK & ~ZERO_FLAG);
 }
 
 #define NEXT_ATOMIC                                                            \
     {                                                                          \
-        struct coldtrace_atomic_entry *e = buf;                                \
+        const struct coldtrace_atomic_entry *e = buf;                          \
         next += sizeof(struct coldtrace_atomic_entry);                         \
     }
 
 size_t
-entry_size(void *buf)
+entry_parse_size(const void *buf)
 {
     size_t next = 0;
-    switch (entry_type(buf)) {
+    switch (entry_parse_type(buf)) {
         case COLDTRACE_FREE: {
-            struct coldtrace_free_entry *e = buf;
+            const struct coldtrace_free_entry *e = buf;
             next += sizeof(struct coldtrace_free_entry);
             next += (e->stack.depth - e->stack.popped) * sizeof(uint64_t);
         } break;
@@ -74,14 +72,14 @@ entry_size(void *buf)
         case COLDTRACE_ALLOC:
         case COLDTRACE_MMAP:
         case COLDTRACE_MUNMAP: {
-            struct coldtrace_alloc_entry *e = buf;
+            const struct coldtrace_alloc_entry *e = buf;
             next += sizeof(struct coldtrace_alloc_entry);
             next += (e->stack.depth - e->stack.popped) * sizeof(uint64_t);
         } break;
 
         case COLDTRACE_READ:
         case COLDTRACE_WRITE: {
-            struct coldtrace_access_entry *e = buf;
+            const struct coldtrace_access_entry *e = buf;
             next += sizeof(struct coldtrace_access_entry);
             next += (e->stack.depth - e->stack.popped) * sizeof(uint64_t);
         } break;
@@ -146,7 +144,46 @@ static const size_t space_table[] = {
 };
 
 size_t
-entry_header_size(event_type type)
+entry_header_size(entry_type type)
 {
     return space_table[type];
+}
+
+
+#define CASE_PRINT(X)                                                          \
+    case X:                                                                    \
+        log_info("-> " #X "\n");                                               \
+        break
+
+static void
+entry_print(void *entry)
+{
+    switch (entry_parse_type(entry)) {
+        CASE_PRINT(COLDTRACE_FREE);
+        CASE_PRINT(COLDTRACE_ALLOC);
+        CASE_PRINT(COLDTRACE_READ);
+        CASE_PRINT(COLDTRACE_WRITE);
+        CASE_PRINT(COLDTRACE_ATOMIC_READ);
+        CASE_PRINT(COLDTRACE_ATOMIC_WRITE);
+        CASE_PRINT(COLDTRACE_LOCK_ACQUIRE);
+        CASE_PRINT(COLDTRACE_LOCK_RELEASE);
+        CASE_PRINT(COLDTRACE_THREAD_CREATE);
+        CASE_PRINT(COLDTRACE_THREAD_START);
+        CASE_PRINT(COLDTRACE_RW_LOCK_CREATE);
+        CASE_PRINT(COLDTRACE_RW_LOCK_DESTROY);
+        CASE_PRINT(COLDTRACE_RW_LOCK_ACQ_SHR);
+        CASE_PRINT(COLDTRACE_RW_LOCK_ACQ_EXC);
+        CASE_PRINT(COLDTRACE_RW_LOCK_REL_SHR);
+        CASE_PRINT(COLDTRACE_RW_LOCK_REL_EXC);
+        CASE_PRINT(COLDTRACE_RW_LOCK_REL);
+        CASE_PRINT(COLDTRACE_CXA_GUARD_ACQUIRE);
+        CASE_PRINT(COLDTRACE_CXA_GUARD_RELEASE);
+        CASE_PRINT(COLDTRACE_THREAD_JOIN);
+        CASE_PRINT(COLDTRACE_THREAD_EXIT);
+        CASE_PRINT(COLDTRACE_FENCE);
+        CASE_PRINT(COLDTRACE_MMAP);
+        CASE_PRINT(COLDTRACE_MUNMAP);
+        default:
+            printf("TRACE_CHECK: Entry type = dont know\n");
+    }
 }

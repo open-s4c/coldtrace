@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <stddef.h>
 
-struct entry_expect expected[] = {
+struct expected_entry expected[] = {
     EXPECT_ENTRY(COLDTRACE_ALLOC),
     EXPECT_ENTRY(COLDTRACE_WRITE),
     EXPECT_ENTRY(COLDTRACE_READ),

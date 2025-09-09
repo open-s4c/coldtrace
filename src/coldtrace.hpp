@@ -9,8 +9,7 @@
 #include <vector>
 
 extern "C" {
-#include "writer.h"
-
+#include <coldtrace/writer.h>
 #include <dice/self.h>
 #include <stdint.h>
 #include <vsync/atomic.h>

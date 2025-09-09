@@ -48,7 +48,7 @@ once_plus_one(void *ptr)
 
 #define NUM_THREADS 1
 
-struct entry_expect expected_1[] = {
+struct expected_entry expected_1[] = {
     EXPECT_ENTRY(COLDTRACE_ALLOC),
     EXPECT_ENTRY(COLDTRACE_WRITE),
     EXPECT_ENTRY(COLDTRACE_THREAD_CREATE),
@@ -63,7 +63,7 @@ struct entry_expect expected_1[] = {
     EXPECT_END,
 };
 
-struct entry_expect expected_2[] = {
+struct expected_entry expected_2[] = {
     EXPECT_ENTRY(COLDTRACE_THREAD_START),
     EXPECT_ENTRY(COLDTRACE_LOCK_ACQUIRE),
     EXPECT_ENTRY(COLDTRACE_READ),
