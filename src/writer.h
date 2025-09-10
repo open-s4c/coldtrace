@@ -13,7 +13,7 @@
 #include <stdint.h>
 
 #define ZERO_FLAG                 0x80
-#define COLDTRACE_DESCRIPTOR_SIZE 48
+#define COLDTRACE_DESCRIPTOR_SIZE 56
 
 typedef struct coldtrace {
     char _[COLDTRACE_DESCRIPTOR_SIZE];

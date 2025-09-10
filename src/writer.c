@@ -21,6 +21,7 @@ struct coldtrace_impl {
     uint32_t file_descriptor;
     uint64_t thread_id;
     uint64_t *log_file;
+    bool finished;
 };
 
 #ifndef COLDTRACE_WRITE_EMU_TIME
@@ -78,6 +79,9 @@ coldtrace_fini(coldtrace_t *ct)
     struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
     if (!impl->initd)
         return;
+    if(impl->finished)
+        return;
+    impl->finished = true;
     writer_close(impl->log_file, impl->next_free_offset, impl->thread_id);
     close(impl->file_descriptor);
 }
