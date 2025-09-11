@@ -16,18 +16,18 @@ DICE_MODULE_INIT()
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_CXA_GUARD_ACQUIRE, {
     struct coldtrace_atomic_entry *e =
-        coldtrace_append_x(md, COLDTRACE_CXA_GUARD_ACQUIRE, event);
+        coldtrace_append(md, COLDTRACE_CXA_GUARD_ACQUIRE, event);
     e->index = get_next_atomic_idx();
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_CXA_GUARD_RELEASE, {
     struct coldtrace_atomic_entry *e =
-        coldtrace_append_x(md, COLDTRACE_CXA_GUARD_RELEASE, event);
+        coldtrace_append(md, COLDTRACE_CXA_GUARD_RELEASE, event);
     e->index = get_next_atomic_idx();
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_CXA_GUARD_ABORT, {
     struct coldtrace_atomic_entry *e =
-        coldtrace_append_x(md, COLDTRACE_CXA_GUARD_RELEASE, event);
+        coldtrace_append(md, COLDTRACE_CXA_GUARD_RELEASE, event);
     e->index = get_next_atomic_idx();
 })

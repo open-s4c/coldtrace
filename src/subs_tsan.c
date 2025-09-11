@@ -32,7 +32,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ, {
         type |= ZERO_FLAG;
     }
     struct coldtrace_access_entry *e;
-    e         = coldtrace_append_x(md, type, ev->addr);
+    e         = coldtrace_append(md, type, ev->addr);
     e->size   = ev->size;
     e->caller = (uint64_t)ev->pc;
 })
@@ -40,7 +40,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ, {
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_WRITE, {
     struct ma_write_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_access_entry *e =
-        coldtrace_append_x(md, COLDTRACE_WRITE, ev->addr);
+        coldtrace_append(md, COLDTRACE_WRITE, ev->addr);
     e->size   = ev->size;
     e->caller = (uint64_t)ev->pc;
 })
@@ -69,7 +69,7 @@ area_t _areas[AREAS];
     uint64_t idx_r = area->idx_r;                                              \
     caslock_release(&area->lock);                                              \
     struct coldtrace_atomic_entry *e;                                          \
-    e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_READ, addr);            \
+    e        = coldtrace_append(md, COLDTRACE_ATOMIC_READ, addr);            \
     e->index = idx_r;
 
 #define REL_LOG_W(addr, size)                                                  \
@@ -77,7 +77,7 @@ area_t _areas[AREAS];
     uint64_t idx_r = area->idx_r;                                              \
     caslock_release(&area->lock);                                              \
     struct coldtrace_atomic_entry *e;                                          \
-    e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_WRITE, addr);           \
+    e        = coldtrace_append(md, COLDTRACE_ATOMIC_WRITE, addr);           \
     e->index = idx_r; // TODO: is this correct???
 
 #define REL_LOG_RW(addr, size)                                                 \
@@ -86,9 +86,9 @@ area_t _areas[AREAS];
     caslock_release(&area->lock);                                              \
     uint64_t idx_w = get_next_atomic_idx();                                    \
     struct coldtrace_atomic_entry *e;                                          \
-    e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_READ, addr);            \
+    e        = coldtrace_append(md, COLDTRACE_ATOMIC_READ, addr);            \
     e->index = idx_r;                                                          \
-    e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_WRITE, addr);           \
+    e        = coldtrace_append(md, COLDTRACE_ATOMIC_WRITE, addr);           \
     e->index = idx_w;
 
 #define REL_LOG_RW_COND(addr, size, success)                                   \
@@ -100,10 +100,10 @@ area_t _areas[AREAS];
     uint64_t idx_r = area->idx_r;                                              \
     caslock_release(&area->lock);                                              \
     struct coldtrace_atomic_entry *e;                                          \
-    e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_READ, addr);            \
+    e        = coldtrace_append(md, COLDTRACE_ATOMIC_READ, addr);            \
     e->index = idx_r;                                                          \
     if (success) {                                                             \
-        e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_WRITE, addr);       \
+        e        = coldtrace_append(md, COLDTRACE_ATOMIC_WRITE, addr);       \
         e->index = idx_w;                                                      \
     }
 

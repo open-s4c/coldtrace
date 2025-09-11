@@ -117,8 +117,10 @@ iter_type(struct entry_it it)
 // -----------------------------------------------------------------------------
 // trace checker
 // -----------------------------------------------------------------------------
+
+// Overwrite writer_close function to check pages before being written
 void
-writer_close(void *page, const size_t size, uint64_t tid)
+coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
 {
     log_info("checking thread=%lu", tid);
     struct entry_it it          = iter_init(page, size);

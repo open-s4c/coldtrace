@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <coldtrace/config.h>
+#include <coldtrace/writer.h>
 #include <dice/compiler.h>
 #include <dice/log.h>
 #include <errno.h>
@@ -12,7 +13,6 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-#define COLDTRACE_DESCRIPTOR_SIZE 48
 struct coldtrace_impl {
     bool initd;
     uint64_t *buffer;
@@ -23,43 +23,12 @@ struct coldtrace_impl {
     uint32_t enumerator;
 };
 
-typedef struct coldtrace {
-    char _[COLDTRACE_DESCRIPTOR_SIZE];
-} coldtrace_t;
-
-__attribute__((weak)) void
-writer_close(void *page, size_t size, uint64_t id)
-{
-}
-
 // global configuration
 extern uint32_t _max_file_count;
 extern size_t _trace_size;
 extern bool _disable_writes;
 extern char _path[128];
 #define COLDTRACE_FILE_SUFFIX "/freezer_log_%d_%d.bin"
-
-DICE_HIDE void
-coldtrace_init(coldtrace_t *ct, uint64_t id)
-{
-    // Ensure the size of implementation matches the public size
-    assert(sizeof(struct coldtrace_impl) == sizeof(coldtrace_t));
-    struct coldtrace_impl *impl;
-    impl        = (struct coldtrace_impl *)ct;
-    impl->initd = true;
-    impl->tid   = id;
-}
-
-DICE_HIDE void
-coldtrace_fini(coldtrace_t *ct)
-{
-    struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
-    if (!impl->initd)
-        return;
-    writer_close(impl->buffer, impl->offset, impl->tid);
-    close(impl->fd);
-}
-
 
 static void
 _get_trace(struct coldtrace_impl *impl)
@@ -103,7 +72,7 @@ _new_trace(struct coldtrace_impl *impl)
 {
     if (_disable_writes)
         return;
-    writer_close(impl->buffer, impl->offset, impl->tid);
+    coldtrace_writer_close(impl->buffer, impl->offset, impl->tid);
     munmap(impl->buffer, impl->size);
     close(impl->fd);
     impl->enumerator = (impl->enumerator + 1) % _max_file_count;
@@ -128,7 +97,7 @@ _new_trace(struct coldtrace_impl *impl)
 
 
 DICE_HIDE void *
-coldtrace_appendo(coldtrace_t *ct, size_t size)
+coldtrace_writer_reserve(coldtrace_t *ct, size_t size)
 {
     if (_disable_writes)
         return NULL;
@@ -155,4 +124,31 @@ coldtrace_appendo(coldtrace_t *ct, size_t size)
     char *ptr = (char *)(impl->buffer + impl->offset / sizeof(uint64_t));
     impl->offset += size;
     return ptr;
+}
+
+DICE_HIDE void
+coldtrace_writer_init(coldtrace_t *ct, uint64_t id)
+{
+    // Ensure the size of implementation matches the public size
+    assert(sizeof(struct coldtrace_impl) == sizeof(coldtrace_t));
+    struct coldtrace_impl *impl;
+    impl        = (struct coldtrace_impl *)ct;
+    impl->initd = true;
+    impl->tid   = id;
+}
+
+DICE_HIDE void
+coldtrace_writer_fini(coldtrace_t *ct)
+{
+    struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
+    if (!impl->initd)
+        return;
+    coldtrace_writer_close(impl->buffer, impl->offset, impl->tid);
+    close(impl->fd);
+}
+
+
+__attribute__((weak)) void
+coldtrace_writer_close(void *page, size_t size, uint64_t id)
+{
 }
