@@ -146,7 +146,7 @@ static const size_t space_table[] = {
 size_t
 entry_header_size(entry_type type)
 {
-    return space_table[type];
+    return space_table[type & ~ZERO_FLAG];
 }
 
 

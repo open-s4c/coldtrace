@@ -50,13 +50,21 @@ entry_type entry_parse_type(const void *buf);
 size_t entry_parse_size(const void *buf);
 
 static inline struct coldtrace_entry
-typed_ptr(const uint8_t type, const uint64_t ptr)
+typed_ptr(const uint8_t type, uint64_t ptr)
 {
+    uint64_t ptr64               = (uint64_t)(uintptr_t)ptr;
     uint64_t type_masked_shifted = type & TYPE_MASK;
-    uint64_t ptr_masked_shifted  = (ptr << 16) & PTR_MASK;
+    uint64_t ptr_masked_shifted  = (ptr64 << 16) & PTR_MASK;
     return (struct coldtrace_entry){
         .typed_ptr = ptr_masked_shifted | type_masked_shifted,
     };
+}
+
+static inline struct coldtrace_entry
+coldtrace_entry_init(const uint8_t type, const void *ptr)
+{
+    uint64_t ptr64 = (uint64_t)(uintptr_t)ptr;
+    return typed_ptr(type, ptr64);
 }
 
 struct coldtrace_stack {

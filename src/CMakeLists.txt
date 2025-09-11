@@ -17,17 +17,19 @@ math(EXPR PRIO_intercept_mman "${COLDTRACE_BASE_PRIO} + 8")
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
 
 set(SRCS
-    coldtrace.c
     procmaps.c
+    counters.c
+    config.c
+    utils.c
     writer.c
     entries.c
     coldthread.cpp
-    intercept_sem.cpp
-    intercept_tsan.cpp
-    intercept_pthread.cpp
-    intercept_malloc.cpp
-    intercept_mman.cpp
-    intercept_cxa.cpp)
+    subs_sem.c
+    subs_tsan.c
+    subs_pthread.c
+    subs_malloc.c
+    subs_mman.c
+    subs_cxa.c)
 
 set(MODS)
 foreach(SRC ${SRCS})
