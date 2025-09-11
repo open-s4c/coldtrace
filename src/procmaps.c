@@ -1,3 +1,8 @@
+/*
+ * Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ * SPDX-License-Identifier: MIT
+ */
+#include <coldtrace/utils.h>
 #include <dice/chains/capture.h>
 #include <dice/events/thread.h>
 #include <dice/module.h>
@@ -16,7 +21,7 @@
 #define MAX_PATH_LENGTH 1024
 
 const char *coldtrace_path(void);
-bool has_ext_(const char *fname, const char *ext);
+bool has_ext(const char *fname, const char *ext);
 static int _mkdir(const char *path);
 static int _cp(const char *src, const char *dest);
 
@@ -70,7 +75,7 @@ _copy_mapped_files(const char *path)
             continue;
 
         // skip files with .bin extension
-        if (has_ext_(src, ".bin"))
+        if (has_ext(src, ".bin"))
             continue;
 
         // Create the destination path.
@@ -110,7 +115,9 @@ DICE_MODULE_INIT({
     }
 })
 
-static inline void _copy_maps_and_mapped_files(void) {
+static inline void
+_copy_maps_and_mapped_files(void)
+{
     _maps_copied = true;
 
     log_info("copy procmaps");

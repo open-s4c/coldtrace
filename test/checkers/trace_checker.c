@@ -10,8 +10,8 @@
 #include "trace_checker.h"
 
 #include <assert.h>
+#include <coldtrace/config.h>
 #include <coldtrace/entries.h>
-#include <coldtrace/writer.h>
 #include <dice/chains/capture.h>
 #include <dice/log.h>
 #include <dice/module.h>

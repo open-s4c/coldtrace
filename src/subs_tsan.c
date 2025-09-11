@@ -3,9 +3,8 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include "coldtrace.hpp"
+#include "coldtrace.h"
 
-extern "C" {
 #include <dice/events/memaccess.h>
 #include <dice/events/stacktrace.h>
 #include <dice/interpose.h>
@@ -18,48 +17,33 @@ DICE_MODULE_INIT()
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th              = coldthread_get(md);
-
-    th->stack.push_back((void *)ev->caller);
+    coldtrace_stack_push(md, (void *)ev->caller);
 })
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th              = coldthread_get(md);
-
-    if (th->stack.size() != 0) {
-        ensure(th->stack.size() > 0);
-        th->stack.pop_back();
-        th->stack_bottom =
-            std::min(th->stack_bottom, (uint32_t)th->stack.size());
-    }
+    coldtrace_stack_pop(md);
 })
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ, {
     struct ma_read_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th          = coldthread_get(md);
-
-    uint8_t type = COLDTRACE_READ;
+    entry_type type          = COLDTRACE_READ;
     if (ev->size == sizeof(uint64_t) && *(uint64_t *)ev->addr == 0) {
         type |= ZERO_FLAG;
     }
-    ensure(coldtrace_access(
-        &th->ct, type, (uint64_t)ev->addr, (uint64_t)ev->size, (uint64_t)ev->pc,
-        th->stack_bottom, th->stack.size(), (uint64_t *)&th->stack[0]));
-    th->stack_bottom = th->stack.size();
+    struct coldtrace_access_entry *e;
+    e         = coldtrace_append_x(md, type, ev->addr);
+    e->size   = ev->size;
+    e->caller = (uint64_t)ev->pc;
 })
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_WRITE, {
     struct ma_write_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th           = coldthread_get(md);
-
-    ensure(coldtrace_access(&th->ct, COLDTRACE_WRITE, (uint64_t)ev->addr,
-                            (uint64_t)ev->size, (uint64_t)ev->pc,
-                            th->stack_bottom, th->stack.size(),
-                            (uint64_t *)&th->stack[0]));
-    th->stack_bottom = th->stack.size();
+    struct coldtrace_access_entry *e =
+        coldtrace_append_x(md, COLDTRACE_WRITE, ev->addr);
+    e->size   = ev->size;
+    e->caller = (uint64_t)ev->pc;
 })
-
 
 #define AREA_SHIFT 6
 #define AREAS      128
@@ -84,25 +68,28 @@ area_t _areas[AREAS];
     area_t *area   = get_area(addr);                                           \
     uint64_t idx_r = area->idx_r;                                              \
     caslock_release(&area->lock);                                              \
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_ATOMIC_READ, (uint64_t)addr,    \
-                            idx_r));
+    struct coldtrace_atomic_entry *e;                                          \
+    e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_READ, addr);            \
+    e->index = idx_r;
 
 #define REL_LOG_W(addr, size)                                                  \
     area_t *area   = get_area(addr);                                           \
     uint64_t idx_r = area->idx_r;                                              \
     caslock_release(&area->lock);                                              \
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_ATOMIC_WRITE, (uint64_t)addr,   \
-                            idx_r));
+    struct coldtrace_atomic_entry *e;                                          \
+    e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_WRITE, addr);           \
+    e->index = idx_r; // TODO: is this correct???
 
 #define REL_LOG_RW(addr, size)                                                 \
     area_t *area   = get_area(addr);                                           \
     uint64_t idx_r = area->idx_r;                                              \
     caslock_release(&area->lock);                                              \
     uint64_t idx_w = get_next_atomic_idx();                                    \
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_ATOMIC_READ, (uint64_t)addr,    \
-                            idx_r));                                           \
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_ATOMIC_WRITE, (uint64_t)addr,   \
-                            idx_w));
+    struct coldtrace_atomic_entry *e;                                          \
+    e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_READ, addr);            \
+    e->index = idx_r;                                                          \
+    e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_WRITE, addr);           \
+    e->index = idx_w;
 
 #define REL_LOG_RW_COND(addr, size, success)                                   \
     uint64_t idx_w = 0;                                                        \
@@ -112,11 +99,12 @@ area_t _areas[AREAS];
     area_t *area   = get_area(addr);                                           \
     uint64_t idx_r = area->idx_r;                                              \
     caslock_release(&area->lock);                                              \
-    ensure(coldtrace_atomic(&th->ct, COLDTRACE_ATOMIC_READ, (uint64_t)addr,    \
-                            idx_r));                                           \
+    struct coldtrace_atomic_entry *e;                                          \
+    e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_READ, addr);            \
+    e->index = idx_r;                                                          \
     if (success) {                                                             \
-        ensure(coldtrace_atomic(&th->ct, COLDTRACE_ATOMIC_WRITE,               \
-                                (uint64_t)addr, idx_w));                       \
+        e        = coldtrace_append_x(md, COLDTRACE_ATOMIC_WRITE, addr);       \
+        e->index = idx_w;                                                      \
     }
 
 
@@ -127,7 +115,6 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_AREAD, {
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_AREAD, {
     struct ma_aread_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th           = coldthread_get(md);
     REL_LOG_R(ev->addr, ev->size);
 })
 
@@ -138,7 +125,6 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_AWRITE, {
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_AWRITE, {
     struct ma_awrite_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th            = coldthread_get(md);
     REL_LOG_W(ev->addr, ev->size);
 })
 
@@ -149,7 +135,6 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_RMW, {
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_RMW, {
     struct ma_rmw_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th         = coldthread_get(md);
     REL_LOG_RW(ev->addr, ev->size);
 })
 
@@ -160,7 +145,6 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_XCHG, {
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_XCHG, {
     struct ma_xchg_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th          = coldthread_get(md);
     REL_LOG_RW(ev->addr, ev->size);
 })
 
@@ -172,7 +156,5 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_CMPXCHG, {
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
     struct ma_cmpxchg_event *ev = EVENT_PAYLOAD(ev);
-    cold_thread *th             = coldthread_get(md);
     REL_LOG_RW_COND(ev->addr, ev->size, ev->ok);
 })
-}
