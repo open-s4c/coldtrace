@@ -20,29 +20,29 @@ extern "C" {
 #include <cstring>
 #include <vector>
 
-struct coldtrace_thread {
-    struct coldtrace_writer ct;
+struct coldt_thread {
+    struct coldt_writer ct;
     bool initd;
     uint32_t stack_bottom;
     std::vector<void *> stack;
     uint64_t created_thread_idx;
 };
 
-static struct coldtrace_thread _tls_key;
+static struct coldt_thread _tls_key;
 
-static inline struct coldtrace_thread *
-get_coldtrace_thread(metadata_t *md)
+static inline struct coldt_thread *
+get_coldt_thread(metadata_t *md)
 {
-    struct coldtrace_thread *ct = SELF_TLS(md, &_tls_key);
+    struct coldt_thread *ct = SELF_TLS(md, &_tls_key);
     if (!ct->initd) {
-        coldtrace_writer_init(&ct->ct, self_id(md));
+        coldt_writer_init(&ct->ct, self_id(md));
         ct->initd = true;
     }
     return ct;
 }
 
 static inline bool
-_with_stack(coldtrace_entry_type type)
+_with_stack(coldt_entry_type type)
 {
     switch (type) {
         case COLDTRACE_FREE:
@@ -58,15 +58,15 @@ _with_stack(coldtrace_entry_type type)
 }
 
 DICE_HIDE void *
-coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
+coldt_thread_append(struct metadata *md, coldt_entry_type type,
                         const void *ptr)
 {
-    struct coldtrace_thread *th = get_coldtrace_thread(md);
-    uint64_t len                = coldtrace_entry_header_size(type);
+    struct coldt_thread *th = get_coldt_thread(md);
+    uint64_t len                = coldt_entry_header_size(type);
     if (!_with_stack(type)) {
-        struct coldtrace_entry *entry = static_cast<struct coldtrace_entry *>(
-            coldtrace_writer_reserve(&th->ct, len));
-        *entry = coldtrace_entry_init(type, ptr);
+        struct coldt_entry *entry = static_cast<struct coldt_entry *>(
+            coldt_writer_reserve(&th->ct, len));
+        *entry = coldt_entry_init(type, ptr);
         return entry;
     }
 
@@ -75,12 +75,12 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
     uint32_t stack_top         = (uint32_t)th->stack.size();
     uint64_t *stack_base       = (uint64_t *)&stack[0];
     size_t stack_size          = (stack_top - stack_bot) * sizeof(uint64_t);
-    void *e = coldtrace_writer_reserve(&th->ct, len + stack_size);
-    struct coldtrace_entry *entry = static_cast<struct coldtrace_entry *>(e);
-    *entry                        = coldtrace_entry_init(type, ptr);
+    void *e = coldt_writer_reserve(&th->ct, len + stack_size);
+    struct coldt_entry *entry = static_cast<struct coldt_entry *>(e);
+    *entry                        = coldt_entry_init(type, ptr);
 
-    char *buf = static_cast<char *>(e) + len - sizeof(struct coldtrace_stack);
-    struct coldtrace_stack *s = (struct coldtrace_stack *)buf;
+    char *buf = static_cast<char *>(e) + len - sizeof(struct coldt_stack);
+    struct coldt_stack *s = (struct coldt_stack *)buf;
     s->depth                  = stack_top;
     s->popped                 = stack_bot;
     memcpy(s->data, stack_base + stack_bot, stack_size);
@@ -90,44 +90,44 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
 }
 
 DICE_HIDE void
-coldtrace_thread_init(struct metadata *md, uint64_t thread_id)
+coldt_thread_init(struct metadata *md, uint64_t thread_id)
 {
-    struct coldtrace_thread *th = get_coldtrace_thread(md);
-    coldtrace_writer_init(&th->ct, thread_id);
+    struct coldt_thread *th = get_coldt_thread(md);
+    coldt_writer_init(&th->ct, thread_id);
 }
 
 DICE_HIDE void
-coldtrace_thread_fini(struct metadata *md)
+coldt_thread_fini(struct metadata *md)
 {
-    struct coldtrace_thread *th = get_coldtrace_thread(md);
-    coldtrace_writer_fini(&th->ct);
+    struct coldt_thread *th = get_coldt_thread(md);
+    coldt_writer_fini(&th->ct);
 }
 
 DICE_HIDE void
-coldtrace_thread_set_create_idx(struct metadata *md, uint64_t idx)
+coldt_thread_set_create_idx(struct metadata *md, uint64_t idx)
 {
-    struct coldtrace_thread *th = get_coldtrace_thread(md);
+    struct coldt_thread *th = get_coldt_thread(md);
     th->created_thread_idx      = idx;
 }
 
 DICE_HIDE uint64_t
-coldtrace_thread_get_create_idx(struct metadata *md)
+coldt_thread_get_create_idx(struct metadata *md)
 {
-    struct coldtrace_thread *th = get_coldtrace_thread(md);
+    struct coldt_thread *th = get_coldt_thread(md);
     return th->created_thread_idx;
 }
 
 DICE_HIDE void
-coldtrace_thread_stack_push(struct metadata *md, void *caller)
+coldt_thread_stack_push(struct metadata *md, void *caller)
 {
-    struct coldtrace_thread *th = get_coldtrace_thread(md);
+    struct coldt_thread *th = get_coldt_thread(md);
     th->stack.push_back(caller);
 }
 
 DICE_HIDE void
-coldtrace_thread_stack_pop(struct metadata *md)
+coldt_thread_stack_pop(struct metadata *md)
 {
-    struct coldtrace_thread *th = get_coldtrace_thread(md);
+    struct coldt_thread *th = get_coldt_thread(md);
     if (th->stack.size() != 0) {
         assert(th->stack.size() > 0);
         th->stack.pop_back();

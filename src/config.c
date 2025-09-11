@@ -23,7 +23,7 @@ DICE_HIDE char _path[128];
 static char *__path;
 
 DICE_HIDE const char *
-coldtrace_path(void)
+coldt_path(void)
 {
     return __path;
 }
@@ -42,25 +42,25 @@ DICE_MODULE_INIT({
         if (ensure_dir_empty(__path) != 0)
             abort();
 
-    coldtrace_set_path(__path);
+    coldt_set_path(__path);
 
     char *var = getenv("COLDTRACE_MAX_FILES");
     if (var) {
         uint32_t val = strtoul(var, NULL, 10);
-        coldtrace_set_max(val);
+        coldt_set_max(val);
     }
 
     if (getenv("COLDTRACE_DISABLE_WRITES"))
-        coldtrace_disable_writes();
+        coldt_disable_writes();
 })
 
 DICE_HIDE void
-coldtrace_disable_writes(void)
+coldt_disable_writes(void)
 {
     _disable_writes = true;
 }
 DICE_HIDE void
-coldtrace_set_path(const char *path)
+coldt_set_path(const char *path)
 {
     if (strlen(path) >= (128 - sizeof(COLDTRACE_FILE_SUFFIX))) {
         log_printf("error: path too long\n");
@@ -71,13 +71,13 @@ coldtrace_set_path(const char *path)
 }
 
 DICE_HIDE void
-coldtrace_set_size(size_t size)
+coldt_set_size(size_t size)
 {
     _trace_size = size;
 }
 
 DICE_HIDE void
-coldtrace_set_max(uint32_t max_file_count)
+coldt_set_max(uint32_t max_file_count)
 {
     _max_file_count = max_file_count;
 }

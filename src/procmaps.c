@@ -20,7 +20,7 @@
 #define MAX_LINE_LENGTH 256
 #define MAX_PATH_LENGTH 1024
 
-const char *coldtrace_path(void);
+const char *coldt_path(void);
 bool has_ext(const char *fname, const char *ext);
 static int _mkdir(const char *path);
 static int _cp(const char *src, const char *dest);
@@ -122,9 +122,9 @@ _copy_maps_and_mapped_files(void)
 
     log_info("copy procmaps");
 
-    if (_copy_proc_maps(coldtrace_path()) != 0)
+    if (_copy_proc_maps(coldt_path()) != 0)
         abort();
-    if (_copy_mapped_files(coldtrace_path()) != 0)
+    if (_copy_mapped_files(coldt_path()) != 0)
         abort();
 }
 

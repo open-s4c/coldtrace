@@ -72,7 +72,7 @@ _new_trace(struct writer_impl *impl)
 {
     if (_disable_writes)
         return;
-    coldtrace_writer_close(impl->buffer, impl->offset, impl->tid);
+    coldt_writer_close(impl->buffer, impl->offset, impl->tid);
     munmap(impl->buffer, impl->size);
     close(impl->fd);
     impl->enumerator = (impl->enumerator + 1) % _max_file_count;
@@ -97,7 +97,7 @@ _new_trace(struct writer_impl *impl)
 
 
 DICE_HIDE void *
-coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
+coldt_writer_reserve(struct coldt_writer *ct, size_t size)
 {
     if (_disable_writes)
         return NULL;
@@ -127,10 +127,10 @@ coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
 }
 
 DICE_HIDE void
-coldtrace_writer_init(struct coldtrace_writer *ct, uint64_t id)
+coldt_writer_init(struct coldt_writer *ct, uint64_t id)
 {
     // Ensure the size of implementation matches the public size
-    assert(sizeof(struct writer_impl) == sizeof(struct coldtrace_writer));
+    assert(sizeof(struct writer_impl) == sizeof(struct coldt_writer));
     struct writer_impl *impl;
     impl        = (struct writer_impl *)ct;
     impl->initd = true;
@@ -138,17 +138,17 @@ coldtrace_writer_init(struct coldtrace_writer *ct, uint64_t id)
 }
 
 DICE_HIDE void
-coldtrace_writer_fini(struct coldtrace_writer *ct)
+coldt_writer_fini(struct coldt_writer *ct)
 {
     struct writer_impl *impl = (struct writer_impl *)ct;
     if (!impl->initd)
         return;
-    coldtrace_writer_close(impl->buffer, impl->offset, impl->tid);
+    coldt_writer_close(impl->buffer, impl->offset, impl->tid);
     close(impl->fd);
 }
 
 
 __attribute__((weak)) void
-coldtrace_writer_close(void *page, size_t size, uint64_t id)
+coldt_writer_close(void *page, size_t size, uint64_t id)
 {
 }

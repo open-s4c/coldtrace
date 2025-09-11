@@ -81,12 +81,12 @@ iter_advance(struct entry_it *it)
     if (it->size < sizeof(uint64_t))
         return;
 
-    size_t size = coldtrace_entry_parse_size(it->buf);
+    size_t size = coldt_entry_parse_size(it->buf);
     if (size == 0)
         return;
     if (size > it->size)
         log_info("unexpected size=%lu != it->size=%lu (type=%s)", size,
-                 it->size, coldtrace_entry_type_str(coldtrace_entry_parse_type(it->buf)));
+                 it->size, coldt_entry_type_str(coldt_entry_parse_type(it->buf)));
     it->buf += size;
     it->size -= size;
 }
@@ -96,7 +96,7 @@ iter_next(struct entry_it it)
 {
     if (it.size < sizeof(uint64_t))
         return false;
-    return coldtrace_entry_parse_size(it.buf) > 0;
+    return coldt_entry_parse_size(it.buf) > 0;
 }
 
 struct entry_it
@@ -108,10 +108,10 @@ iter_init(void *buf, size_t size)
     };
 }
 
-coldtrace_entry_type
+coldt_entry_type
 iter_type(struct entry_it it)
 {
-    return coldtrace_entry_parse_type(it.buf);
+    return coldt_entry_parse_type(it.buf);
 }
 
 // -----------------------------------------------------------------------------
@@ -120,7 +120,7 @@ iter_type(struct entry_it it)
 
 // Overwrite writer_close function to check pages before being written
 void
-coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
+coldt_writer_close(void *page, const size_t size, uint64_t tid)
 {
     log_info("checking thread=%lu", tid);
     struct entry_it it          = iter_init(page, size);
@@ -130,7 +130,7 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
         _close_callback(page, size);
 
     for (int i = 0; iter_next(it); iter_advance(&it), i++) {
-        coldtrace_entry_type type = iter_type(it);
+        coldt_entry_type type = iter_type(it);
 
         for (size_t j = 0; j < _entry_callback_count; j++)
             _entry_callbacks[j](it.buf);
@@ -140,14 +140,14 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
 
         if (!next->set)
             log_fatal("thread=%lu entry=%d found=%s but trace empty", tid, i,
-                      coldtrace_entry_type_str(type));
+                      coldt_entry_type_str(type));
 
         if ((type != next->type))
             log_fatal("thread=%lu entry=%d found=%s expected=%s", tid, i,
-                      coldtrace_entry_type_str(type), coldtrace_entry_type_str(next->type));
+                      coldt_entry_type_str(type), coldt_entry_type_str(next->type));
 
         log_info("thread=%lu entry=%d match=%s", tid, i,
-                 coldtrace_entry_type_str(next->type));
+                 coldt_entry_type_str(next->type));
         next++;
     }
     if (next && next->set)
