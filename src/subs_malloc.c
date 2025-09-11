@@ -17,7 +17,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MALLOC, {
     struct coldtrace_alloc_entry *e =
         coldtrace_thread_append(md, COLDTRACE_ALLOC, ev->ret);
     e->size        = (uint64_t)ev->size;
-    e->alloc_index = get_next_alloc_idx();
+    e->alloc_index = coldtrace_next_alloc_idx();
     e->caller      = (uint64_t)ev->pc;
 })
 
@@ -26,7 +26,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_CALLOC, {
     struct coldtrace_alloc_entry *e =
         coldtrace_thread_append(md, COLDTRACE_ALLOC, ev->ret);
     e->size        = (uint64_t)ev->size;
-    e->alloc_index = get_next_alloc_idx();
+    e->alloc_index = coldtrace_next_alloc_idx();
     e->caller      = (uint64_t)ev->pc;
 })
 
@@ -34,7 +34,7 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_REALLOC, {
     struct realloc_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_free_entry *e =
         coldtrace_thread_append(md, COLDTRACE_FREE, ev->ptr);
-    e->alloc_index = get_next_alloc_idx();
+    e->alloc_index = coldtrace_next_alloc_idx();
     e->caller      = (uint64_t)(ev->pc);
 })
 
@@ -43,7 +43,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_REALLOC, {
     struct coldtrace_alloc_entry *e =
         coldtrace_thread_append(md, COLDTRACE_ALLOC, ev->ret);
     e->size        = (uint64_t)ev->size;
-    e->alloc_index = get_next_alloc_idx();
+    e->alloc_index = coldtrace_next_alloc_idx();
     e->caller      = (uint64_t)ev->pc;
 })
 
@@ -51,7 +51,7 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_FREE, {
     struct free_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_free_entry *e =
         coldtrace_thread_append(md, COLDTRACE_FREE, ev->ptr);
-    e->alloc_index = get_next_alloc_idx();
+    e->alloc_index = coldtrace_next_alloc_idx();
     e->caller      = (uint64_t)(ev->pc);
 })
 
@@ -60,7 +60,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
     struct coldtrace_alloc_entry *e =
         coldtrace_thread_append(md, COLDTRACE_ALLOC, ev->ptr);
     e->size        = (uint64_t)ev->size;
-    e->alloc_index = get_next_alloc_idx();
+    e->alloc_index = coldtrace_next_alloc_idx();
     e->caller      = (uint64_t)ev->pc;
 })
 
@@ -69,6 +69,6 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_ALIGNED_ALLOC, {
     struct coldtrace_alloc_entry *e =
         coldtrace_thread_append(md, COLDTRACE_ALLOC, ev->ret);
     e->size        = (uint64_t)ev->size;
-    e->alloc_index = get_next_alloc_idx();
+    e->alloc_index = coldtrace_next_alloc_idx();
     e->caller      = (uint64_t)ev->pc;
 })

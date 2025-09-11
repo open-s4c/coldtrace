@@ -13,7 +13,7 @@
 // per-thread writer
 void coldtrace_thread_init(struct metadata *md, uint64_t thread_id);
 void coldtrace_thread_fini(struct metadata *md);
-void *coldtrace_thread_append(struct metadata *md, entry_type type,
+void *coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
                               const void *ptr);
 void coldtrace_thread_set_create_idx(struct metadata *md, uint64_t idx);
 uint64_t coldtrace_thread_get_create_idx(struct metadata *md);

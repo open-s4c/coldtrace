@@ -36,21 +36,21 @@
 #define COLDTRACE_MMAP              22
 #define COLDTRACE_MUNMAP            23
 
-typedef uint8_t entry_type;
+typedef uint8_t coldtrace_entry_type;
 
 struct coldtrace_entry {
     // ptr = ptr (u48) | padding (u8) | type (u8)
     uint64_t typed_ptr;
 };
 
-size_t entry_header_size(entry_type type);
-const char *entry_type_str(entry_type type);
+size_t coldtrace_entry_header_size(coldtrace_entry_type type);
+const char *coldtrace_entry_type_str(coldtrace_entry_type type);
 
-entry_type entry_parse_type(const void *buf);
-size_t entry_parse_size(const void *buf);
+coldtrace_entry_type coldtrace_entry_parse_type(const void *buf);
+size_t coldtrace_entry_parse_size(const void *buf);
 
 static inline struct coldtrace_entry
-typed_ptr(const uint8_t type, uint64_t ptr)
+typed_ptr(const coldtrace_entry_type type, uint64_t ptr)
 {
     uint64_t ptr64               = (uint64_t)(uintptr_t)ptr;
     uint64_t type_masked_shifted = type & TYPE_MASK;
