@@ -7,6 +7,7 @@ extern "C" {
 #include "coldtrace.h"
 
 #include <coldtrace/config.h>
+#include <coldtrace/writer.h>
 #include <dice/events/pthread.h>
 #include <dice/module.h>
 #include <dice/pubsub.h>
@@ -14,15 +15,6 @@ extern "C" {
 #include <dice/thread_id.h>
 #include <stdint.h>
 #include <vsync/atomic.h>
-
-typedef struct coldtrace {
-    char _[COLDTRACE_DESCRIPTOR_SIZE];
-} coldtrace_t;
-
-void coldtrace_init(coldtrace_t *ct, uint64_t thread_id);
-void coldtrace_fini(coldtrace_t *ct);
-
-void *coldtrace_appendo(coldtrace_t *ct, size_t size);
 }
 
 #include <cassert>
@@ -45,7 +37,7 @@ coldthread_get(metadata_t *md)
 {
     cold_thread *ct = SELF_TLS(md, &_tls_key);
     if (!ct->initd) {
-        coldtrace_init(&ct->ct, self_id(md));
+        coldtrace_writer_init(&ct->ct, self_id(md));
         ct->initd = true;
     }
     return ct;
@@ -68,13 +60,13 @@ _with_stack(entry_type type)
 }
 
 void *
-coldtrace_append_x(struct metadata *md, entry_type type, const void *ptr)
+coldtrace_append(struct metadata *md, entry_type type, const void *ptr)
 {
     cold_thread *th = coldthread_get(md);
     uint64_t len    = entry_header_size(type);
     if (!_with_stack(type)) {
         struct coldtrace_entry *entry = static_cast<struct coldtrace_entry *>(
-            coldtrace_appendo(&th->ct, len));
+            coldtrace_writer_reserve(&th->ct, len));
         *entry = coldtrace_entry_init(type, ptr);
         return entry;
     }
@@ -84,7 +76,7 @@ coldtrace_append_x(struct metadata *md, entry_type type, const void *ptr)
     uint32_t stack_top         = (uint32_t)th->stack.size();
     uint64_t *stack_base       = (uint64_t *)&stack[0];
     size_t stack_size          = (stack_top - stack_bot) * sizeof(uint64_t);
-    void *e                    = coldtrace_appendo(&th->ct, len + stack_size);
+    void *e = coldtrace_writer_reserve(&th->ct, len + stack_size);
     struct coldtrace_entry *entry = static_cast<struct coldtrace_entry *>(e);
     *entry                        = coldtrace_entry_init(type, ptr);
 
@@ -98,16 +90,16 @@ coldtrace_append_x(struct metadata *md, entry_type type, const void *ptr)
     return e;
 }
 void
-coldtrace_init_x(struct metadata *md, uint64_t thread_id)
+coldtrace_init(struct metadata *md, uint64_t thread_id)
 {
     cold_thread *th = coldthread_get(md);
-    coldtrace_init(&th->ct, thread_id);
+    coldtrace_writer_init(&th->ct, thread_id);
 }
 void
-coldtrace_fini_x(struct metadata *md)
+coldtrace_fini(struct metadata *md)
 {
     cold_thread *th = coldthread_get(md);
-    coldtrace_fini(&th->ct);
+    coldtrace_writer_fini(&th->ct);
 }
 
 void
@@ -116,12 +108,14 @@ coldtrace_set_create_idx(struct metadata *md, uint64_t idx)
     cold_thread *th        = coldthread_get(md);
     th->created_thread_idx = idx;
 }
+
 uint64_t
 coldtrace_get_create_idx(struct metadata *md)
 {
     cold_thread *th = coldthread_get(md);
     return th->created_thread_idx;
 }
+
 void
 coldtrace_stack_push(struct metadata *md, void *caller)
 {
