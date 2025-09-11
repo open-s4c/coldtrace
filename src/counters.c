@@ -10,13 +10,13 @@ static vatomic64_t next_alloc_index;
 static vatomic64_t next_atomic_index;
 
 DICE_HIDE uint64_t
-get_next_alloc_idx()
+coldtrace_next_alloc_idx()
 {
     return vatomic64_get_inc(&next_alloc_index);
 }
 
 DICE_HIDE uint64_t
-get_next_atomic_idx()
+coldtrace_next_atomic_idx()
 {
     return vatomic64_get_inc_rlx(&next_atomic_index);
 }

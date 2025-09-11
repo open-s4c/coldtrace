@@ -35,7 +35,7 @@ static const char *_type_map[] = {
 };
 
 const char *
-entry_type_str(entry_type type)
+coldtrace_entry_type_str(coldtrace_entry_type type)
 {
     if (type >= (sizeof(_type_map) / sizeof(const char *)))
         return "INVALID_EVENT";
@@ -45,11 +45,11 @@ entry_type_str(entry_type type)
 #define TYPE_MASK 0x00000000000000FFUL
 #define PTR_MASK  0xFFFFFFFFFFFF0000UL
 
-entry_type
-entry_parse_type(const void *buf)
+coldtrace_entry_type
+coldtrace_entry_parse_type(const void *buf)
 {
     uint64_t ptr = ((uint64_t *)buf)[0];
-    return (entry_type)(ptr & TYPE_MASK & ~ZERO_FLAG);
+    return (coldtrace_entry_type)(ptr & TYPE_MASK & ~ZERO_FLAG);
 }
 
 #define NEXT_ATOMIC                                                            \
@@ -59,10 +59,10 @@ entry_parse_type(const void *buf)
     }
 
 size_t
-entry_parse_size(const void *buf)
+coldtrace_entry_parse_size(const void *buf)
 {
     size_t next = 0;
-    switch (entry_parse_type(buf)) {
+    switch (coldtrace_entry_parse_type(buf)) {
         case COLDTRACE_FREE: {
             const struct coldtrace_free_entry *e = buf;
             next += sizeof(struct coldtrace_free_entry);
@@ -144,46 +144,7 @@ static const size_t space_table[] = {
 };
 
 size_t
-entry_header_size(entry_type type)
+coldtrace_entry_header_size(coldtrace_entry_type type)
 {
     return space_table[type & ~ZERO_FLAG];
-}
-
-
-#define CASE_PRINT(X)                                                          \
-    case X:                                                                    \
-        log_info("-> " #X "\n");                                               \
-        break
-
-static void
-entry_print(void *entry)
-{
-    switch (entry_parse_type(entry)) {
-        CASE_PRINT(COLDTRACE_FREE);
-        CASE_PRINT(COLDTRACE_ALLOC);
-        CASE_PRINT(COLDTRACE_READ);
-        CASE_PRINT(COLDTRACE_WRITE);
-        CASE_PRINT(COLDTRACE_ATOMIC_READ);
-        CASE_PRINT(COLDTRACE_ATOMIC_WRITE);
-        CASE_PRINT(COLDTRACE_LOCK_ACQUIRE);
-        CASE_PRINT(COLDTRACE_LOCK_RELEASE);
-        CASE_PRINT(COLDTRACE_THREAD_CREATE);
-        CASE_PRINT(COLDTRACE_THREAD_START);
-        CASE_PRINT(COLDTRACE_RW_LOCK_CREATE);
-        CASE_PRINT(COLDTRACE_RW_LOCK_DESTROY);
-        CASE_PRINT(COLDTRACE_RW_LOCK_ACQ_SHR);
-        CASE_PRINT(COLDTRACE_RW_LOCK_ACQ_EXC);
-        CASE_PRINT(COLDTRACE_RW_LOCK_REL_SHR);
-        CASE_PRINT(COLDTRACE_RW_LOCK_REL_EXC);
-        CASE_PRINT(COLDTRACE_RW_LOCK_REL);
-        CASE_PRINT(COLDTRACE_CXA_GUARD_ACQUIRE);
-        CASE_PRINT(COLDTRACE_CXA_GUARD_RELEASE);
-        CASE_PRINT(COLDTRACE_THREAD_JOIN);
-        CASE_PRINT(COLDTRACE_THREAD_EXIT);
-        CASE_PRINT(COLDTRACE_FENCE);
-        CASE_PRINT(COLDTRACE_MMAP);
-        CASE_PRINT(COLDTRACE_MUNMAP);
-        default:
-            printf("TRACE_CHECK: Entry type = dont know\n");
-    }
 }

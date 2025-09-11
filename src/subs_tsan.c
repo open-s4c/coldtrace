@@ -27,7 +27,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ, {
     struct ma_read_event *ev = EVENT_PAYLOAD(ev);
-    entry_type type          = COLDTRACE_READ;
+    coldtrace_entry_type type          = COLDTRACE_READ;
     if (ev->size == sizeof(uint64_t) && *(uint64_t *)ev->addr == 0) {
         type |= ZERO_FLAG;
     }
@@ -62,7 +62,7 @@ area_t _areas[AREAS];
         sizeof(struct coldtrace_atomic_entry) / sizeof(uint64_t);              \
     area_t *area = get_area(addr);                                             \
     caslock_acquire(&area->lock);                                              \
-    area->idx_r = get_next_atomic_idx();
+    area->idx_r = coldtrace_next_atomic_idx();
 
 #define REL_LOG_R(addr, size)                                                  \
     area_t *area   = get_area(addr);                                           \
@@ -84,7 +84,7 @@ area_t _areas[AREAS];
     area_t *area   = get_area(addr);                                           \
     uint64_t idx_r = area->idx_r;                                              \
     caslock_release(&area->lock);                                              \
-    uint64_t idx_w = get_next_atomic_idx();                                    \
+    uint64_t idx_w = coldtrace_next_atomic_idx();                                    \
     struct coldtrace_atomic_entry *e;                                          \
     e        = coldtrace_thread_append(md, COLDTRACE_ATOMIC_READ, addr);       \
     e->index = idx_r;                                                          \
@@ -94,7 +94,7 @@ area_t _areas[AREAS];
 #define REL_LOG_RW_COND(addr, size, success)                                   \
     uint64_t idx_w = 0;                                                        \
     if (success) {                                                             \
-        idx_w = get_next_atomic_idx();                                         \
+        idx_w = coldtrace_next_atomic_idx();                                         \
     }                                                                          \
     area_t *area   = get_area(addr);                                           \
     uint64_t idx_r = area->idx_r;                                              \

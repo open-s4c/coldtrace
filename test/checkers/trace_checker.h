@@ -17,7 +17,7 @@ extern "C" {
 #define CHECK_FUNC __attribute__((no_sanitize("thread")))
 
 struct expected_entry {
-    entry_type type;
+    coldtrace_entry_type type;
     bool set;
 };
 

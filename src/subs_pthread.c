@@ -42,7 +42,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_START, {
 
     struct coldtrace_thread_init_entry *e = coldtrace_thread_append(
         md, COLDTRACE_THREAD_START, (void *)REAL(pthread_self));
-    e->atomic_index      = get_next_atomic_idx();
+    e->atomic_index      = coldtrace_next_atomic_idx();
     e->thread_stack_ptr  = (uint64_t)stackaddr;
     e->thread_stack_size = (uint64_t)stacksize;
 })
@@ -50,7 +50,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_START, {
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_EXIT, {
     struct coldtrace_atomic_entry *e =
         coldtrace_thread_append(md, COLDTRACE_THREAD_EXIT, (void *)REAL(pthread_self));
-    e->index = get_next_atomic_idx();
+    e->index = coldtrace_next_atomic_idx();
     coldtrace_thread_fini(md);
 })
 
@@ -58,13 +58,13 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
     if (self_id(md) == MAIN_THREAD) {
         struct coldtrace_atomic_entry *e = coldtrace_thread_append(
             md, COLDTRACE_THREAD_EXIT, (void *)REAL(pthread_self));
-        e->index = get_next_atomic_idx();
+        e->index = coldtrace_next_atomic_idx();
         coldtrace_thread_fini(md);
     }
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_THREAD_CREATE,
-             { coldtrace_thread_set_create_idx(md, get_next_atomic_idx()); })
+             { coldtrace_thread_set_create_idx(md, coldtrace_next_atomic_idx()); })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_THREAD_CREATE, {
     struct pthread_create_event *ev = EVENT_PAYLOAD(ev);
@@ -77,14 +77,14 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_THREAD_JOIN, {
     struct pthread_join_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e =
         coldtrace_thread_append(md, COLDTRACE_THREAD_JOIN, (void *)ev->thread);
-    e->index = get_next_atomic_idx();
+    e->index = coldtrace_next_atomic_idx();
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MUTEX_UNLOCK, {
     struct pthread_mutex_unlock_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e =
         coldtrace_thread_append(md, COLDTRACE_LOCK_RELEASE, (void *)ev->mutex);
-    e->index = get_next_atomic_idx();
+    e->index = coldtrace_next_atomic_idx();
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
@@ -92,7 +92,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_LOCK, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_LOCK_ACQUIRE, (void *)ev->mutex);
-        e->index = get_next_atomic_idx();
+        e->index = coldtrace_next_atomic_idx();
     }
 })
 
@@ -102,7 +102,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_TRYLOCK, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_LOCK_ACQUIRE, (void *)ev->mutex);
-        e->index = get_next_atomic_idx();
+        e->index = coldtrace_next_atomic_idx();
     }
 })
 
@@ -111,7 +111,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_LOCK_ACQUIRE, (void *)ev->mutex);
-        e->index = get_next_atomic_idx();
+        e->index = coldtrace_next_atomic_idx();
     }
 })
 
@@ -119,35 +119,35 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_COND_WAIT, {
     struct pthread_cond_wait_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e =
         coldtrace_thread_append(md, COLDTRACE_LOCK_RELEASE, (void *)ev->mutex);
-    e->index = get_next_atomic_idx();
+    e->index = coldtrace_next_atomic_idx();
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_COND_WAIT, {
     struct pthread_cond_wait_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e =
         coldtrace_thread_append(md, COLDTRACE_LOCK_ACQUIRE, (void *)ev->mutex);
-    e->index = get_next_atomic_idx();
+    e->index = coldtrace_next_atomic_idx();
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_COND_TIMEDWAIT, {
     struct pthread_cond_timedwait_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e =
         coldtrace_thread_append(md, COLDTRACE_LOCK_RELEASE, (void *)ev->mutex);
-    e->index = get_next_atomic_idx();
+    e->index = coldtrace_next_atomic_idx();
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_COND_TIMEDWAIT, {
     struct pthread_cond_timedwait_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e =
         coldtrace_thread_append(md, COLDTRACE_LOCK_ACQUIRE, (void *)ev->mutex);
-    e->index = get_next_atomic_idx();
+    e->index = coldtrace_next_atomic_idx();
 })
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_RWLOCK_UNLOCK, {
     struct pthread_rwlock_unlock_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e =
         coldtrace_thread_append(md, COLDTRACE_RW_LOCK_REL, (void *)ev->lock);
-    e->index = get_next_atomic_idx();
+    e->index = coldtrace_next_atomic_idx();
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_RDLOCK, {
@@ -155,7 +155,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_RDLOCK, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_RW_LOCK_ACQ_SHR, (void *)ev->lock);
-        e->index = get_next_atomic_idx();
+        e->index = coldtrace_next_atomic_idx();
     }
 })
 
@@ -164,7 +164,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TRYRDLOCK, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_RW_LOCK_ACQ_SHR, (void *)ev->lock);
-        e->index = get_next_atomic_idx();
+        e->index = coldtrace_next_atomic_idx();
     }
 })
 
@@ -173,7 +173,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDRDLOCK, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_RW_LOCK_ACQ_SHR, (void *)ev->lock);
-        e->index = get_next_atomic_idx();
+        e->index = coldtrace_next_atomic_idx();
     }
 })
 
@@ -182,7 +182,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_WRLOCK, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_RW_LOCK_ACQ_EXC, (void *)ev->lock);
-        e->index = get_next_atomic_idx();
+        e->index = coldtrace_next_atomic_idx();
     }
 })
 
@@ -191,7 +191,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TRYWRLOCK, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_RW_LOCK_ACQ_EXC, (void *)ev->lock);
-        e->index = get_next_atomic_idx();
+        e->index = coldtrace_next_atomic_idx();
     }
 })
 
@@ -200,6 +200,6 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDWRLOCK, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_RW_LOCK_ACQ_EXC, (void *)ev->lock);
-        e->index = get_next_atomic_idx();
+        e->index = coldtrace_next_atomic_idx();
     }
 })

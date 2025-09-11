@@ -4,7 +4,6 @@
  */
 
 extern "C" {
-
 #include <coldtrace/config.h>
 #include <coldtrace/thread.h>
 #include <coldtrace/writer.h>
@@ -43,7 +42,7 @@ get_coldtrace_thread(metadata_t *md)
 }
 
 static inline bool
-_with_stack(entry_type type)
+_with_stack(coldtrace_entry_type type)
 {
     switch (type) {
         case COLDTRACE_FREE:
@@ -58,11 +57,12 @@ _with_stack(entry_type type)
     }
 }
 
-void *
-coldtrace_thread_append(struct metadata *md, entry_type type, const void *ptr)
+DICE_HIDE void *
+coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
+                        const void *ptr)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
-    uint64_t len                = entry_header_size(type);
+    uint64_t len                = coldtrace_entry_header_size(type);
     if (!_with_stack(type)) {
         struct coldtrace_entry *entry = static_cast<struct coldtrace_entry *>(
             coldtrace_writer_reserve(&th->ct, len));
@@ -88,41 +88,43 @@ coldtrace_thread_append(struct metadata *md, entry_type type, const void *ptr)
     stack_bot = stack_top;
     return e;
 }
-void
+
+DICE_HIDE void
 coldtrace_thread_init(struct metadata *md, uint64_t thread_id)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
     coldtrace_writer_init(&th->ct, thread_id);
 }
-void
+
+DICE_HIDE void
 coldtrace_thread_fini(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
     coldtrace_writer_fini(&th->ct);
 }
 
-void
+DICE_HIDE void
 coldtrace_thread_set_create_idx(struct metadata *md, uint64_t idx)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
     th->created_thread_idx      = idx;
 }
 
-uint64_t
+DICE_HIDE uint64_t
 coldtrace_thread_get_create_idx(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
     return th->created_thread_idx;
 }
 
-void
+DICE_HIDE void
 coldtrace_thread_stack_push(struct metadata *md, void *caller)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
     th->stack.push_back(caller);
 }
 
-void
+DICE_HIDE void
 coldtrace_thread_stack_pop(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
