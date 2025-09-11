@@ -13,7 +13,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-struct coldtrace_impl {
+struct writer_impl {
     bool initd;
     uint64_t *buffer;
     uint64_t size;
@@ -31,7 +31,7 @@ extern char _path[128];
 #define COLDTRACE_FILE_SUFFIX "/freezer_log_%d_%d.bin"
 
 static void
-_get_trace(struct coldtrace_impl *impl)
+_get_trace(struct writer_impl *impl)
 {
     if (_disable_writes)
         return;
@@ -68,7 +68,7 @@ _get_trace(struct coldtrace_impl *impl)
 }
 
 static void
-_new_trace(struct coldtrace_impl *impl)
+_new_trace(struct writer_impl *impl)
 {
     if (_disable_writes)
         return;
@@ -97,12 +97,12 @@ _new_trace(struct coldtrace_impl *impl)
 
 
 DICE_HIDE void *
-coldtrace_writer_reserve(coldtrace_t *ct, size_t size)
+coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
 {
     if (_disable_writes)
         return NULL;
 
-    struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
+    struct writer_impl *impl = (struct writer_impl *)ct;
     _get_trace(impl);
     if (impl->buffer == MAP_FAILED) {
         return false;
@@ -127,20 +127,20 @@ coldtrace_writer_reserve(coldtrace_t *ct, size_t size)
 }
 
 DICE_HIDE void
-coldtrace_writer_init(coldtrace_t *ct, uint64_t id)
+coldtrace_writer_init(struct coldtrace_writer *ct, uint64_t id)
 {
     // Ensure the size of implementation matches the public size
-    assert(sizeof(struct coldtrace_impl) == sizeof(coldtrace_t));
-    struct coldtrace_impl *impl;
-    impl        = (struct coldtrace_impl *)ct;
+    assert(sizeof(struct writer_impl) == sizeof(struct coldtrace_writer));
+    struct writer_impl *impl;
+    impl        = (struct writer_impl *)ct;
     impl->initd = true;
     impl->tid   = id;
 }
 
 DICE_HIDE void
-coldtrace_writer_fini(coldtrace_t *ct)
+coldtrace_writer_fini(struct coldtrace_writer *ct)
 {
-    struct coldtrace_impl *impl = (struct coldtrace_impl *)ct;
+    struct writer_impl *impl = (struct writer_impl *)ct;
     if (!impl->initd)
         return;
     coldtrace_writer_close(impl->buffer, impl->offset, impl->tid);
