@@ -1,6 +1,3 @@
-[submodule "deps/libvsync"]
-	path = deps/libvsync
-	url = ../libvsync
 [submodule "deps/dice"]
 	path = deps/dice
 	url = ../dice

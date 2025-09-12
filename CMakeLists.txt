@@ -6,7 +6,7 @@ project(
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-add_subdirectory(deps)
+add_subdirectory(deps/dice)
 find_package(libvsync 4.2 CONFIG)
 if(NOT libvsync_DIR)
   set(CMAKE_FIND_ROOT_PATH ${CMAKE_CURRENT_BINARY_DIR}/deps)
