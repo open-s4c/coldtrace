@@ -33,12 +33,18 @@ extern char _path[128];
 static void
 _get_trace(struct writer_impl *impl)
 {
-    if (_disable_writes)
-        return;
     assert(impl->initd);
     if (impl->buffer) {
         return;
     }
+
+    if (_disable_writes) {
+        impl->size   = _trace_size;
+        impl->offset = 0;
+        impl->buffer = malloc(impl->size);
+        return;
+    }
+
     impl->enumerator = 0;
     impl->size       = _trace_size;
     impl->offset     = 0;
@@ -70,8 +76,15 @@ _get_trace(struct writer_impl *impl)
 static void
 _new_trace(struct writer_impl *impl)
 {
-    if (_disable_writes)
+    if (_disable_writes) {
+        if (impl->size != _trace_size) {
+            impl->size = _trace_size;
+            free(impl->buffer);
+            impl->buffer = malloc(impl->size);
+        }
+        impl->offset = 0;
         return;
+    }
     coldtrace_writer_close(impl->buffer, impl->offset, impl->tid);
     munmap(impl->buffer, impl->size);
     close(impl->fd);
@@ -99,13 +112,10 @@ _new_trace(struct writer_impl *impl)
 DICE_HIDE void *
 coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
 {
-    if (_disable_writes)
-        return NULL;
-
     struct writer_impl *impl = (struct writer_impl *)ct;
     _get_trace(impl);
-    if (impl->buffer == MAP_FAILED) {
-        return false;
+    if (impl->buffer == MAP_FAILED || impl->buffer == NULL) {
+        return NULL;
     }
 
     // check if size of trace was reduced
@@ -144,7 +154,10 @@ coldtrace_writer_fini(struct coldtrace_writer *ct)
     if (!impl->initd)
         return;
     coldtrace_writer_close(impl->buffer, impl->offset, impl->tid);
-    close(impl->fd);
+    if (_disable_writes)
+        free(impl->buffer);
+    else
+        close(impl->fd);
 }
 
 
