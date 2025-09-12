@@ -3,6 +3,7 @@
 #include <coldtrace/writer.h>
 #include <dice/compiler.h>
 #include <dice/log.h>
+#include <dice/mempool.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -25,15 +26,20 @@ struct writer_impl {
 static void
 get_trace_(struct writer_impl *impl)
 {
-    if (coldtrace_writes_disabled())
-        return;
     assert(impl->initd);
     if (impl->buffer) {
         return;
     }
-    impl->enumerator    = 0;
-    impl->size          = coldtrace_get_trace_size();
-    impl->offset        = 0;
+
+    impl->size       = coldtrace_get_trace_size();
+    impl->offset     = 0;
+    impl->enumerator = 0;
+
+    if (coldtrace_writes_disabled()) {
+        impl->buffer = mempool_alloc(impl->size);
+        return;
+    }
+
     const char *pattern = coldtrace_get_file_pattern();
     char file_name[strlen(pattern) + 20];
     sprintf(file_name, pattern, impl->tid, impl->enumerator);
@@ -59,10 +65,19 @@ get_trace_(struct writer_impl *impl)
 static void
 new_trace_(struct writer_impl *impl)
 {
-    if (coldtrace_writes_disabled())
+    if (coldtrace_writes_disabled()) {
+        size_t trace_size = coldtrace_get_trace_size();
+        if (impl->size != trace_size) {
+            impl->size = trace_size;
+            mempool_free(impl->buffer);
+            impl->buffer = mempool_alloc(impl->size);
+        }
+        impl->offset = 0;
         return;
+    }
     coldtrace_writer_close(impl->buffer, impl->offset, impl->tid);
     munmap(impl->buffer, impl->size);
+
     impl->enumerator = (impl->enumerator + 1) % coldtrace_get_max();
     impl->size       = coldtrace_get_trace_size();
     impl->offset     = 0;
@@ -83,15 +98,12 @@ new_trace_(struct writer_impl *impl)
 
 
 DICE_HIDE void *
-coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
+coldtrace_writer_reserve(struct coldtrace_writer *writer, size_t size)
 {
-    if (coldtrace_writes_disabled())
-        return NULL;
-
-    struct writer_impl *impl = (struct writer_impl *)ct;
+    struct writer_impl *impl = (struct writer_impl *)writer;
     get_trace_(impl);
-    if (impl->buffer == MAP_FAILED) {
-        return false;
+    if (impl->buffer == MAP_FAILED || impl->buffer == NULL) {
+        return NULL;
     }
 
     // check if size of trace was reduced
@@ -102,12 +114,12 @@ coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
 
     if ((impl->offset + size) > trace_size) {
         new_trace_(impl);
-        if (impl->buffer == MAP_FAILED) {
+        if (impl->buffer == MAP_FAILED || impl->buffer == NULL) {
             return NULL;
         }
     }
 
-    char *ptr = (char *)(impl->buffer + impl->offset / sizeof(uint64_t));
+    char *ptr = (char *)(impl->buffer) + impl->offset;
     impl->offset += size;
     return ptr;
 }
@@ -118,9 +130,11 @@ coldtrace_writer_init(struct coldtrace_writer *ct, uint64_t id)
     // Ensure the size of implementation matches the public size
     assert(sizeof(struct writer_impl) == sizeof(struct coldtrace_writer));
     struct writer_impl *impl;
-    impl        = (struct writer_impl *)ct;
-    impl->initd = true;
-    impl->tid   = id;
+    impl         = (struct writer_impl *)ct;
+    impl->initd  = true;
+    impl->tid    = id;
+    impl->buffer = NULL;
+    impl->size   = 0;
 }
 
 DICE_HIDE void
@@ -130,6 +144,9 @@ coldtrace_writer_fini(struct coldtrace_writer *ct)
     if (!impl->initd)
         return;
     coldtrace_writer_close(impl->buffer, impl->offset, impl->tid);
+
+    if (coldtrace_writes_disabled())
+        mempool_free(impl->buffer);
 }
 
 
