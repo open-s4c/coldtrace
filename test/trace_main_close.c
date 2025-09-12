@@ -1,3 +1,7 @@
+/*
+ * Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+ * SPDX-License-Identifier: 0BSD
+ */
 #include <assert.h>
 #include <dice/log.h>
 #include <stdbool.h>

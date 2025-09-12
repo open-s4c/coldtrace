@@ -1,3 +1,6 @@
+# Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+# SPDX-License-Identifier: 0BSD
+
 cmake_minimum_required(VERSION 3.20)
 project(
   coldtrace

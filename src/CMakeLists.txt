@@ -1,3 +1,6 @@
+# Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
+# SPDX-License-Identifier: 0BSD
+
 if(NOT DEFINED COLDTRACE_BASE_PRIO)
   set(COLDTRACE_BASE_PRIO
       3

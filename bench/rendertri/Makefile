@@ -1,5 +1,5 @@
 # Copyright (C) Huawei Technologies Co., Ltd. 2025. All rights reserved.
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: 0BSD
 
 PROJECT!=	readlink -f $(ROOTDIR)/../..
 CXX_FLAGS+=	-I/usr/X11R7/include -L/usr/X11R7/lib
