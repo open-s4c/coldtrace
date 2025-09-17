@@ -16,15 +16,15 @@ main()
     register_expected_trace(1, expected_1);
     int *ptr1;
     ptr1 = malloc(sizeof(*ptr1));
-  
-    if(ptr1 == NULL){
+
+    if (ptr1 == NULL) {
         return 1;
     }
 
     *ptr1 = 20;
 
     free(ptr1);
-    ptr1 = NULL; 
-   
+    ptr1 = NULL;
+
     return 0;
 }
