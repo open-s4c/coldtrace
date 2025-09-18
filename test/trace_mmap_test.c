@@ -9,7 +9,6 @@ struct entry_expect expected_1[] = {
     EXPECT_ENTRY(COLDTRACE_ALLOC),
     EXPECT_ENTRY(COLDTRACE_MMAP),
     EXPECT_ENTRY(COLDTRACE_MUNMAP),
-    EXPECT_ENTRY(COLDTRACE_MUNMAP),
     EXPECT_ENTRY(COLDTRACE_THREAD_EXIT),
     EXPECT_END,
 };
@@ -29,12 +28,10 @@ main(void)
     }
 
     // unmaping the 4096 mapped
-    munmap(ptr1, 4096);
-
     if (munmap(ptr1, 4096) == -1) {
         perror("munmap failed");
         return 1;
     }
     return 0;
 }
-//https://pubs.opengroup.org/onlinepubs/009604499/functions/mmap.html source
+//
