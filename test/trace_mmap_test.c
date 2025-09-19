@@ -1,7 +1,5 @@
-#include <assert.h>
 #include <errno.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <sys/mman.h>
 #include <trace_checker.h>
 

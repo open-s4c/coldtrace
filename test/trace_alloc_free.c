@@ -18,6 +18,7 @@ main()
     ptr1 = malloc(sizeof(*ptr1));
 
     if (ptr1 == NULL) {
+        printf("Null pointer has been returned\n");
         return 1;
     }
 
