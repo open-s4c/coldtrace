@@ -1,4 +1,4 @@
-#include <errno.h>
+#include <dice/log.h>
 #include <stdio.h>
 #include <sys/mman.h>
 #include <trace_checker.h>
@@ -21,14 +21,12 @@ main(void)
 
 
     if (ptr1 == MAP_FAILED) {
-        perror("mmap failed");
-        return 1;
+        log_fatal("mmap failed");
     }
 
     // unmaping the 4096 mapped
     if (munmap(ptr1, 4096) == -1) {
-        perror("munmap failed");
-        return 1;
+        log_fatal("munmap failed");
     }
     return 0;
 }

@@ -1,6 +1,8 @@
+#include <dice/log.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <trace_checker.h>
+
 
 struct entry_expect expected_1[] = {
     EXPECT_ENTRY(COLDTRACE_ALLOC),
@@ -18,8 +20,7 @@ main()
     ptr1 = malloc(sizeof(*ptr1));
 
     if (ptr1 == NULL) {
-        printf("Null pointer has been returned\n");
-        return 1;
+        log_fatal("Null pointer has been returned");
     }
 
     *ptr1 = 20;
