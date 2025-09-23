@@ -4,7 +4,7 @@
 #include <trace_checker.h>
 
 
-struct entry_expect expected_1[] = {
+struct expected_entry expected_1[] = {
     EXPECT_ENTRY(COLDTRACE_ALLOC),
     EXPECT_ENTRY(COLDTRACE_ALLOC),
     EXPECT_ENTRY(COLDTRACE_WRITE),
