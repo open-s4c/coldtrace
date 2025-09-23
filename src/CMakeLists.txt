@@ -13,6 +13,7 @@ math(EXPR PRIO_subs_pthread "${COLDTRACE_BASE_PRIO} + 5")
 math(EXPR PRIO_subs_malloc "${COLDTRACE_BASE_PRIO} + 6")
 math(EXPR PRIO_subs_cxa "${COLDTRACE_BASE_PRIO} + 7")
 math(EXPR PRIO_subs_mman "${COLDTRACE_BASE_PRIO} + 8")
+math(EXPR PRIO_subs_annotate_rwlock "${COLDTRACE_BASE_PRIO} + 9")
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
 
@@ -34,7 +35,8 @@ set(SRCS
     subs_pthread.c
     subs_malloc.c
     subs_mman.c
-    subs_cxa.c)
+    subs_cxa.c
+    subs_annotate_rwlock.c)
 
 set(MODS)
 foreach(SRC ${SRCS})
@@ -67,6 +69,7 @@ set(MODS
     dice-cxa.o
     dice-tsan.o
     dice-stacktrace.o
+    dice-annotate_rwlock.o
     dice.o)
 
 add_library(coldtrace SHARED)
