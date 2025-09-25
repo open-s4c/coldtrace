@@ -77,6 +77,9 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
     uint64_t *stack_base       = (uint64_t *)&stack[0];
     size_t stack_size          = (stack_top - stack_bot) * sizeof(uint64_t);
     void *e = coldtrace_writer_reserve(&th->writer, len + stack_size);
+    if (e == NULL)
+        log_fatal("error: Could not reserve entry in writer");
+
     struct coldtrace_entry_header *entry =
         static_cast<struct coldtrace_entry_header *>(e);
     *entry = coldtrace_entry_init(type, ptr);

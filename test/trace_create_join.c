@@ -6,20 +6,23 @@
 #include <trace_checker.h>
 
 struct expected_entry expected_1[] = {
+#if !defined(__clang__)
     EXPECT_ENTRY(COLDTRACE_ALLOC),
+    EXPECT_ENTRY(COLDTRACE_FREE),
+#endif
     EXPECT_ENTRY(COLDTRACE_THREAD_CREATE),
     EXPECT_ENTRY(COLDTRACE_READ),
     EXPECT_ENTRY(COLDTRACE_THREAD_JOIN),
     EXPECT_ENTRY(COLDTRACE_THREAD_EXIT),
 
-    {0},
+    EXPECT_END,
 };
 
 struct expected_entry expected_2[] = {
     EXPECT_ENTRY(COLDTRACE_THREAD_START),
     EXPECT_ENTRY(COLDTRACE_THREAD_EXIT),
 
-    {0},
+    EXPECT_END,
 };
 
 void *

@@ -23,6 +23,7 @@ DICE_MODULE_INIT({
         log_printf("Set COLDTRACE_PATH to a valid directory\n");
         exit(EXIT_FAILURE);
     }
+    coldtrace_set_path(var);
 
     if (ensure_dir_exists(var) != 0)
         abort();
@@ -30,8 +31,6 @@ DICE_MODULE_INIT({
     if (getenv("COLDTRACE_DISABLE_CLEANUP") == NULL)
         if (ensure_dir_empty(var) != 0)
             abort();
-
-    coldtrace_set_path(var);
 
     var = getenv("COLDTRACE_MAX_FILES");
     if (var) {
