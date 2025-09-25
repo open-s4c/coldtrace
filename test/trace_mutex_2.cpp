@@ -49,7 +49,10 @@ once_plus_one(void *ptr)
 #define NUM_THREADS 1
 
 struct expected_entry expected_1[] = {
+#if !defined(__clang__)
     EXPECT_ENTRY(COLDTRACE_ALLOC),
+    EXPECT_ENTRY(COLDTRACE_FREE),
+#endif
     EXPECT_ENTRY(COLDTRACE_WRITE),
     EXPECT_ENTRY(COLDTRACE_THREAD_CREATE),
 #if !defined(__clang__)

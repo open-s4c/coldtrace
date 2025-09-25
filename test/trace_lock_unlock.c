@@ -6,11 +6,15 @@
 #include <trace_checker.h>
 
 struct expected_entry expected[] = {
+#if !defined(__clang__)
     EXPECT_ENTRY(COLDTRACE_ALLOC),
+    EXPECT_ENTRY(COLDTRACE_FREE),
+#endif
     EXPECT_ENTRY(COLDTRACE_LOCK_ACQUIRE),
     EXPECT_ENTRY(COLDTRACE_LOCK_RELEASE),
     EXPECT_ENTRY(COLDTRACE_THREAD_EXIT),
-    {0},
+
+    EXPECT_END,
 };
 
 int

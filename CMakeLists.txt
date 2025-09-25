@@ -6,6 +6,8 @@ project(
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+add_compile_options(-fPIC -g3 -D_GNU_SOURCE -DDICE_MAIN_START_DISABLE)
+
 add_subdirectory(deps/dice)
 find_package(libvsync 4.2 CONFIG)
 if(NOT libvsync_DIR)
@@ -14,7 +16,6 @@ if(NOT libvsync_DIR)
 endif()
 add_library(vsync ALIAS libvsync::vsync)
 
-add_compile_options(-fPIC -g3 -D_GNU_SOURCE)
 add_compile_options(
   -Wall
   -Werror

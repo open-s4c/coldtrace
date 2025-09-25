@@ -1,7 +1,10 @@
 #include <trace_checker.h>
 
 struct expected_entry trace[] = {
+#if !defined(__clang__)
     EXPECT_ENTRY(COLDTRACE_ALLOC),
+    EXPECT_ENTRY(COLDTRACE_FREE),
+#endif
     EXPECT_ENTRY(COLDTRACE_READ),
     EXPECT_ENTRY(COLDTRACE_THREAD_EXIT),
 

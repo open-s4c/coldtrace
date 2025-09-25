@@ -5,7 +5,10 @@
 
 
 struct expected_entry expected_1[] = {
+#if !defined(__clang__)
     EXPECT_ENTRY(COLDTRACE_ALLOC),
+    EXPECT_ENTRY(COLDTRACE_FREE),
+#endif
     EXPECT_ENTRY(COLDTRACE_ALLOC),
     EXPECT_ENTRY(COLDTRACE_WRITE),
     EXPECT_ENTRY(COLDTRACE_FREE),
