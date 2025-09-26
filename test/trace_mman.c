@@ -1,5 +1,4 @@
 #include <dice/log.h>
-#include <stdio.h>
 #include <sys/mman.h>
 #include <trace_checker.h>
 
