@@ -13,6 +13,7 @@
 #include <coldtrace/config.h>
 #include <coldtrace/entries.h>
 #include <dice/chains/capture.h>
+#include <dice/ensure.h>
 #include <dice/log.h>
 #include <dice/module.h>
 #include <dice/self.h>
@@ -104,6 +105,78 @@ iter_type(struct entry_it it)
     return coldtrace_entry_parse_type(it.buf);
 }
 
+static void _check_next(coldtrace_entry_type type, struct expected_entry **exp,
+                        uint64_t tid, int i);
+static void
+_check_strict(coldtrace_entry_type type, struct expected_entry **exp,
+              uint64_t tid, int i)
+{
+    struct expected_entry *e = *exp;
+    bool mismatch            = (type != e->type);
+    // no matched and required
+    if (mismatch && e->atleast > 0) {
+        log_fatal("thread=%lu entry=%d found=%s expected=%s", tid, i,
+                  coldtrace_entry_type_str(type),
+                  coldtrace_entry_type_str(e->type));
+        // not matched advance pointer and check the next one
+    } else if (mismatch) {
+        // if next is required
+        struct expected_entry *next = e + 1;
+        if (next->set && next->atleast > 0 && type == next->type) {
+            (*exp)++; // skip optional
+            _check_next(type, exp, tid, i);
+            return;
+        }
+        (*exp)++; // advance pointer
+        log_warn("%lu event mismatch (go to next)", tid);
+        _check_next(type, exp, tid, i);
+        return;
+    }
+    // matched
+    log_info("thread=%lu entry=%d match=%s", tid, i,
+             coldtrace_entry_type_str(e->type));
+    // if it was required make it optional
+    if (e->atleast > 0)
+        e->atleast--;
+    // if it has more ocuurencies left next
+    if (e->atmost-- == 1)
+        (*exp)++;
+}
+static void
+_check_wildcard(coldtrace_entry_type type, struct expected_entry **exp,
+                uint64_t tid, int i)
+{
+    struct expected_entry *e    = *exp;
+    struct expected_entry *next = e + 1;
+    // see the next if required
+    if (next->set && next->atleast > 0 && type == next->type) {
+        (*exp)++; // skip wildcard
+        _check_next(type, exp, tid, i);
+        return;
+    }
+    /// just match it
+    log_info("thread=%lu entry=%d wildcard match=%s", tid, i,
+             coldtrace_entry_type_str(e->type));
+    ensure(e->atleast == e->atmost);
+    ensure(e->atleast == 1);
+    (*exp)++;
+}
+
+static void
+_check_next(coldtrace_entry_type type, struct expected_entry **exp,
+            uint64_t tid, int i)
+{
+    struct expected_entry *e = *exp;
+    // wild false
+    if (!e->wild) {
+        _check_strict(type, exp, tid, i);
+        // wild true
+    } else {
+        _check_wildcard(type, exp, tid, i);
+    }
+}
+
+
 // -----------------------------------------------------------------------------
 // trace checker
 // -----------------------------------------------------------------------------
@@ -131,15 +204,16 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
         if (!next->set)
             log_fatal("thread=%lu entry=%d found=%s but trace empty", tid, i,
                       coldtrace_entry_type_str(type));
+        // //no match
+        // if ((type != next->type))
+        //     log_fatal("thread=%lu entry=%d found=%s expected=%s", tid, i,
+        //               coldtrace_entry_type_str(type),
+        //               coldtrace_entry_type_str(next->type));
+        // //match
+        // log_info("thread=%lu entry=%d match=%s", tid, i,
+        //          coldtrace_entry_type_str(next->type));
 
-        if ((type != next->type))
-            log_fatal("thread=%lu entry=%d found=%s expected=%s", tid, i,
-                      coldtrace_entry_type_str(type),
-                      coldtrace_entry_type_str(next->type));
-
-        log_info("thread=%lu entry=%d match=%s", tid, i,
-                 coldtrace_entry_type_str(next->type));
-        next++;
+        _check_next(type, &next, tid, i);
     }
     if (next && next->set)
         log_fatal("expected trace is not empty");
