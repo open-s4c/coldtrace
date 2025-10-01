@@ -10,6 +10,7 @@ extern "C" {
 #endif
 
 #include <coldtrace/entries.h>
+#include <dice/pubsub.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -19,17 +20,34 @@ extern "C" {
 struct expected_entry {
     coldtrace_entry_type type;
     bool set;
+    unsigned atleast;
+    unsigned atmost;
+    bool wild;
 };
 
 #define EXPECT_ENTRY(TYPE)                                                     \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true,                                             \
+        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
     }
+#define EXPECT_SUFFIX(TYPE)                                                    \
+    (struct expected_entry)                                                    \
+    {                                                                          \
+        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = true,    \
+    }
+#define EXPECT_SOME(TYPE, ATLEAST, ATMOST)                                     \
+    (struct expected_entry)                                                    \
+    {                                                                          \
+        .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
+        .wild = false,                                                         \
+    }
+
+#define EXPECTED_ANY_SUFFIX EXPECTED_SUFFIX(0, 0)
+
 #define EXPECT_END                                                             \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = 0, .set = false,                                               \
+        .type = 0, .set = false, .atleast = 0, .atmost = 0, .wild = false,     \
     }
 
 
