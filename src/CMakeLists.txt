@@ -14,6 +14,7 @@ math(EXPR PRIO_subs_malloc "${COLDTRACE_BASE_PRIO} + 6")
 math(EXPR PRIO_subs_cxa "${COLDTRACE_BASE_PRIO} + 7")
 math(EXPR PRIO_subs_mman "${COLDTRACE_BASE_PRIO} + 8")
 math(EXPR PRIO_subs_annotate_rwlock "${COLDTRACE_BASE_PRIO} + 9")
+math(EXPR PRIO_subs_memcpy "${COLDTRACE_BASE_PRIO} + 10")
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
 
@@ -35,6 +36,7 @@ set(SRCS
     subs_pthread.c
     subs_malloc.c
     subs_mman.c
+    subs_memcpy.c
     subs_cxa.c
     subs_annotate_rwlock.c)
 
@@ -65,6 +67,7 @@ set(MODS
     dice-pthread_cond.o
     dice-malloc.o
     dice-mman.o
+    dice-memcpy.o
     dice-sem.o
     dice-cxa.o
     dice-tsan.o
