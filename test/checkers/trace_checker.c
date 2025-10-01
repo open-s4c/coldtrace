@@ -204,14 +204,6 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
         if (!next->set)
             log_fatal("thread=%lu entry=%d found=%s but trace empty", tid, i,
                       coldtrace_entry_type_str(type));
-        // //no match
-        // if ((type != next->type))
-        //     log_fatal("thread=%lu entry=%d found=%s expected=%s", tid, i,
-        //               coldtrace_entry_type_str(type),
-        //               coldtrace_entry_type_str(next->type));
-        // //match
-        // log_info("thread=%lu entry=%d match=%s", tid, i,
-        //          coldtrace_entry_type_str(next->type));
 
         _check_next(type, &next, tid, i);
     }
