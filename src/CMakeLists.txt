@@ -14,6 +14,7 @@ math(EXPR SLOT_subs_malloc "${COLDTRACE_BASE_SLOT} + 6")
 math(EXPR SLOT_subs_cxa "${COLDTRACE_BASE_SLOT} + 7")
 math(EXPR SLOT_subs_mman "${COLDTRACE_BASE_SLOT} + 8")
 math(EXPR SLOT_subs_annotate_rwlock "${COLDTRACE_BASE_SLOT} + 9")
+math(EXPR SLOT_subs_memcpy "${COLDTRACE_BASE_SLOT} + 10")
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
 
@@ -35,6 +36,7 @@ set(SRCS
     subs_pthread.c
     subs_malloc.c
     subs_mman.c
+    subs_memcpy.c
     subs_cxa.c
     subs_annotate_rwlock.c)
 
@@ -64,6 +66,7 @@ set(MODS
     dice-pthread_cond.o
     dice-malloc.o
     dice-mman.o
+    dice-memcpy.o
     dice-sem.o
     dice-cxa.o
     dice-tsan.o
