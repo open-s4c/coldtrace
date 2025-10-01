@@ -12,10 +12,8 @@ void AnnotateRWLockReleased(const char *file, int line,
 
 
 struct expected_entry expected_1[] = {
-#if !defined(__clang__)
-    EXPECT_ENTRY(COLDTRACE_ALLOC),
-    EXPECT_ENTRY(COLDTRACE_FREE),
-#endif
+    EXPECT_SOME(COLDTRACE_ALLOC, 0, 1),
+    EXPECT_SOME(COLDTRACE_FREE, 0, 1),
     EXPECT_ENTRY(COLDTRACE_RW_LOCK_CREATE),
     EXPECT_ENTRY(COLDTRACE_RW_LOCK_ACQ_SHR),
     EXPECT_ENTRY(COLDTRACE_RW_LOCK_REL_SHR),
