@@ -17,6 +17,7 @@
 #include <dice/log.h>
 #include <dice/module.h>
 #include <dice/self.h>
+#include <vsync/spinlock/caslock.h>
 
 #define MAX_NTHREADS        128
 #define MAX_ENTRY_CALLBACKS 100
@@ -185,6 +186,7 @@ _check_next(coldtrace_entry_type type, struct expected_entry **exp,
 void
 coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
 {
+    static caslock_t loop_lock = CASLOCK_INIT();
     log_info("checking thread=%lu", tid);
     struct entry_it it          = iter_init(page, size);
     struct expected_entry *next = _expected[tid];
@@ -192,6 +194,7 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
     if (_close_callback)
         _close_callback(page, size);
 
+    caslock_acquire(&loop_lock);
     for (int i = 0; iter_next(it); iter_advance(&it), i++) {
         coldtrace_entry_type type = iter_type(it);
 
@@ -209,6 +212,7 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
     }
     if (next && next->set)
         log_fatal("expected trace is not empty");
+    caslock_release(&loop_lock);
 }
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
