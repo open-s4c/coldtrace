@@ -39,6 +39,12 @@ struct entry_it {
 
 static struct expected_entry *_expected[MAX_NTHREADS];
 
+struct next_expected_entry_iterator {
+    int atleast;
+    int atmost;
+    struct expected_entry *e;
+};
+
 void
 register_expected_trace(uint64_t tid, struct expected_entry *trace)
 {
@@ -106,78 +112,94 @@ iter_type(struct entry_it it)
     return coldtrace_entry_parse_type(it.buf);
 }
 
-static void _check_next(coldtrace_entry_type type, struct expected_entry **exp,
-                        uint64_t tid, int i);
 static void
-_check_strict(coldtrace_entry_type type, struct expected_entry **exp,
-              uint64_t tid, int i)
+init_expected_entry_iterator(struct next_expected_entry_iterator *iter,
+                             struct expected_entry *exp)
 {
-    struct expected_entry *e = *exp;
-    bool mismatch            = (type != e->type);
+    iter->atleast = exp->atleast;
+    iter->atmost  = exp->atmost;
+    iter->e       = exp;
+}
+static void
+next_entry_and_reset(struct next_expected_entry_iterator *iter)
+{
+    (iter->e)++;
+    iter->atleast = iter->e->atleast;
+    iter->atmost  = iter->e->atmost;
+}
+
+static void _check_next(coldtrace_entry_type type,
+                        struct next_expected_entry_iterator *iter, uint64_t tid,
+                        int i);
+static void
+_check_strict(coldtrace_entry_type type,
+              struct next_expected_entry_iterator *iter, uint64_t tid, int i)
+{
+    bool mismatch = (type != (iter->e)->type);
     // no matched and required
-    if (mismatch && e->atleast > 0) {
+    if (mismatch && iter->atleast > 0) {
         log_fatal("thread=%lu entry=%d found=%s expected=%s", tid, i,
                   coldtrace_entry_type_str(type),
-                  coldtrace_entry_type_str(e->type));
+                  coldtrace_entry_type_str((iter->e)->type));
         // not matched advance pointer and check the next one
     } else if (mismatch) {
         // if next is required
-        struct expected_entry *next = e + 1;
+        struct expected_entry *next = (iter->e) + 1;
         if (next->set && next->atleast > 0 && type == next->type) {
-            (*exp)++; // skip optional
-            _check_next(type, exp, tid, i);
+            // skip optional
+            next_entry_and_reset(iter);
+            _check_next(type, iter, tid, i);
             return;
         }
-        (*exp)++; // advance pointer
+        // advance pointer
+        next_entry_and_reset(iter);
         log_warn("%lu event mismatch (go to next)", tid);
-        _check_next(type, exp, tid, i);
+        _check_next(type, iter, tid, i);
         return;
     }
     // matched
     log_info("thread=%lu entry=%d match=%s", tid, i,
-             coldtrace_entry_type_str(e->type));
+             coldtrace_entry_type_str((iter->e)->type));
+
     // if it was required make it optional
-    if (e->atleast > 0)
-        e->atleast--;
+    if (iter->atleast > 0)
+        (iter->atleast)--;
     // if it has more ocuurencies left next
-    if (e->atmost-- == 1)
-        (*exp)++;
+    if ((iter->atmost)-- == 1)
+        next_entry_and_reset(iter);
 }
 static void
-_check_wildcard(coldtrace_entry_type type, struct expected_entry **exp,
-                uint64_t tid, int i)
+_check_wildcard(coldtrace_entry_type type,
+                struct next_expected_entry_iterator *iter, uint64_t tid, int i)
 {
-    struct expected_entry *e    = *exp;
-    struct expected_entry *next = e + 1;
+    struct expected_entry *next = (iter->e) + 1;
     // see the next if required
     if (next->set && next->atleast > 0 && type == next->type) {
-        (*exp)++; // skip wildcard
-        _check_next(type, exp, tid, i);
+        // skip wildcard
+        next_entry_and_reset(iter);
+        _check_next(type, iter, tid, i);
         return;
     }
     /// just match it
     log_info("thread=%lu entry=%d wildcard match=%s", tid, i,
-             coldtrace_entry_type_str(e->type));
-    ensure(e->atleast == e->atmost);
-    ensure(e->atleast == 1);
-    (*exp)++;
+             coldtrace_entry_type_str((iter->e)->type));
+    ensure((iter->e)->atleast == (iter->e)->atmost);
+    ensure((iter->e)->atleast == 1);
+    next_entry_and_reset(iter);
 }
 
 static void
-_check_next(coldtrace_entry_type type, struct expected_entry **exp,
-            uint64_t tid, int i)
+_check_next(coldtrace_entry_type type,
+            struct next_expected_entry_iterator *iter, uint64_t tid, int i)
 {
-    struct expected_entry *e = *exp;
     // wild false
-    if (!e->wild) {
-        _check_strict(type, exp, tid, i);
+    if (!(iter->e)->wild) {
+        _check_strict(type, iter, tid, i);
         // wild true
     } else {
-        _check_wildcard(type, exp, tid, i);
+        _check_wildcard(type, iter, tid, i);
     }
 }
-
-
 // -----------------------------------------------------------------------------
 // trace checker
 // -----------------------------------------------------------------------------
@@ -187,30 +209,35 @@ void
 coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
 {
     static caslock_t loop_lock = CASLOCK_INIT();
+
     log_info("checking thread=%lu", tid);
     struct entry_it it          = iter_init(page, size);
     struct expected_entry *next = _expected[tid];
+    struct next_expected_entry_iterator expected_it = {0};
+
+    if (expected_it.e != NULL)
+        init_expected_entry_iterator(&expected_it, next);
 
     if (_close_callback)
         _close_callback(page, size);
 
     caslock_acquire(&loop_lock);
+
     for (int i = 0; iter_next(it); iter_advance(&it), i++) {
         coldtrace_entry_type type = iter_type(it);
 
         for (size_t j = 0; j < _entry_callback_count; j++)
             _entry_callbacks[j](it.buf);
 
-        if (next == NULL)
+        if (expected_it.e == NULL)
             continue;
 
-        if (!next->set)
+        if (!(expected_it.e)->set)
             log_fatal("thread=%lu entry=%d found=%s but trace empty", tid, i,
                       coldtrace_entry_type_str(type));
-
-        _check_next(type, &next, tid, i);
+        _check_next(type, &expected_it, tid, i);
     }
-    if (next && next->set)
+    if ((expected_it.e) && (expected_it.e)->set)
         log_fatal("expected trace is not empty");
     caslock_release(&loop_lock);
 }
