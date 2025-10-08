@@ -11,7 +11,6 @@
 #include <dice/pubsub.h>
 #include <dice/self.h>
 
-DICE_MODULE_INIT()
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MALLOC, {
     struct malloc_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_alloc_entry *e =
