@@ -215,7 +215,7 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
     struct expected_entry *next = _expected[tid];
     struct next_expected_entry_iterator expected_it = {0};
 
-    if (expected_it.e != NULL)
+    if (next != NULL)
         init_expected_entry_iterator(&expected_it, next);
 
     if (_close_callback)
