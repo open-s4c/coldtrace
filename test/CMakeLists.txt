@@ -34,3 +34,5 @@ foreach(SRC ${SRCS})
         ./${TARGET})
   endif()
 endforeach()
+target_compile_options(trace_fence PRIVATE -fsanitize=thread -Wno-error=tsan -Wno-unknown-warning-option)
+

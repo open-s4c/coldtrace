@@ -1,5 +1,4 @@
 #include <atomic>
-#include <cinttypes>
 #include <cstdio>
 #include <cstdlib>
 #include <pthread.h>

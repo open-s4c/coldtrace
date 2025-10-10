@@ -107,6 +107,13 @@ area_t areas_[AREAS];
         e->atomic_index = idx_b;                                                \
     }
 
+#define REL_LOG_FENCE(addr)                                             \
+    area_t *area   = get_area(addr);                                           \
+    uint64_t idx_a = area->idx_a;                                              \
+    caslock_release(&area->lock);                                              \
+    struct coldtrace_atomic_entry *e;                                          \
+    e               = coldtrace_thread_append(md, COLDTRACE_FENCE, addr);      \
+    e->atomic_index = idx_a;
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_AREAD, {
     struct ma_aread_event *ev = EVENT_PAYLOAD(ev);
@@ -157,4 +164,14 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_CMPXCHG, {
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
     struct ma_cmpxchg_event *ev = EVENT_PAYLOAD(ev);
     REL_LOG_RW_COND(ev->addr, ev->size, ev->ok);
+})
+
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_FENCE, {
+    struct ma_fence_event *ev = EVENT_PAYLOAD(ev);
+    FETCH_STACK_ACQ(ev->pc, ev->mo);
+})
+
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_FENCE, {
+    struct ma_fence_event *ev = EVENT_PAYLOAD(ev);
+    REL_LOG_FENCE(ev->pc);
 })
