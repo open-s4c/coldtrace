@@ -211,16 +211,9 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
     static caslock_t loop_lock = CASLOCK_INIT();
 
     log_info("checking thread=%lu", tid);
-    struct entry_it it                              = iter_init(page, size);
-    struct expected_entry *next                     = _expected[tid];
+    struct entry_it it          = iter_init(page, size);
+    struct expected_entry *next = _expected[tid];
     struct next_expected_entry_iterator expected_it = {0};
-
-    struct entry_it print_it = iter_init(page, size);
-    for (int i = 0; iter_next(print_it); iter_advance(&print_it), i++) {
-        coldtrace_entry_type type = iter_type(print_it);
-        log_info("thread=%lu entry=%d %s", tid, i,
-                 coldtrace_entry_type_str(type));
-    }
 
     if (next != NULL)
         init_expected_entry_iterator(&expected_it, next);
