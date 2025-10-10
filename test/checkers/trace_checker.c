@@ -220,20 +220,18 @@ static void
 _check_wildcard(coldtrace_entry_type type, uint64_t ptr_value,
                 struct next_expected_entry_iterator *iter, uint64_t tid, int i)
 {
-    struct expected_entry *next = (iter->e) + 1;
-    // see the next if required
-    if (next->set && next->atleast > 0 && type == next->type) {
-        // skip wildcard
+    struct expected_entry *wild = (iter->e);
+    // if current matches the wildcard
+    if (type == wild->type) {
+        log_info("thread=%lu entry=%d wildcard match=%s", tid, i,
+                 coldtrace_entry_type_str(wild->type));
         next_entry_and_reset(iter);
-        _check_next(type, ptr_value, iter, tid, i);
         return;
+    } else {
+        // no wildcard match yet
+        log_info("thread=%lu entry=%d mismatch: looking for wildcard=%s", tid,
+                 i, coldtrace_entry_type_str(wild->type));
     }
-    /// just match it
-    log_info("thread=%lu entry=%d wildcard match=%s", tid, i,
-             coldtrace_entry_type_str((iter->e)->type));
-    ensure((iter->e)->atleast == (iter->e)->atmost);
-    ensure((iter->e)->atleast == 1);
-    next_entry_and_reset(iter);
 }
 
 static void
