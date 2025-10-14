@@ -63,6 +63,13 @@ coldtrace_entry_parse_type(const void *buf)
     return type;
 }
 
+uint64_t
+coldtrace_entry_parse_ptr(const void *buf)
+{
+    uint64_t typed_ptr = ((uint64_t *)buf)[0];
+    return (typed_ptr & PTR_MASK) >> PTR_SHIFT_VALUE;
+}
+
 size_t
 coldtrace_entry_parse_size(const void *buf)
 {
