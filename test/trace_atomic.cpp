@@ -1,3 +1,4 @@
+#include "coldtrace/entries.h"
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
