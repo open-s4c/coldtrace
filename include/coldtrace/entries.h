@@ -7,9 +7,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TYPE_MASK 0x00000000000000FFUL
-#define PTR_MASK  0xFFFFFFFFFFFF0000UL
-#define ZERO_FLAG 0x80
+#define TYPE_MASK       0x00000000000000FFUL
+#define PTR_MASK        0xFFFFFFFFFFFF0000UL
+#define PTR_SHIFT_VALUE 16
+#define ZERO_FLAG       0x80
 
 #define COLDTRACE_FREE              0
 #define COLDTRACE_ALLOC             1
@@ -48,6 +49,7 @@ size_t coldtrace_entry_fixed_size(coldtrace_entry_type type);
 const char *coldtrace_entry_type_str(coldtrace_entry_type type);
 
 coldtrace_entry_type coldtrace_entry_parse_type(const void *buf);
+uint64_t coldtrace_entry_parse_ptr(const void *buf);
 size_t coldtrace_entry_parse_size(const void *buf);
 
 static inline struct coldtrace_entry_header
@@ -55,7 +57,7 @@ coldtrace_make_entry_header(const coldtrace_entry_type type, uint64_t ptr)
 {
     uint64_t ptr64               = ptr;
     uint64_t type_masked_shifted = type & TYPE_MASK;
-    uint64_t ptr_masked_shifted  = (ptr64 << 16) & PTR_MASK;
+    uint64_t ptr_masked_shifted  = (ptr64 << PTR_SHIFT_VALUE) & PTR_MASK;
     return (struct coldtrace_entry_header){
         .typed_ptr = ptr_masked_shifted | type_masked_shifted,
     };

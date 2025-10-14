@@ -23,23 +23,32 @@ struct expected_entry {
     unsigned atleast;
     unsigned atmost;
     bool wild;
+    int check; // for pointer: -1 = no check , != -1 = check on that location
 };
 
 #define EXPECT_ENTRY(TYPE)                                                     \
     (struct expected_entry)                                                    \
     {                                                                          \
         .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
+        .check = -1                                                            \
+    }
+#define EXPECT_VALUE(TYPE, CHECK)                                              \
+    (struct expected_entry)                                                    \
+    {                                                                          \
+        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
+        .check = CHECK                                                         \
     }
 #define EXPECT_SUFFIX(TYPE)                                                    \
     (struct expected_entry)                                                    \
     {                                                                          \
         .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = true,    \
+        .check = -1,                                                           \
     }
 #define EXPECT_SOME(TYPE, ATLEAST, ATMOST)                                     \
     (struct expected_entry)                                                    \
     {                                                                          \
         .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
-        .wild = false,                                                         \
+        .wild = false, .check = -1,                                            \
     }
 
 #define EXPECTED_ANY_SUFFIX EXPECTED_SUFFIX(0, 0)
@@ -48,6 +57,7 @@ struct expected_entry {
     (struct expected_entry)                                                    \
     {                                                                          \
         .type = 0, .set = false, .atleast = 0, .atmost = 0, .wild = false,     \
+        .check = -1                                                            \
     }
 
 
