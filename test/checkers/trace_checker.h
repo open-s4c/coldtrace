@@ -50,6 +50,12 @@ struct expected_entry {
         .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
         .wild = false, .check = -1,                                            \
     }
+#define EXPECT_SOME_VALUE(TYPE, ATLEAST, ATMOST, CHECK)                                     \
+    (struct expected_entry)                                                    \
+    {                                                                          \
+        .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
+        .wild = false, .check = CHECK,                                            \
+    }
 
 #define EXPECTED_ANY_SUFFIX EXPECTED_SUFFIX(0, 0)
 
