@@ -212,6 +212,9 @@ _check_strict(coldtrace_entry_type type, uint64_t ptr_value,
     // if it was required make it optional
     if (iter->atleast > 0)
         (iter->atleast)--;
+    //if atmost 0 make infinity
+    if (iter->atmost == 0)
+        return;
     // if it has more ocuurencies left next
     if ((iter->atmost)-- == 1)
         next_entry_and_reset(iter);
