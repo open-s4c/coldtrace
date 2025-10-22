@@ -26,7 +26,7 @@
 #define MAX_ENTRY_CALLBACKS 100
 
 #define NO_CHECK            -1
-#define CHECK_UNINITIALIZED ((uint64_t) - 1)
+#define CHECK_UNINITIALIZED ((uint64_t)-1)
 
 typedef void (*entry_callback)(const void *entry);
 static size_t _entry_callback_count = 0;
@@ -213,7 +213,7 @@ _check_strict(coldtrace_entry_type type, uint64_t ptr_value,
     // if it was required make it optional
     if (iter->atleast > 0)
         (iter->atleast)--;
-    //if atmost 0 make infinity
+    // if atmost 0 make infinity
     if (iter->atmost == 0)
         return;
     // if it has more ocuurencies left next
@@ -273,8 +273,7 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
 
     caslock_acquire(&loop_lock);
 
-    
-   struct entry_it print_it = iter_init(page, size);
+    struct entry_it print_it = iter_init(page, size);
     for (int i = 0; iter_next(print_it); iter_advance(&print_it), i++) {
         coldtrace_entry_type type = iter_type(print_it);
         log_info("thread=%lu entry=%d %s %lu", tid, i,

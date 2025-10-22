@@ -28,11 +28,12 @@ struct expected_entry {
 };
 
 #define EXPECT_ENTRY(TYPE)                                                     \
-    (struct expected_entry)                                                    \
-    {                                                                          \
-        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
-        .check = -1                                                            \
-    }
+    (struct expected_entry){.type    = TYPE,                                   \
+                            .set     = true,                                   \
+                            .atleast = 1,                                      \
+                            .atmost  = 1,                                      \
+                            .wild    = false,                                  \
+                            .check   = -1}
 #define EXPECT_VALUE(TYPE, CHECK)                                              \
     (struct expected_entry)                                                    \
     {                                                                          \
@@ -67,21 +68,18 @@ struct expected_entry {
 #define EXPECTED_ANY_SUFFIX EXPECT_SUFFIX(0, 0)
 
 #define EXPECT_END                                                             \
-    (struct expected_entry)                                                    \
-    {                                                                          \
-        .type = 0, .set = false, .atleast = 0, .atmost = 0, .wild = false,     \
-        .check = -1                                                            \
-    }
-#ifndef TRACE_CHECKER_IMPL
- DICE_WEAK 
-void register_expected_trace(uint64_t tid, struct expected_entry *trace){}
- DICE_WEAK
-void register_entry_callback(void (*callback)(const void *entry)){}
- DICE_WEAK
-void register_close_callback(void (*callback)(const void *page, size_t size)){}
- DICE_WEAK
-void register_final_callback(void (*callback)(void)){}
-#endif
+    (struct expected_entry){.type    = 0,                                      \
+                            .set     = false,                                  \
+                            .atleast = 0,                                      \
+                            .atmost  = 0,                                      \
+                            .wild    = false,                                  \
+                            .check   = -1}
+
+void register_expected_trace(uint64_t tid, struct expected_entry *trace);
+void register_entry_callback(void (*callback)(const void *entry));
+void register_close_callback(void (*callback)(const void *page, size_t size));
+void register_final_callback(void (*callback)(void));
+
 #ifdef __cplusplus
 }
 #endif
