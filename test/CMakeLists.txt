@@ -2,8 +2,10 @@ include_directories(../src)
 include_directories(checkers)
 include_directories(../deps/dice/test/include)
 
+include_directories(../deps/dice/include)
+
 add_library(trace_checker SHARED checkers/trace_checker.c)
-target_link_libraries(trace_checker PUBLIC vsync coldtrace-unboxed)
+target_link_libraries(trace_checker PRIVATE vsync coldtrace-unboxed)
 
 set(OPTIONS_atomic_test -ensure-traces)
 set(OPTIONS_spinlock -ensure-traces)
@@ -22,7 +24,7 @@ foreach(SRC ${SRCS})
   target_link_libraries(${TARGET} PRIVATE tsano vsync pthread)
 
   if(${TARGET} MATCHES "^trace_.*")
-    target_link_libraries(${TARGET} PRIVATE trace_checker)
+   
     add_test(NAME ${TARGET}-test
              COMMAND ${PROJECT_SOURCE_DIR}/scripts/coldtrace-check ./${TARGET})
   else()

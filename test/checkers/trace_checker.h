@@ -5,6 +5,7 @@
 #ifndef TRACE_CHECKER_H
 #define TRACE_CHECKER_H
 
+#include "dice/compiler.h"
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -71,13 +72,16 @@ struct expected_entry {
         .type = 0, .set = false, .atleast = 0, .atmost = 0, .wild = false,     \
         .check = -1                                                            \
     }
-
-
-void register_expected_trace(uint64_t tid, struct expected_entry *trace);
-void register_entry_callback(void (*callback)(const void *entry));
-void register_close_callback(void (*callback)(const void *page, size_t size));
-void register_final_callback(void (*callback)(void));
-
+#ifndef TRACE_CHECKER_IMPL
+ DICE_WEAK 
+void register_expected_trace(uint64_t tid, struct expected_entry *trace){}
+ DICE_WEAK
+void register_entry_callback(void (*callback)(const void *entry)){}
+ DICE_WEAK
+void register_close_callback(void (*callback)(const void *page, size_t size)){}
+ DICE_WEAK
+void register_final_callback(void (*callback)(void)){}
+#endif
 #ifdef __cplusplus
 }
 #endif
