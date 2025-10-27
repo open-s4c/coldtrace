@@ -107,7 +107,7 @@ area_t areas_[AREAS];
         e->atomic_index = idx_b;                                                \
     }
 
-#define REL_LOG_FENCE(addr)                                             \
+#define REL_LOG_FENCE(addr)                                                    \
     area_t *area   = get_area(addr);                                           \
     uint64_t idx_a = area->idx_a;                                              \
     caslock_release(&area->lock);                                              \
