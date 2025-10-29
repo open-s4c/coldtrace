@@ -8,7 +8,6 @@
 #include <dice/events/thread.h>
 #include <dice/module.h>
 #include <dice/self.h>
-#include <dice/thread_id.h>
 #include <errno.h>
 #include <stdbool.h>
 #include <stdio.h>
