@@ -136,5 +136,4 @@ coldtrace_writer_fini(struct coldtrace_writer *ct)
 __attribute__((weak)) void
 coldtrace_writer_close(void *page, size_t size, uint64_t id)
 {
-    log_info("temporary solution");
 }
