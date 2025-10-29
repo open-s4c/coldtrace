@@ -11,7 +11,6 @@ extern "C" {
 #include <dice/module.h>
 #include <dice/pubsub.h>
 #include <dice/self.h>
-#include <dice/thread_id.h>
 #include <stdint.h>
 #include <vsync/atomic.h>
 }
