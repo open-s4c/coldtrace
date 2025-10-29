@@ -3,7 +3,7 @@ include_directories(checkers)
 include_directories(../deps/dice/test/include)
 
 add_library(trace_checker SHARED checkers/trace_checker.c)
-target_link_libraries(trace_checker PUBLIC vsync coldtrace-unboxed dice-self.o)
+target_link_libraries(trace_checker PUBLIC vsync coldtrace-unboxed)
 
 set(OPTIONS_atomic_test -ensure-traces)
 set(OPTIONS_spinlock -ensure-traces)
