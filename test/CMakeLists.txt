@@ -23,8 +23,10 @@ foreach(SRC ${SRCS})
 
   if(${TARGET} MATCHES "^trace_.*")
     target_link_libraries(${TARGET} PRIVATE trace_checker)
+    # ${CMAKE_COMMAND} -E env needed for WILL_FAIL with system level failure
+    # see https://cmake.org/cmake/help/latest/prop_test/WILL_FAIL.html
     add_test(NAME ${TARGET}-test
-             COMMAND ${PROJECT_SOURCE_DIR}/scripts/coldtrace-check ./${TARGET})
+             COMMAND ${CMAKE_COMMAND} -E env ${PROJECT_SOURCE_DIR}/scripts/coldtrace-check ./${TARGET})
   else()
     add_test(
       NAME ${TARGET}-test
@@ -34,5 +36,6 @@ foreach(SRC ${SRCS})
         ./${TARGET})
   endif()
 endforeach()
-target_compile_options(trace_fence PRIVATE -fsanitize=thread -Wno-error=tsan -Wno-unknown-warning-option)
 
+target_compile_options(trace_fence PRIVATE -fsanitize=thread -Wno-error=tsan -Wno-unknown-warning-option)
+set_tests_properties(trace_fail-test PROPERTIES WILL_FAIL TRUE)
