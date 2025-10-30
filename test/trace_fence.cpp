@@ -42,19 +42,19 @@ computation(int value)
 struct expected_entry expected_1[] = {
     EXPECT_SOME(COLDTRACE_ALLOC, 0, 1),
     EXPECT_SOME(COLDTRACE_FREE, 0, 1),
-    EXPECT_SOME(COLDTRACE_WRITE, 0, 3000),
+    EXPECT_SOME(COLDTRACE_WRITE, 0, 0),
     EXPECT_VALUE(COLDTRACE_ATOMIC_WRITE, 0),
     EXPECT_VALUE(COLDTRACE_ATOMIC_WRITE, 1),
     EXPECT_VALUE(COLDTRACE_ATOMIC_WRITE, 2),
     EXPECT_ENTRY(COLDTRACE_ALLOC),
     EXPECT_SOME(COLDTRACE_WRITE, 0, 3),
     EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 3),
-    EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 4),
     EXPECT_SOME(COLDTRACE_READ, 0, 1),
     EXPECT_VALUE(COLDTRACE_THREAD_JOIN, 3),
+    EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 4),
     EXPECT_SOME(COLDTRACE_READ, 0, 1),
     EXPECT_VALUE(COLDTRACE_THREAD_JOIN, 4),
-    EXPECT_SOME(COLDTRACE_READ, 0, 1000),
+    EXPECT_SOME(COLDTRACE_READ, 0, 0),
     EXPECT_ENTRY(COLDTRACE_THREAD_EXIT),
     EXPECT_END,
 };
@@ -150,12 +150,11 @@ main()
     pthread_t threads[NUM_THREADS];
     ThreadAArgs *args = new ThreadAArgs{10, 20, 30};
 
-    pthread_create(threads + 0, NULL, ThreadA, args);
+    pthread_create(threads, NULL, ThreadA, args);
+    pthread_join(threads[0], NULL);
 
     pthread_create(threads + 1, NULL, ThreadB, NULL);
+    pthread_join(threads[1], NULL);
 
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_join(*(threads + i), NULL);
-    }
     return 0;
 }
