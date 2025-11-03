@@ -7,8 +7,8 @@
 
 struct expected_entry expected_1[] = {
     EXPECT_SUFFIX(COLDTRACE_THREAD_CREATE),
-    EXPECT_SUFFIX(COLDTRACE_THREAD_CREATE),
     EXPECT_SUFFIX(COLDTRACE_THREAD_JOIN),
+    EXPECT_SUFFIX(COLDTRACE_THREAD_CREATE),
     EXPECT_SUFFIX(COLDTRACE_THREAD_JOIN),
     EXPECT_SUFFIX(COLDTRACE_THREAD_EXIT),
     EXPECT_END,
@@ -55,12 +55,12 @@ main()
     register_expected_trace(2, expected_2);
     register_expected_trace(3, expected_3);
     std::thread threads[NUM_THREADS];
-    for (int i = 0; i < NUM_THREADS; i++) {
-        threads[i] = std::thread([&]() { fun(); });
-    }
 
-    for (int i = 0; i < NUM_THREADS; i++) {
-        threads[i].join();
-    }
+    threads[0] = std::thread([&]() { fun(); });
+    threads[0].join();
+
+    threads[1] = std::thread([&]() { fun(); });
+    threads[1].join();
+
     return 0;
 }
