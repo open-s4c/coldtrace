@@ -43,7 +43,7 @@ get_coldtrace_thread(metadata_t *md)
 static inline bool
 with_stack_(coldtrace_entry_type type)
 {
-    switch (type) {
+    switch (type & ~ZERO_FLAG) {
         case COLDTRACE_FREE:
         case COLDTRACE_ALLOC:
         case COLDTRACE_MMAP:
