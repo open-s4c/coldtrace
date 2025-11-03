@@ -212,6 +212,9 @@ _check_strict(coldtrace_entry_type type, uint64_t ptr_value,
     // if it was required make it optional
     if (iter->atleast > 0)
         (iter->atleast)--;
+    // if atmost 0 make infinity
+    if (iter->atmost == 0)
+        return;
     // if it has more ocuurencies left next
     if ((iter->atmost)-- == 1)
         next_entry_and_reset(iter);
@@ -221,16 +224,39 @@ _check_wildcard(coldtrace_entry_type type, uint64_t ptr_value,
                 struct next_expected_entry_iterator *iter, uint64_t tid, int i)
 {
     struct expected_entry *wild = (iter->e);
-    // if current matches the wildcard
-    if (type == wild->type) {
+
+    if (type != wild->type) {
+        // no wildcard match yet
+        log_info("thread=%lu entry=%d mismatch: looking for wildcard=%s", tid,
+                 i, coldtrace_entry_type_str(wild->type));
+        return;
+    }
+    // wildcard match
+    if (wild->check == NO_CHECK) {
         log_info("thread=%lu entry=%d wildcard match=%s", tid, i,
                  coldtrace_entry_type_str(wild->type));
         next_entry_and_reset(iter);
         return;
+    }
+    // check the ptr
+    uint64_t *check_val = &_entry_ptr_values[wild->check];
+    if (*check_val == CHECK_UNINITIALIZED) {
+        *check_val = ptr_value;
+        log_info("thread=%lu entry=%d wildcard match=%s match=ptr=%lu", tid, i,
+                 coldtrace_entry_type_str(wild->type), ptr_value);
+        next_entry_and_reset(iter);
+    } else if (*check_val == ptr_value) {
+        // ptr match
+        log_info("thread=%lu entry=%d wildcard match=%s match=ptr=%lu", tid, i,
+                 coldtrace_entry_type_str(wild->type), ptr_value);
+        next_entry_and_reset(iter);
     } else {
-        // no wildcard match yet
-        log_info("thread=%lu entry=%d mismatch: looking for wildcard=%s", tid,
-                 i, coldtrace_entry_type_str(wild->type));
+        // ptr mismatch
+        log_fatal(
+            "thread=%lu entry=%d match=%s wildcard pointer mismatch found=%lu "
+            "expected=%lu",
+            tid, i, coldtrace_entry_type_str(wild->type), ptr_value,
+            *check_val);
     }
 }
 
