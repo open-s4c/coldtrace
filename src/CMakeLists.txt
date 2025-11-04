@@ -77,8 +77,3 @@ set_property(TARGET coldtrace PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 target_link_libraries(coldtrace PUBLIC vsync dice.h)
 target_link_libraries(coldtrace PUBLIC ${MODS} dice-box.o dice-dispatch.o
                                        writer.o)
-
-# useful for testing (allows loading additional shared libraries)
-add_library(coldtrace-unboxed SHARED)
-target_link_libraries(coldtrace-unboxed PUBLIC vsync dice.h dl)
-target_link_libraries(coldtrace-unboxed PUBLIC ${MODS} dice-dispatch.o writer.o)

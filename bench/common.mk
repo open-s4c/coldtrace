@@ -12,7 +12,7 @@ COLDTRACE_CMD=	COLDTRACE_PATH=traces \
 		COLDTRACE_MAX_FILES=3 \
 		COLDTRACE_DISABLE_CLEANUP=true \
 		COLDTRACE_DISABLE_COPY=true \
-		$(PROJECT)/scripts/coldtracer
+		$(PROJECT)/scripts/coldtrace
 
 # Compiler and linker configuration
 CC=		gcc

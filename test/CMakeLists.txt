@@ -3,7 +3,7 @@ include_directories(checkers)
 include_directories(../deps/dice/test/include)
 
 add_library(trace_checker SHARED checkers/trace_checker.c)
-target_link_libraries(trace_checker PUBLIC vsync coldtrace-unboxed)
+target_link_libraries(trace_checker PUBLIC vsync coldtrace)
 
 set(OPTIONS_atomic_test -ensure-traces)
 set(OPTIONS_spinlock -ensure-traces)
@@ -30,7 +30,7 @@ foreach(SRC ${SRCS})
       NAME ${TARGET}-test
       COMMAND
         env COLDTRACE_PATH=${TRACES_DIR}
-        ${PROJECT_SOURCE_DIR}/scripts/coldtracer ${OPTIONS_${TARGET}}
+        ${PROJECT_SOURCE_DIR}/scripts/coldtrace ${OPTIONS_${TARGET}}
         ./${TARGET})
   endif()
 endforeach()
