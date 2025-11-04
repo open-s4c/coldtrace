@@ -18,7 +18,7 @@ Try that with tsan:
 
 Run that with coldtrace:
 
-    COLDTRACE_PATH=traces scripts/coldtracer ./a.out
+    COLDTRACE_PATH=traces scripts/coldtrace ./a.out
 
 See the log output (optional):
 
