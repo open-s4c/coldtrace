@@ -1,4 +1,4 @@
-#include <assert.h>
+#include <dice/ensure.h>
 #include <dice/log.h>
 #include <stdbool.h>
 #include <trace_checker.h>
@@ -14,7 +14,7 @@ when_closing(const void *page, size_t size)
 CHECK_FUNC void
 when_final(void)
 {
-    assert(closed);
+    ensure(closed);
 }
 
 int

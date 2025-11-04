@@ -19,5 +19,6 @@ void coldtrace_thread_set_create_idx(struct metadata *md, uint64_t idx);
 uint64_t coldtrace_thread_get_create_idx(struct metadata *md);
 void coldtrace_thread_stack_push(struct metadata *md, void *caller);
 void coldtrace_thread_stack_pop(struct metadata *md);
+void coldtrace_main_thread_fini();
 
 #endif // COLDTRACE_H
