@@ -60,6 +60,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
             md, COLDTRACE_THREAD_EXIT, (void *)REAL(pthread_self));
         e->atomic_index = coldtrace_next_atomic_idx();
         coldtrace_thread_fini(md);
+        coldtrace_main_thread_fini();
     }
 })
 

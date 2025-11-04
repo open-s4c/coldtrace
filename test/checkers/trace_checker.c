@@ -290,11 +290,12 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
     caslock_release(&loop_lock);
 }
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
-    if (self_id(md) != MAIN_THREAD)
-        return PS_OK;
+// Overwrite main_thread_fini function to do final callback
+void
+coldtrace_main_thread_fini()
+{
     if (_final_callback) {
         _final_callback();
         log_info("final check OK");
     }
-})
+}

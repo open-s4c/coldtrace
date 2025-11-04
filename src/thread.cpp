@@ -141,3 +141,8 @@ coldtrace_thread_stack_pop(struct metadata *md)
             std::min(th->stack_bottom, (uint32_t)th->stack.size());
     }
 }
+
+__attribute__((weak)) void
+coldtrace_main_thread_fini()
+{
+}
