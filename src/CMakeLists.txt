@@ -47,17 +47,17 @@ endforeach()
 
 set(MODS
     ${MODS}
-    mod-self.o
-    mod-pthread_create.o
-    mod-pthread_mutex.o
-    mod-pthread_rwlock.o
-    mod-pthread_cond.o
-    mod-malloc.o
-    mod-mman.o
-    mod-sem.o
-    mod-cxa.o
-    mod-tsan.o
-    mod-stacktrace.o)
+    dice-self.o
+    dice-pthread_create.o
+    dice-pthread_mutex.o
+    dice-pthread_rwlock.o
+    dice-pthread_cond.o
+    dice-malloc.o
+    dice-mman.o
+    dice-sem.o
+    dice-cxa.o
+    dice-tsan.o
+    dice-stacktrace.o)
 
 set(MODS ${MODS} dice.o dice-box.o)
 

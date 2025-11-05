@@ -29,7 +29,7 @@ REAL_DECL(int, pthread_attr_destroy, pthread_attr_t *attr);
 REAL_DECL(int, pthread_attr_getstack, const pthread_attr_t *attr,
           void **stackaddr, size_t *stacksize);
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_INIT, {
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_START, {
     cold_thread *th = coldthread_get(md);
     coldtrace_init(&th->ct, self_id(md));
 
@@ -47,7 +47,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_INIT, {
                                  (uint64_t)stacksize));
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_FINI, {
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_EXIT, {
     cold_thread *th = coldthread_get(md);
     ensure(coldtrace_atomic(&th->ct, COLDTRACE_THREAD_EXIT,
                             (uint64_t)REAL(pthread_self),

@@ -102,7 +102,7 @@ _copy_mapped_files(const char *path)
 
 static bool _maps_copied = false;
 static caslock_t _lock;
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_FINI, {
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_EXIT, {
     caslock_acquire(&_lock);
     if (_maps_copied)
         goto out;
