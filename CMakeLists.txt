@@ -15,7 +15,7 @@ if(NOT libvsync_DIR)
 endif()
 add_library(vsync ALIAS libvsync::vsync)
 
-set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION on)
 add_subdirectory(deps/dice)
 
 add_compile_options(-fPIC -g3 -D_GNU_SOURCE)
