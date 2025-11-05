@@ -59,7 +59,7 @@ set(MODS
     dice-tsan.o
     dice-stacktrace.o)
 
-set(MODS ${MODS} dice.o dice-box.o)
+set(MODS ${MODS} dice.o dice-box.o dice-self-box.o)
 
 # There are 2 libraries: coldtrace uses a handwritten dispatch function and is
 # the default library. coldtrace2 is experimental and uses the automatically
