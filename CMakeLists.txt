@@ -7,6 +7,7 @@ project(
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_compile_options(-fPIC -g3 -D_GNU_SOURCE -DDICE_MAIN_START_DISABLE)
+set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 
 add_subdirectory(deps/dice)
 find_package(libvsync 4.2 CONFIG)
