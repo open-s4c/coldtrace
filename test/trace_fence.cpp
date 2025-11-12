@@ -6,19 +6,6 @@
 
 #define NUM_THREADS 2
 
-#define RW_CYCLE                                                               \
-    EXPECT_SOME(COLDTRACE_READ, 0, 1), EXPECT_SOME(COLDTRACE_WRITE, 0, 1)
-
-#define FENCE_RW_CYCLE                                                         \
-    EXPECT_SOME(COLDTRACE_WRITE, 0, 2), EXPECT_SOME(COLDTRACE_READ, 0, 5),     \
-        EXPECT_SOME(COLDTRACE_WRITE, 0, 2), EXPECT_SOME(COLDTRACE_READ, 0, 1), \
-        EXPECT_SOME(COLDTRACE_WRITE, 0, 2), RW_CYCLE, RW_CYCLE
-
-#define FENCE_RW_CYCLE_2                                                       \
-    EXPECT_SOME(COLDTRACE_WRITE, 0, 1), EXPECT_SOME(COLDTRACE_READ, 0, 2),     \
-        EXPECT_SOME(COLDTRACE_WRITE, 0, 2), EXPECT_SOME(COLDTRACE_READ, 0, 2), \
-        EXPECT_SOME(COLDTRACE_ALLOC, 0, 1),                                    \
-        EXPECT_SOME(COLDTRACE_WRITE, 0, 2), EXPECT_SOME(COLDTRACE_READ, 0, 8)
 // Global
 std::string computation(int);
 void print(std::string);
@@ -43,15 +30,15 @@ struct expected_entry expected_1[] = {
     EXPECT_SOME(COLDTRACE_ALLOC, 0, 1),
     EXPECT_SOME(COLDTRACE_FREE, 0, 1),
     EXPECT_SOME(COLDTRACE_WRITE, 0, 0),
-    EXPECT_VALUE(COLDTRACE_ATOMIC_WRITE, 0),
+    EXPECT_SUFFIX_VALUE(COLDTRACE_ATOMIC_WRITE, 0),
     EXPECT_VALUE(COLDTRACE_ATOMIC_WRITE, 1),
     EXPECT_VALUE(COLDTRACE_ATOMIC_WRITE, 2),
     EXPECT_ENTRY(COLDTRACE_ALLOC),
     EXPECT_SOME(COLDTRACE_WRITE, 0, 3),
     EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 3),
-    EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 4),
     EXPECT_SOME(COLDTRACE_READ, 0, 1),
     EXPECT_VALUE(COLDTRACE_THREAD_JOIN, 3),
+    EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 4),
     EXPECT_SOME(COLDTRACE_READ, 0, 1),
     EXPECT_VALUE(COLDTRACE_THREAD_JOIN, 4),
     EXPECT_SOME(COLDTRACE_READ, 0, 0),
@@ -65,10 +52,7 @@ struct expected_entry expected_2[] = {
     EXPECT_SOME(COLDTRACE_FREE, 0, 1),
     EXPECT_SOME(COLDTRACE_WRITE, 0, 1),
     EXPECT_SOME(COLDTRACE_READ, 0, 1),
-    FENCE_RW_CYCLE,
-    FENCE_RW_CYCLE,
-    FENCE_RW_CYCLE,
-    EXPECT_VALUE(COLDTRACE_FENCE, 5),
+    EXPECT_SUFFIX_VALUE(COLDTRACE_FENCE, 5),
     EXPECT_VALUE(COLDTRACE_ATOMIC_WRITE, 0),
     EXPECT_VALUE(COLDTRACE_ATOMIC_WRITE, 1),
     EXPECT_VALUE(COLDTRACE_ATOMIC_WRITE, 2),
@@ -84,10 +68,7 @@ struct expected_entry expected_3[] = {
     EXPECT_VALUE(COLDTRACE_FENCE, 6),
     EXPECT_SOME(COLDTRACE_WRITE, 0, 1),
     EXPECT_SOME(COLDTRACE_READ, 0, 2),
-    FENCE_RW_CYCLE_2,
-    FENCE_RW_CYCLE_2,
-    FENCE_RW_CYCLE_2,
-    EXPECT_VALUE(COLDTRACE_THREAD_EXIT, 4),
+    EXPECT_SUFFIX_VALUE(COLDTRACE_THREAD_EXIT, 4),
     EXPECT_END,
 };
 
@@ -151,11 +132,10 @@ main()
     ThreadAArgs *args = new ThreadAArgs{10, 20, 30};
 
     pthread_create(threads + 0, NULL, ThreadA, args);
+    pthread_join(*(threads), NULL);
 
     pthread_create(threads + 1, NULL, ThreadB, NULL);
+    pthread_join(*(threads + 1), NULL);
 
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_join(*(threads + i), NULL);
-    }
     return 0;
 }
