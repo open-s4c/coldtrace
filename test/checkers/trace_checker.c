@@ -15,6 +15,7 @@
 #include <coldtrace/entries.h>
 #include <dice/chains/capture.h>
 #include <dice/ensure.h>
+#include <dice/interpose.h>
 #include <dice/log.h>
 #include <dice/module.h>
 #include <dice/self.h>
@@ -25,14 +26,14 @@
 #define MAX_ENTRY_CALLBACKS 100
 
 #define NO_CHECK            -1
-#define CHECK_UNINITIALIZED ((uint64_t) - 1)
+#define CHECK_UNINITIALIZED ((uint64_t)-1)
 
 typedef void (*entry_callback)(const void *entry);
 static size_t _entry_callback_count = 0;
 static entry_callback _entry_callbacks[MAX_ENTRY_CALLBACKS];
 static uint64_t _entry_ptr_values[MAX_ENTRY_VALUES];
-void
-register_entry_callback(void (*foo)(const void *entry))
+
+INTERPOSE(void, register_entry_callback, void (*foo)(const void *entry))
 {
     if (_entry_callback_count < MAX_ENTRY_CALLBACKS)
         _entry_callbacks[_entry_callback_count++] = foo;
@@ -52,8 +53,8 @@ struct next_expected_entry_iterator {
     struct expected_entry *e;
 };
 
-void
-register_expected_trace(uint64_t tid, struct expected_entry *trace)
+INTERPOSE(void, register_expected_trace, uint64_t tid,
+          struct expected_entry *trace)
 {
     assert(tid > 0 && tid < MAX_NTHREADS);
     log_info("register expected trace thread=%lu", tid);
@@ -66,15 +67,14 @@ register_expected_trace(uint64_t tid, struct expected_entry *trace)
 
 
 static void (*_close_callback)(const void *page, size_t size);
-void
-register_close_callback(void (*foo)(const void *page, size_t size))
+INTERPOSE(void, register_close_callback,
+          void (*foo)(const void *page, size_t size))
 {
     _close_callback = foo;
 }
 
 static void (*_final_callback)(void);
-void
-register_final_callback(void (*foo)(void))
+INTERPOSE(void, register_final_callback, void (*foo)(void))
 {
     _final_callback = foo;
 }
@@ -201,7 +201,7 @@ _check_strict(coldtrace_entry_type type, uint64_t ptr_value,
         }
         // advance pointer
         next_entry_and_reset(iter);
-        log_warn("%lu event mismatch (go to next)", tid);
+        // log_warn("%lu event mismatch (go to next)", tid);
         _check_next(type, ptr_value, iter, tid, i);
         return;
     }
@@ -325,3 +325,5 @@ coldtrace_main_thread_fini()
         log_info("final check OK");
     }
 }
+
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, { coldtrace_main_thread_fini(); })

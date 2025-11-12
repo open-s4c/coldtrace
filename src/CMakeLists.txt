@@ -58,7 +58,6 @@ target_compile_options(
 
 set(MODS
     ${MODS}
-    dice-self.o
     dice-pthread_create.o
     dice-pthread_mutex.o
     dice-pthread_rwlock.o
@@ -70,9 +69,16 @@ set(MODS
     dice-tsan.o
     dice-stacktrace.o
     dice-annotate_rwlock.o
-    dice.o)
+    dice.o
+    dice-box.o
+    dice-self.o
+    dice-self-box.o
+    writer.o)
 
 add_library(coldtrace SHARED)
-set_property(TARGET coldtrace PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 target_link_libraries(coldtrace PUBLIC vsync dice.h)
-target_link_libraries(coldtrace PUBLIC ${MODS} dice-box.o writer.o)
+target_link_libraries(coldtrace PUBLIC ${MODS})
+
+set(COLDTRACE_OBJS
+    ${MODS}
+    PARENT_SCOPE)

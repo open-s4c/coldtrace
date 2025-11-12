@@ -3,7 +3,10 @@ include_directories(checkers)
 include_directories(../deps/dice/test/include)
 
 add_library(trace_checker SHARED checkers/trace_checker.c)
-target_link_libraries(trace_checker PUBLIC vsync coldtrace)
+target_link_libraries(trace_checker PUBLIC vsync dice.h ${COLDTRACE_OBJS})
+
+add_library(mock_checker SHARED checkers/mock_checker.c)
+target_link_libraries(mock_checker PUBLIC vsync dice.h)
 
 set(OPTIONS_atomic_test -ensure-traces)
 set(OPTIONS_spinlock -ensure-traces)
@@ -19,19 +22,20 @@ foreach(SRC ${SRCS})
   if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     target_compile_options(${TARGET} PRIVATE -Wno-use-after-free)
   endif()
-  target_link_libraries(${TARGET} PRIVATE tsano vsync pthread)
+  target_link_libraries(${TARGET} PRIVATE dice.h tsano vsync pthread)
 
   if(${TARGET} MATCHES "^trace_.*")
-    target_link_libraries(${TARGET} PRIVATE trace_checker)
+    target_link_libraries(${TARGET} PRIVATE mock_checker)
     add_test(NAME ${TARGET}-test
-             COMMAND ${PROJECT_SOURCE_DIR}/scripts/coldtrace-check ./${TARGET})
+             COMMAND ${PROJECT_SOURCE_DIR}/scripts/coldtrace-check
+                     ${CMAKE_CURRENT_BINARY_DIR}/${TARGET})
   else()
     add_test(
       NAME ${TARGET}-test
       COMMAND
         env COLDTRACE_PATH=${TRACES_DIR}
         ${PROJECT_SOURCE_DIR}/scripts/coldtrace ${OPTIONS_${TARGET}}
-        ./${TARGET})
+        ${CMAKE_CURRENT_BINARY_DIR}/${TARGET})
   endif()
 endforeach()
 
