@@ -25,7 +25,7 @@
 #define MAX_ENTRY_CALLBACKS 100
 
 #define NO_CHECK            -1
-#define CHECK_UNINITIALIZED ((uint64_t) - 1)
+#define CHECK_UNINITIALIZED ((uint64_t)-1)
 
 typedef void (*entry_callback)(const void *entry);
 static size_t _entry_callback_count = 0;
@@ -51,6 +51,8 @@ struct next_expected_entry_iterator {
     int check;
     struct expected_entry *e;
 };
+
+static struct next_expected_entry_iterator _expected_iterators[MAX_NTHREADS];
 
 void
 register_expected_trace(uint64_t tid, struct expected_entry *trace)
@@ -141,6 +143,9 @@ init_expected_entry_iterator(struct next_expected_entry_iterator *iter,
 static void
 next_entry_and_reset(struct next_expected_entry_iterator *iter)
 {
+    if (!(iter->e)->set) {
+        return;
+    }
     (iter->e)++;
     iter->atleast = iter->e->atleast;
     iter->atmost  = iter->e->atmost;
@@ -283,12 +288,15 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
     static caslock_t loop_lock = CASLOCK_INIT();
 
     log_info("checking thread=%lu", tid);
-    struct entry_it it                              = iter_init(page, size);
-    struct expected_entry *next                     = _expected[tid];
-    struct next_expected_entry_iterator expected_it = {0};
+    struct entry_it it          = iter_init(page, size);
+    struct expected_entry *next = _expected[tid];
+    struct next_expected_entry_iterator *expected_it =
+        &_expected_iterators[tid];
 
-    if (next != NULL)
-        init_expected_entry_iterator(&expected_it, next);
+    // Initialize only once
+    if (expected_it->e == NULL && next != NULL) {
+        init_expected_entry_iterator(expected_it, next);
+    }
 
     if (_close_callback)
         _close_callback(page, size);
@@ -302,24 +310,43 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
         for (size_t j = 0; j < _entry_callback_count; j++)
             _entry_callbacks[j](it.buf);
 
-        if (expected_it.e == NULL)
+        if (expected_it->e == NULL)
             continue;
 
-        if (!(expected_it.e)->set)
-            log_fatal("thread=%lu entry=%d found=%s but trace empty", tid, i,
-                      coldtrace_entry_type_str(type));
+        if (!(expected_it->e)->set) {
+            log_info("thread=%lu entry=%d found=%s but expected trace empty",
+                     tid, i, coldtrace_entry_type_str(type));
+            continue;
+        }
 
-        _check_next(type, ptr_value, &expected_it, tid, i);
+        _check_next(type, ptr_value, expected_it, tid, i);
     }
-    if ((expected_it.e) && (expected_it.e)->set)
-        log_fatal("expected trace is not empty");
+
+    for (uint64_t t = 0; t < MAX_NTHREADS; t++) {
+        struct next_expected_entry_iterator *it = &_expected_iterators[t];
+        if (it->e && it->e->set)
+            log_info("thread=%lu expected trace not fully matched", t);
+    }
     caslock_release(&loop_lock);
+}
+
+void
+check_empty_expected_trace()
+{
+    for (size_t tid = 1; tid < MAX_NTHREADS && _expected[tid]; tid++) {
+        struct next_expected_entry_iterator *expected_it =
+            _expected_iterators + tid;
+        if ((expected_it->e)->set) {
+            log_fatal("thread=%lu expected trace not empty", tid);
+        }
+    }
 }
 
 // Overwrite main_thread_fini function to do final callback
 void
 coldtrace_main_thread_fini()
 {
+    check_empty_expected_trace();
     if (_final_callback) {
         _final_callback();
         log_info("final check OK");

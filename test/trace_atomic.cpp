@@ -18,12 +18,12 @@ struct expected_entry expected_1[] = {
     EXPECT_SOME_VALUE(COLDTRACE_ALLOC, 0, 1, 1),
     EXPECT_SOME_VALUE(COLDTRACE_WRITE, 0, 1, 1),
     EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 2),
-    EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 3),
-    EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 4),
     EXPECT_SOME(COLDTRACE_READ, 0, 1),
     EXPECT_VALUE(COLDTRACE_THREAD_JOIN, 2),
+    EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 3),
     EXPECT_SOME(COLDTRACE_READ, 0, 1),
     EXPECT_VALUE(COLDTRACE_THREAD_JOIN, 3),
+    EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 4),
     EXPECT_SOME(COLDTRACE_READ, 0, 1),
     EXPECT_VALUE(COLDTRACE_THREAD_JOIN, 4),
     EXPECT_ENTRY(COLDTRACE_THREAD_EXIT),
@@ -111,14 +111,15 @@ main()
     pthread_t free_thread;
     uint8_t *var = (uint8_t *)malloc(sizeof(uint8_t));
     *var         = 0;
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_create(threads + i, NULL, x_times_plus_one, (void *)var);
-    }
-    pthread_create(&free_thread, NULL, free_after_finish, (void *)var);
 
-    for (int i = 0; i < NUM_THREADS; i++) {
-        pthread_join(*(threads + i), NULL);
-    }
+    pthread_create(threads, NULL, x_times_plus_one, (void *)var);
+    pthread_join(threads[0], NULL);
+
+    pthread_create(threads + 1, NULL, x_times_plus_one, (void *)var);
+    pthread_join(threads[1], NULL);
+
+    pthread_create(&free_thread, NULL, free_after_finish, (void *)var);
     pthread_join(free_thread, NULL);
+    
     return 0;
 }
