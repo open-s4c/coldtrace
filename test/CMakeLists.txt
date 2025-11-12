@@ -14,16 +14,22 @@ set(OPTIONS_spinlock -ensure-traces)
 file(GLOB SRCS *.c *.cpp)
 foreach(SRC ${SRCS})
   get_filename_component(TARGET ${SRC} NAME_WLE)
-
   set(TRACES_DIR "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}__traces")
 
   add_executable(${TARGET} ${SRC})
+  target_link_libraries(${TARGET} PRIVATE dice.h vsync pthread)
+
+  # handle instrumentation and linking of target against TSAN
   target_compile_options(${TARGET} PRIVATE -fsanitize=thread)
+  target_link_options(${TARGET} PRIVATE -fsanitize=thread)
   if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     target_compile_options(${TARGET} PRIVATE -Wno-use-after-free)
+  elseif(CMAKE_C_COMPILER_ID STREQUAL "Clang")
+    target_link_options(${TARGET} PRIVATE -shared-libsan)
   endif()
-  target_link_libraries(${TARGET} PRIVATE dice.h tsano vsync pthread)
 
+  # if this is a trace test, we also link with mock_checker and set the test
+  # runner accordingly
   if(${TARGET} MATCHES "^trace_.*")
     target_link_libraries(${TARGET} PRIVATE mock_checker)
     add_test(NAME ${TARGET}-test
