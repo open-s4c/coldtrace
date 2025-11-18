@@ -16,7 +16,7 @@ struct expected_entry expected[] = {
     EXPECT_END,
 };
 
-int x;
+volatile int x;
 
 int
 main()
