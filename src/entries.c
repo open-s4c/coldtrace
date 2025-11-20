@@ -70,6 +70,32 @@ coldtrace_entry_parse_ptr(const void *buf)
     return (typed_ptr & PTR_MASK) >> PTR_SHIFT_VALUE;
 }
 
+uint64_t
+coldtrace_entry_alloc_index(const void *buf)
+{
+    // free, alloc, mmap, munmap have alloc index
+    int type = coldtrace_entry_parse_type(buf);
+    if (type == 1 || type == 22 || type == 23) {
+        uint64_t alloc_index = ((uint64_t *)buf)[2];
+        return alloc_index;
+    } else if (type == 0) {
+        uint64_t alloc_index = ((uint64_t *)buf)[1];
+        return alloc_index;
+    }
+    return INVALID_ALLOC_INDEX;
+}
+uint64_t
+coldtrace_entry_atomic_index(const void *buf)
+{
+    int type = coldtrace_entry_parse_type(buf);
+    if (type == 22 || type == 23 || type == 24) {
+        return INVALID_ATOMIC_INDEX;
+    } else if (type >= 4) {
+        uint64_t atomic_index = ((uint64_t *)buf)[1];
+        return atomic_index;
+    }
+    return INVALID_ATOMIC_INDEX;
+}
 size_t
 coldtrace_entry_parse_size(const void *buf)
 {
