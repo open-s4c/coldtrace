@@ -52,14 +52,14 @@ check_conforming(const void *entry, metadata_t *md)
         return;
     }
     if (type == COLDTRACE_ATOMIC_READ) {
-        last_atomic_idx = coldtrace_entry_parse_atomic_idx(entry);
+        last_atomic_idx = coldtrace_entry_parse_atomic_index(entry);
         if (offset == OFFSET_UNINITIALIZED) {
             // save offset, for the case that there are atomic ops
             // before the first fetch add
             offset = last_atomic_idx - fetch_add_return_values[count] * 2;
         }
     } else if (type == COLDTRACE_ATOMIC_WRITE) {
-        uint64_t write_idx = coldtrace_entry_parse_atomic_idx(entry);
+        uint64_t write_idx = coldtrace_entry_parse_atomic_index(entry);
         if (write_idx > (2 * X_TIMES)) {
             // do not check after one thread can have finished the atomics
             return;
