@@ -189,7 +189,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ_RANGE, {
 })
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_WRITE_RANGE, {
-    struct ma_write_event *ev = EVENT_PAYLOAD(ev);
+    struct ma_write_range_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_access_entry *e =
         coldtrace_thread_append(md, COLDTRACE_WRITE, ev->addr);
     e->size   = ev->size;
