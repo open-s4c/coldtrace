@@ -2,7 +2,7 @@ include_directories(../src)
 include_directories(checkers)
 include_directories(../deps/dice/test/include)
 
-add_library(trace_checker SHARED checkers/trace_checker.c)
+add_library(trace_checker SHARED checkers/trace_checker.c checkers/indexes_checker.c)
 target_link_libraries(trace_checker PUBLIC vsync dice.h ${COLDTRACE_OBJS})
 
 add_library(mock_checker SHARED checkers/mock_checker.c)
