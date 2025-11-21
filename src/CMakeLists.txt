@@ -1,19 +1,19 @@
-if(NOT DEFINED COLDTRACE_BASE_PRIO)
-  set(COLDTRACE_BASE_PRIO
+if(NOT DEFINED COLDTRACE_BASE_SLOT)
+  set(COLDTRACE_BASE_SLOT
       3
       CACHE PATH "base prio" FORCE)
 endif()
 
-math(EXPR PRIO_config "${COLDTRACE_BASE_PRIO} + 1")
-math(EXPR PRIO_mod-self "${COLDTRACE_BASE_PRIO} + 0")
-math(EXPR PRIO_procmaps "${COLDTRACE_BASE_PRIO} + 2")
-math(EXPR PRIO_subs_sem "${COLDTRACE_BASE_PRIO} + 3")
-math(EXPR PRIO_subs_tsan "${COLDTRACE_BASE_PRIO} + 4")
-math(EXPR PRIO_subs_pthread "${COLDTRACE_BASE_PRIO} + 5")
-math(EXPR PRIO_subs_malloc "${COLDTRACE_BASE_PRIO} + 6")
-math(EXPR PRIO_subs_cxa "${COLDTRACE_BASE_PRIO} + 7")
-math(EXPR PRIO_subs_mman "${COLDTRACE_BASE_PRIO} + 8")
-math(EXPR PRIO_subs_annotate_rwlock "${COLDTRACE_BASE_PRIO} + 9")
+math(EXPR SLOT_config "${COLDTRACE_BASE_SLOT} + 1")
+math(EXPR SLOT_mod-self "${COLDTRACE_BASE_SLOT} + 0")
+math(EXPR SLOT_procmaps "${COLDTRACE_BASE_SLOT} + 2")
+math(EXPR SLOT_subs_sem "${COLDTRACE_BASE_SLOT} + 3")
+math(EXPR SLOT_subs_tsan "${COLDTRACE_BASE_SLOT} + 4")
+math(EXPR SLOT_subs_pthread "${COLDTRACE_BASE_SLOT} + 5")
+math(EXPR SLOT_subs_malloc "${COLDTRACE_BASE_SLOT} + 6")
+math(EXPR SLOT_subs_cxa "${COLDTRACE_BASE_SLOT} + 7")
+math(EXPR SLOT_subs_mman "${COLDTRACE_BASE_SLOT} + 8")
+math(EXPR SLOT_subs_annotate_rwlock "${COLDTRACE_BASE_SLOT} + 9")
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
 
@@ -43,18 +43,18 @@ foreach(SRC ${SRCS})
   get_filename_component(TARGET ${SRC} NAME_WLE)
   add_library(${TARGET}.o OBJECT ${SRC})
   target_link_libraries(${TARGET}.o PUBLIC vsync dice.h)
-  if(PRIO_${TARGET})
+  if(SLOT_${TARGET})
     target_compile_options(
-      ${TARGET}.o PRIVATE -DCOLDTRACE_BASE_PRIO=${COLDTRACE_BASE_PRIO}
-                          -DDICE_MODULE_PRIO=${PRIO_${TARGET}})
+      ${TARGET}.o PRIVATE -DCOLDTRACE_BASE_SLOT=${COLDTRACE_BASE_SLOT}
+                          -DDICE_MODULE_SLOT=${SLOT_${TARGET}})
     target_compile_options(${TARGET}.o PRIVATE -DDICE_BUILTIN)
   endif()
   set(MODS ${MODS} ${TARGET}.o)
 endforeach()
 
 target_compile_options(
-  dice-self.o PRIVATE -DCOLDTRACE_BASE_PRIO=${COLDTRACE_BASE_PRIO}
-                      -DDICE_MODULE_PRIO=${PRIO_mod-self})
+  dice-self.o PRIVATE -DCOLDTRACE_BASE_SLOT=${COLDTRACE_BASE_SLOT}
+                      -DDICE_MODULE_SLOT=${SLOT_mod-self})
 
 set(MODS
     ${MODS}
