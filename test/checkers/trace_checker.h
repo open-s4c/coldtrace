@@ -45,6 +45,12 @@ struct expected_entry {
         .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
         .check = -1, .size = SIZE                                              \
     }
+#define EXPECT_VALUE_SIZE(TYPE, CHECK, SIZE)                                   \
+    (struct expected_entry)                                                    \
+    {                                                                          \
+        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
+        .check = CHECK, .size = SIZE                                           \
+    }
 #define EXPECT_SUFFIX(TYPE)                                                    \
     (struct expected_entry)                                                    \
     {                                                                          \
@@ -74,6 +80,12 @@ struct expected_entry {
     {                                                                          \
         .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
         .wild = false, .check = -1, .size = SIZE,                              \
+    }
+#define EXPECT_SOME_VALUE_SIZE(TYPE, ATLEAST, ATMOST, CHECK, SIZE)             \
+    (struct expected_entry)                                                    \
+    {                                                                          \
+        .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
+        .wild = false, .check = CHECK, .size = SIZE,                           \
     }
 
 #define EXPECTED_ANY_SUFFIX EXPECT_SUFFIX(0, 0)
