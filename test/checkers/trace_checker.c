@@ -262,12 +262,13 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     }
 
     // 4. MATCH
-    char ptr_buf[64]  = "";
-    char size_buf[64] = "";
+    char ptr_buf[64] = "";
     if (p == MATCH_INIT_PTR || p == MATCH_PTR) {
-        sprintf(ptr_buf, " ptr=%lu", ptr_value);
-    } else if (s == MATCH_SIZE) {
-        sprintf(size_buf, " size=%d", exp_it->e->size);
+        snprintf(ptr_buf, sizeof(ptr_buf), " ptr=%lu", ptr_value);
+    }
+    char size_buf[64] = "";
+    if (s == MATCH_SIZE) {
+        snprintf(size_buf, sizeof(size_buf), " size=%d", exp_it->e->size);
     }
 
     log_info("thread=%lu entry=%d match=%s%s%s", tid, i,
