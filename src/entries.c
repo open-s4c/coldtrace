@@ -76,8 +76,22 @@ coldtrace_entry_parse_ptr(const void *buf)
     return (typed_ptr & PTR_MASK) >> PTR_SHIFT_VALUE;
 }
 
-size_t
+uint64_t
 coldtrace_entry_parse_size(const void *buf)
+{
+    // alloc, mmap, munmap, read, write have size
+    int type = coldtrace_entry_parse_type(buf);
+    if (type == COLDTRACE_ALLOC || type == COLDTRACE_READ ||
+        type == COLDTRACE_WRITE || type == COLDTRACE_MMAP ||
+        type == COLDTRACE_MUNMAP) {
+        uint64_t size = ((uint64_t *)buf)[1];
+        return size;
+    }
+    return INVALID_SIZE;
+}
+
+size_t
+coldtrace_entry_get_size(const void *buf)
 {
     size_t next = 0;
     switch (coldtrace_entry_parse_type(buf)) {

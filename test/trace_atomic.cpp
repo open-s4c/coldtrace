@@ -9,7 +9,9 @@
 
 #define ATOMIC_RW_CYCLE                                                        \
     EXPECT_SUFFIX_VALUE(COLDTRACE_ATOMIC_READ, 5),                             \
-        EXPECT_SUFFIX_VALUE(COLDTRACE_ATOMIC_WRITE, 5)
+        EXPECT_SUFFIX_VALUE(COLDTRACE_ATOMIC_WRITE, 5),                        \
+        EXPECT_SOME_SIZE(COLDTRACE_READ, 0, 1, sizeof(uint8_t)),               \
+        EXPECT_SOME_SIZE(COLDTRACE_WRITE, 0, 1, sizeof(uint8_t))
 
 struct expected_entry expected_1[] = {
     EXPECT_SOME_VALUE(COLDTRACE_ALLOC, 0, 1, 0),
