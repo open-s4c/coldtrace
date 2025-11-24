@@ -50,6 +50,7 @@ struct next_expected_entry_iterator {
     int atleast;
     int atmost;
     int check;
+    int size;
     struct expected_entry *e;
 };
 
@@ -91,7 +92,7 @@ iter_advance(struct entry_it *it)
     if (it->size < sizeof(uint64_t))
         return;
 
-    size_t size = coldtrace_entry_parse_size(it->buf);
+    size_t size = coldtrace_entry_get_size(it->buf);
     if (size == 0)
         return;
     if (size > it->size)
@@ -131,6 +132,12 @@ iter_pointer_value(struct entry_it it)
     return coldtrace_entry_parse_ptr(it.buf);
 }
 
+uint64_t
+iter_size(struct entry_it it)
+{
+    return coldtrace_entry_parse_size(it.buf);
+}
+
 static void
 init_expected_entry_iterator(struct next_expected_entry_iterator *iter,
                              struct expected_entry *exp)
@@ -152,7 +159,7 @@ next_entry_and_reset(struct next_expected_entry_iterator *iter)
     iter->check   = iter->e->check;
 }
 static void
-check_matching_ptr(coldtrace_entry_type type, uint64_t ptr_value,
+check_matching_ptr(coldtrace_entry_type type, uint64_t ptr_value, uint64_t size,
                    struct next_expected_entry_iterator *iter, uint64_t tid,
                    int i)
 {
@@ -180,11 +187,26 @@ check_matching_ptr(coldtrace_entry_type type, uint64_t ptr_value,
                  coldtrace_entry_type_str((iter->e)->type));
     }
 }
+
+static void
+_check_size(coldtrace_entry_type type, uint64_t ptr_value, uint64_t size,
+            struct next_expected_entry_iterator *iter, uint64_t tid, int i)
+{
+    if ((iter->e)->size == INVALID_SIZE) {
+        return;
+    } else if (size != (uint64_t)(iter->e)->size) {
+        log_fatal("thread=%lu entry=%d size mismatch found=%lu expected=%d",
+                  tid, i, size, (iter->e)->size);
+    } else if (size == (uint64_t)(iter->e)->size) {
+        log_info("thread=%lu entry=%d size match=%d", tid, i, (iter->e)->size);
+    }
+}
 static void _check_next(coldtrace_entry_type type, uint64_t ptr_value,
+                        uint64_t size,
                         struct next_expected_entry_iterator *iter, uint64_t tid,
                         int i);
 static void
-_check_strict(coldtrace_entry_type type, uint64_t ptr_value,
+_check_strict(coldtrace_entry_type type, uint64_t ptr_value, uint64_t size,
               struct next_expected_entry_iterator *iter, uint64_t tid, int i)
 {
     bool mismatch = (type != (iter->e)->type);
@@ -201,18 +223,20 @@ _check_strict(coldtrace_entry_type type, uint64_t ptr_value,
         if (next->set && next->atleast > 0 && type == next->type) {
             // skip optional
             next_entry_and_reset(iter);
-            _check_next(type, ptr_value, iter, tid, i);
+            _check_next(type, ptr_value, size, iter, tid, i);
             return;
         }
         // advance pointer
         next_entry_and_reset(iter);
         log_warn("%lu event mismatch (go to next)", tid);
-        _check_next(type, ptr_value, iter, tid, i);
+        _check_next(type, ptr_value, size, iter, tid, i);
         return;
     }
 
     // matched
-    check_matching_ptr(type, ptr_value, iter, tid, i);
+    check_matching_ptr(type, ptr_value, size, iter, tid, i);
+
+    _check_size(type, ptr_value, size, iter, tid, i);
 
     // if it was required make it optional
     if (iter->atleast > 0)
@@ -225,7 +249,7 @@ _check_strict(coldtrace_entry_type type, uint64_t ptr_value,
         next_entry_and_reset(iter);
 }
 static void
-_check_wildcard(coldtrace_entry_type type, uint64_t ptr_value,
+_check_wildcard(coldtrace_entry_type type, uint64_t ptr_value, uint64_t size,
                 struct next_expected_entry_iterator *iter, uint64_t tid, int i)
 {
     struct expected_entry *wild = (iter->e);
@@ -240,20 +264,24 @@ _check_wildcard(coldtrace_entry_type type, uint64_t ptr_value,
     if (wild->check == NO_CHECK) {
         log_info("thread=%lu entry=%d wildcard match=%s", tid, i,
                  coldtrace_entry_type_str(wild->type));
+        _check_size(type, ptr_value, size, iter, tid, i);
         next_entry_and_reset(iter);
         return;
     }
+
     // check the ptr
     uint64_t *check_val = &_entry_ptr_values[wild->check];
     if (*check_val == CHECK_UNINITIALIZED) {
         *check_val = ptr_value;
         log_info("thread=%lu entry=%d wildcard match=%s match=ptr=%lu", tid, i,
                  coldtrace_entry_type_str(wild->type), ptr_value);
+        _check_size(type, ptr_value, size, iter, tid, i);
         next_entry_and_reset(iter);
     } else if (*check_val == ptr_value) {
         // ptr match
         log_info("thread=%lu entry=%d wildcard match=%s match=ptr=%lu", tid, i,
                  coldtrace_entry_type_str(wild->type), ptr_value);
+        _check_size(type, ptr_value, size, iter, tid, i);
         next_entry_and_reset(iter);
     } else {
         // ptr mismatch
@@ -266,15 +294,15 @@ _check_wildcard(coldtrace_entry_type type, uint64_t ptr_value,
 }
 
 static void
-_check_next(coldtrace_entry_type type, uint64_t ptr_value,
+_check_next(coldtrace_entry_type type, uint64_t ptr_value, uint64_t size,
             struct next_expected_entry_iterator *iter, uint64_t tid, int i)
 {
     if (!(iter->e)->wild) {
         // wild false
-        _check_strict(type, ptr_value, iter, tid, i);
+        _check_strict(type, ptr_value, size, iter, tid, i);
     } else {
         // wild true
-        _check_wildcard(type, ptr_value, iter, tid, i);
+        _check_wildcard(type, ptr_value, size, iter, tid, i);
     }
 }
 // -----------------------------------------------------------------------------
@@ -288,14 +316,14 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
     static caslock_t loop_lock = CASLOCK_INIT();
 
     log_info("checking thread=%lu", tid);
-    struct entry_it it          = iter_init(page, size);
-    struct expected_entry *next = _expected[tid];
+    struct entry_it it         = iter_init(page, size);
+    struct expected_entry *exp = _expected[tid];
     struct next_expected_entry_iterator *expected_it =
         &_expected_iterators[tid];
 
     // Initialize only once
-    if (expected_it->e == NULL && next != NULL) {
-        init_expected_entry_iterator(expected_it, next);
+    if (expected_it->e == NULL && exp != NULL) {
+        init_expected_entry_iterator(expected_it, exp);
     }
 
     if (_close_callback)
@@ -306,6 +334,7 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
     for (int i = 0; iter_next(it); iter_advance(&it), i++) {
         coldtrace_entry_type type = iter_type(it);
         uint64_t ptr_value        = iter_pointer_value(it);
+        uint64_t size             = iter_size(it);
 
         for (size_t j = 0; j < _entry_callback_count; j++)
             _entry_callbacks[j](it.buf);
@@ -319,7 +348,7 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
             continue;
         }
 
-        _check_next(type, ptr_value, expected_it, tid, i);
+        _check_next(type, ptr_value, size, expected_it, tid, i);
     }
 
     for (uint64_t t = 0; t < MAX_NTHREADS; t++) {
