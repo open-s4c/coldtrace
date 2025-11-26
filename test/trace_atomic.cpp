@@ -120,6 +120,6 @@ main()
 
     pthread_create(&free_thread, NULL, free_after_finish, (void *)var);
     pthread_join(free_thread, NULL);
-    
+
     return 0;
 }
