@@ -32,4 +32,22 @@ jobs:
         run: ctest --test-dir build --output-on-failure
       - name: Install
         run: cmake --install build
-
+  check-format:
+      runs-on: ubuntu-24.04
+      steps:
+          - uses: actions/checkout@v4
+            with:
+              fetch-depth: 0
+          - name: Check clang-format version
+            run: clang-format --version
+          - name: Git Submodules
+            run: |
+              git submodule update --init --recursive
+          - name: Configure
+            run: cmake -S. -Bbuild
+          - name: Build
+            run: cmake --build build
+          - name: Run format
+            run: cmake --build build --target format
+          - name: Diff Check
+            run: cmake --build build --target diff-check

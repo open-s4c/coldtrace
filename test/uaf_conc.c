@@ -1,23 +1,28 @@
-#include <stdlib.h>
 #include <pthread.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 #define SCALING 100000
 
-int* y[SCALING];
+int *y[SCALING];
 
-void* free_thread(void* ptr) {
+void *
+free_thread(void *ptr)
+{
     free(ptr);
     return NULL;
 }
 
-void* write_42_thread(void* ptr) {
-    int *x = (int*) ptr;
-    *x = 42;
+void *
+write_42_thread(void *ptr)
+{
+    int *x = (int *)ptr;
+    *x     = 42;
     return NULL;
 }
 
-int main(int argc, char **argv)
+int
+main(int argc, char **argv)
 {
     int *x = malloc(sizeof(int));
 

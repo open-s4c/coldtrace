@@ -26,7 +26,7 @@
 #define MAX_ENTRY_CALLBACKS 100
 
 #define NO_CHECK            -1
-#define CHECK_UNINITIALIZED ((uint64_t) - 1)
+#define CHECK_UNINITIALIZED (~(uint64_t)0)
 
 typedef void (*entry_callback)(const void *entry);
 static size_t _entry_callback_count = 0;
