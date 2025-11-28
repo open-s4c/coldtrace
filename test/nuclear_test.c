@@ -1,24 +1,27 @@
+#include <pthread.h>
+#include <stdatomic.h>
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <pthread.h>
-#include <stdbool.h>
-#include <stdatomic.h>
 
 #define SCALING 10
 
-int important_calculation(int i, int n, int m) {
+int
+important_calculation(int i, int n, int m)
+{
     int temp = n + m;
     i--;
     if (i < 1) {
         return temp;
     }
     return important_calculation(i, m, temp);
-
 }
 
-void* compute_something(void* ptr) {
-    void* petra;
+void *
+compute_something(void *ptr)
+{
+    void *petra;
     petra = malloc(0);
     for (size_t i = 0; i < SCALING; i++) {
         free(petra);
@@ -26,10 +29,9 @@ void* compute_something(void* ptr) {
     }
     free(petra);
 
-    int* iptr = (int *) ptr;
-    int sum = 0;
-    for (size_t i = 0; i < SCALING - 1; i++)
-    {
+    int *iptr = (int *)ptr;
+    int sum   = 0;
+    for (size_t i = 0; i < SCALING - 1; i++) {
         sum += iptr[i];
     }
     printf("sum = %d\n", sum);
@@ -38,15 +40,15 @@ void* compute_something(void* ptr) {
 }
 
 
-
-int main() {
+int
+main()
+{
     printf("Hello, World! %d\n", important_calculation(3, 0, 1));
-    int* ptr = malloc(sizeof(int) * SCALING);
-    ptr[3] = 5;
+    int *ptr = malloc(sizeof(int) * SCALING);
+    ptr[3]   = 5;
     printf("ptr[3]=%d\n", ptr[3]);
 
-    for (size_t i = 0; i < SCALING; i++)
-    {
+    for (size_t i = 0; i < SCALING; i++) {
         printf("ptr[%ld]=%d\n", i, ptr[i]);
     }
 

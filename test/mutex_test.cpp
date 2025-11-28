@@ -1,17 +1,18 @@
-#include <cinttypes>
-#include <mutex>
 #include <cstdio>
 #include <iostream>
-#include <stdint.h>
+#include <mutex>
 #include <pthread.h>
+#include <stdint.h>
 #include <unistd.h>
 
-enum State : uint8_t { NotStarted, Claimed, Done};
+enum State : uint8_t { NotStarted, Claimed, Done };
 std::mutex queueLock_;
 
-void* once_plus_one (void* ptr) {
-    uint8_t& at = *(uint8_t*) ptr;
-    
+void *
+once_plus_one(void *ptr)
+{
+    uint8_t &at = *(uint8_t *)ptr;
+
     queueLock_.lock();
     auto state = at;
     queueLock_.unlock();
@@ -42,17 +43,18 @@ void* once_plus_one (void* ptr) {
 
 #define NUM_THREADS 2
 
-int main() {
+int
+main()
+{
     uint8_t at = NotStarted;
     pthread_t threads[NUM_THREADS];
-    for (int i = 0; i < NUM_THREADS; i++ ) {
-        pthread_create(threads + i, NULL, once_plus_one, (void*) &at);
+    for (int i = 0; i < NUM_THREADS; i++) {
+        pthread_create(threads + i, NULL, once_plus_one, (void *)&at);
     }
-    
-    for (int i = 0; i < NUM_THREADS; i++ ) {
+
+    for (int i = 0; i < NUM_THREADS; i++) {
         pthread_join(*(threads + i), NULL);
     }
-    std::cout << "at= " << (int) at << std::endl;
+    std::cout << "at= " << (int)at << std::endl;
     return 0;
 }
-

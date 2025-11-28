@@ -33,3 +33,18 @@ add_subdirectory(src)
 
 enable_testing()
 add_subdirectory(test)
+
+file(GLOB_RECURSE ALL_SOURCE_FILES
+    ${CMAKE_SOURCE_DIR}/src/*.cpp
+    ${CMAKE_SOURCE_DIR}/src/*.c
+    ${CMAKE_SOURCE_DIR}/include/*.h
+    ${CMAKE_SOURCE_DIR}/test/*.h
+    ${CMAKE_SOURCE_DIR}/test/*.cpp
+    ${CMAKE_SOURCE_DIR}/test/*.c)
+
+add_custom_target(format
+    COMMAND clang-format -style=file -i ${ALL_SOURCE_FILES}
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    COMMENT "Running clang-format on all source files")
+
+add_custom_target(diff-check COMMAND git --no-pager diff --exit-code)
