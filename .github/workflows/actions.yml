@@ -49,14 +49,6 @@ jobs:
             submodules: recursive
         - name: Check clang-format version
           run: clang-format --version
-        - name: Checkout Dice
-          if: ${{ github.event_name == 'repository_dispatch' }}
-          uses: actions/checkout@v4
-          with:
-            repository: open-s4c/dice
-            ref: ${{ github.event.client_payload.commit }}
-            path: deps/dice
-            submodules: recursive
         - name: Configure
           run: cmake -Bbuild
         - name: Build
@@ -70,7 +62,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       checks: write
-    needs: [test-linux, check-format]
+    needs: [test-linux]
     steps:
       - name: Checkout Dice
         uses: actions/checkout@v4
@@ -83,7 +75,7 @@ jobs:
         if: ${{ always() }}
         uses: ./deps/dice
         with:
-          status: ${{ (needs.test-linux.result != 'success' || needs.check-format.result != 'success') && 'failure' || 'success' }}
+          status: ${{ needs.test-linux.result }}
           title: 'coldtrace tests for Dice commit ${{ github.event.client_payload.commit }}'
           summary: 'See workflow run [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})'
           commit: ${{ github.event.client_payload.commit }}
