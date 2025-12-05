@@ -1,5 +1,9 @@
 name: Build and test Coldtrace
-on: [push]
+on: 
+  push:
+  pull_request:
+  repository_dispatch:
+    types: [ test-dice ]
 env:
   REGISTRY: ghcr.io
 
@@ -33,21 +37,38 @@ jobs:
       - name: Install
         run: cmake --install build
   check-format:
-      runs-on: ubuntu-24.04
-      steps:
-          - uses: actions/checkout@v4
-            with:
-              fetch-depth: 0
-          - name: Check clang-format version
-            run: clang-format --version
-          - name: Git Submodules
-            run: |
-              git submodule update --init --recursive
-          - name: Configure
-            run: cmake -S. -Bbuild
-          - name: Build
-            run: cmake --build build
-          - name: Run format
-            run: cmake --build build --target format
-          - name: Diff Check
-            run: cmake --build build --target diff-check
+    runs-on: ubuntu-24.04
+    steps:
+        - uses: actions/checkout@v4
+          with:
+            fetch-depth: 0
+        - name: Check clang-format version
+          run: clang-format --version
+        - name: Git Submodules
+          run: |
+            git submodule update --init --recursive
+        - name: Configure
+          run: cmake -S. -Bbuild
+        - name: Build
+          run: cmake --build build
+        - name: Run format
+          run: cmake --build build --target format
+        - name: Diff Check
+          run: cmake --build build --target diff-check
+  report:
+    runs-on: ubuntu-latest
+    permissions:
+      checks: write
+    needs: [test-linux, check-format]
+    steps:
+      - name: Publish results to Dice
+        if: ${{ always() && github.event_name == 'repository_dispatch' }}
+        uses: ./dice
+        with:
+          status: ${{ (needs.test-linux.result != 'success' || needs.check-format.result != 'success') && 'failure' || 'success' }}
+          title: 'coldtrace tests for Dice commit ${{ github.event.client_payload.commit }}'
+          summary: 'See workflow run [here](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})'
+          commit: ${{ github.event.client_payload.commit }}
+          check_id: ${{ github.event.client_payload.check_id }}
+          app_id: ${{ secrets.APP_ID }}
+          private_key: ${{ secrets.APP_PRIVATE_KEY }}
