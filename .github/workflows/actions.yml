@@ -58,11 +58,9 @@ jobs:
         - name: Diff Check
           run: cmake --build build --target diff-check
   report:
-    if: ${{ github.event_name == 'repository_dispatch' }}
+    if: always()
     runs-on: ubuntu-latest
-    permissions:
-      checks: write
-    needs: [test-linux]
+    needs: test-linux
     steps:
       - name: Checkout Dice
         uses: actions/checkout@v4
@@ -72,7 +70,7 @@ jobs:
           path: deps/dice
           submodules: recursive
       - name: Publish results to Dice
-        if: ${{ always() }}
+        if: ${{ github.event_name == 'repository_dispatch' }}
         uses: ./deps/dice
         with:
           status: ${{ needs.test-linux.result }}
