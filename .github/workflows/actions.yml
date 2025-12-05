@@ -21,12 +21,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-      - name: Git Submodules
-        run: |
-          git submodule update --init --recursive
+          submodules: recursive
+      - name: Checkout Dice
+        if: ${{ github.event_name == 'repository_dispatch' }}
+        uses: actions/checkout@v4
+        with:
+          repository: open-s4c/dice
+          ref: ${{ github.event.client_payload.commit }}
+          path: deps/dice
+          submodules: recursive
       - name: Configure
-        run: cmake -S. -Bbuild
+        run: cmake -Bbuild
              -DCMAKE_INSTALL_PREFIX=/tmp/target
              -DCMAKE_C_COMPILER=${{ matrix.cfg.cc }}
              -DCMAKE_CXX_COMPILER=${{ matrix.cfg.cxx }}
@@ -41,14 +46,19 @@ jobs:
     steps:
         - uses: actions/checkout@v4
           with:
-            fetch-depth: 0
+            submodules: recursive
         - name: Check clang-format version
           run: clang-format --version
-        - name: Git Submodules
-          run: |
-            git submodule update --init --recursive
+        - name: Checkout Dice
+          if: ${{ github.event_name == 'repository_dispatch' }}
+          uses: actions/checkout@v4
+          with:
+            repository: open-s4c/dice
+            ref: ${{ github.event.client_payload.commit }}
+            path: deps/dice
+            submodules: recursive
         - name: Configure
-          run: cmake -S. -Bbuild
+          run: cmake -Bbuild
         - name: Build
           run: cmake --build build
         - name: Run format
@@ -56,14 +66,22 @@ jobs:
         - name: Diff Check
           run: cmake --build build --target diff-check
   report:
+    if: ${{ github.event_name == 'repository_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       checks: write
     needs: [test-linux, check-format]
     steps:
+      - name: Checkout Dice
+        uses: actions/checkout@v4
+        with:
+          repository: open-s4c/dice
+          ref: ${{ github.event.client_payload.commit }}
+          path: deps/dice
+          submodules: recursive
       - name: Publish results to Dice
-        if: ${{ always() && github.event_name == 'repository_dispatch' }}
-        uses: ./dice
+        if: ${{ always() }}
+        uses: ./deps/dice
         with:
           status: ${{ (needs.test-linux.result != 'success' || needs.check-format.result != 'success') && 'failure' || 'success' }}
           title: 'coldtrace tests for Dice commit ${{ github.event.client_payload.commit }}'
