@@ -78,6 +78,11 @@ set(MODS
     dice-self-box.o
     writer.o)
 
+if(NOT APPLE)
+set(MODS
+  ${MODS} dice-pthread_spinlock.o)
+endif()
+
 add_library(coldtrace SHARED)
 target_link_libraries(coldtrace PUBLIC vsync dice.h)
 target_link_libraries(coldtrace PUBLIC ${MODS})
