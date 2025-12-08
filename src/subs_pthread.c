@@ -205,3 +205,29 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDWRLOCK, {
         e->atomic_index = coldtrace_next_atomic_idx();
     }
 })
+
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_SPIN_UNLOCK, {
+    struct pthread_spin_unlock_event *ev = EVENT_PAYLOAD(ev);
+    struct coldtrace_atomic_entry *e =
+        coldtrace_thread_append(md, COLDTRACE_LOCK_RELEASE, (void *)ev->lock);
+    e->atomic_index = coldtrace_next_atomic_idx();
+})
+
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SPIN_LOCK, {
+    struct pthread_spin_lock_event *ev = EVENT_PAYLOAD(ev);
+    if (ev->ret == 0) {
+        struct coldtrace_atomic_entry *e = coldtrace_thread_append(
+            md, COLDTRACE_LOCK_ACQUIRE, (void *)ev->lock);
+        e->atomic_index = coldtrace_next_atomic_idx();
+    }
+})
+
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SPIN_TRYLOCK, {
+    struct pthread_spin_trylock_event *ev = EVENT_PAYLOAD(ev);
+
+    if (ev->ret == 0) {
+        struct coldtrace_atomic_entry *e = coldtrace_thread_append(
+            md, COLDTRACE_LOCK_ACQUIRE, (void *)ev->lock);
+        e->atomic_index = coldtrace_next_atomic_idx();
+    }
+})
