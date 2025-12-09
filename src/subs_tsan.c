@@ -175,3 +175,23 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_FENCE, {
     struct ma_fence_event *ev = EVENT_PAYLOAD(ev);
     REL_LOG_FENCE(ev->pc);
 })
+
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ_RANGE, {
+    struct ma_read_range_event *ev = EVENT_PAYLOAD(ev);
+    coldtrace_entry_type type      = COLDTRACE_READ;
+    if (ev->size == sizeof(uint64_t) && *(uint64_t *)ev->addr == 0) {
+        type |= ZERO_FLAG;
+    }
+    struct coldtrace_access_entry *e;
+    e         = coldtrace_thread_append(md, type, ev->addr);
+    e->size   = ev->size;
+    e->caller = (uint64_t)ev->pc;
+})
+
+PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_WRITE_RANGE, {
+    struct ma_write_range_event *ev = EVENT_PAYLOAD(ev);
+    struct coldtrace_access_entry *e =
+        coldtrace_thread_append(md, COLDTRACE_WRITE, ev->addr);
+    e->size   = ev->size;
+    e->caller = (uint64_t)ev->pc;
+})
