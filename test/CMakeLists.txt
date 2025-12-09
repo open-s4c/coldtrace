@@ -47,4 +47,5 @@ endforeach()
 
 target_compile_options(trace_fence PRIVATE -fsanitize=thread -Wno-error=tsan
                                            -Wno-unknown-warning-option)
+target_compile_options(trace_memcpy PRIVATE -fno-builtin)
 set_tests_properties(trace_fail-test PROPERTIES WILL_FAIL TRUE)
