@@ -7,6 +7,17 @@ project(
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_compile_definitions(LOG_PREFIX="coldtrace: ")
+# Platform specific interfaces
+set(HAVE_PTHREAD_CLOCKLOCK_CLOCKWAIT OFF)
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  file(READ "/etc/os-release" _os)
+  string(FIND "${_os}" "ID=alpine" _alpine)
+  if(_alpine EQUAL -1)
+    set(HAVE_PTHREAD_CLOCKLOCK_CLOCKWAIT ON)
+  endif()
+elseif(NOT CMAKE_SYSTEM_NAME MATCHES "NetBSD" AND NOT APPLE)
+  set(HAVE_PTHREAD_CLOCKLOCK_CLOCKWAIT ON)
+endif()
 
 add_compile_options(-fPIC -g3 -D_GNU_SOURCE -DDICE_MAIN_START_DISABLE)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)

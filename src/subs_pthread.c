@@ -117,6 +117,15 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK, {
     }
 })
 
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_CLOCKLOCK, {
+    struct pthread_mutex_clocklock_event *ev = EVENT_PAYLOAD(ev);
+    if (ev->ret == 0) {
+        struct coldtrace_atomic_entry *e = coldtrace_thread_append(
+            md, COLDTRACE_LOCK_ACQUIRE, (void *)ev->mutex);
+        e->atomic_index = coldtrace_next_atomic_idx();
+    }
+})
+
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_COND_WAIT, {
     struct pthread_cond_wait_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e =
@@ -140,6 +149,20 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_COND_TIMEDWAIT, {
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_COND_TIMEDWAIT, {
     struct pthread_cond_timedwait_event *ev = EVENT_PAYLOAD(ev);
+    struct coldtrace_atomic_entry *e =
+        coldtrace_thread_append(md, COLDTRACE_LOCK_ACQUIRE, (void *)ev->mutex);
+    e->atomic_index = coldtrace_next_atomic_idx();
+})
+
+PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_COND_CLOCKWAIT, {
+    struct pthread_cond_clockwait_event *ev = EVENT_PAYLOAD(ev);
+    struct coldtrace_atomic_entry *e =
+        coldtrace_thread_append(md, COLDTRACE_LOCK_RELEASE, (void *)ev->mutex);
+    e->atomic_index = coldtrace_next_atomic_idx();
+})
+
+PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_COND_CLOCKWAIT, {
+    struct pthread_cond_clockwait_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e =
         coldtrace_thread_append(md, COLDTRACE_LOCK_ACQUIRE, (void *)ev->mutex);
     e->atomic_index = coldtrace_next_atomic_idx();
