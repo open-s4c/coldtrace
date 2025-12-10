@@ -63,9 +63,10 @@ coldtrace_entry_parse_type(const void *buf)
     return type;
 }
 
-uint64_t coldtrace_entry_parse_atomic_idx(const void *buf)
+uint64_t
+coldtrace_entry_parse_atomic_idx(const void *buf)
 {
-    return ((uint64_t*) (buf))[1];
+    return ((uint64_t *)(buf))[1];
 }
 
 uint64_t

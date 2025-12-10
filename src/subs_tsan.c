@@ -83,8 +83,8 @@ area_t areas_[AREAS];
 #define REL_LOG_RW(addr, size)                                                   \
     area_t *area   = get_area(addr);                                             \
     uint64_t idx_a = area->idx_a;                                                \
-    caslock_release(&area->lock);                                                \
     uint64_t idx_b = coldtrace_next_atomic_idx();                                \
+    caslock_release(&area->lock);                                                \
     struct coldtrace_atomic_entry *e;                                            \
     e               = coldtrace_thread_append(md, COLDTRACE_ATOMIC_READ, addr);  \
     e->atomic_index = idx_a;                                                     \
