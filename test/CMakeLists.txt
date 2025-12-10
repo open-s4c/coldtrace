@@ -45,6 +45,7 @@ foreach(SRC ${SRCS})
   endif()
 endforeach()
 
+target_link_libraries(trace_hb_check PRIVATE entries.o)
 target_compile_options(trace_fence PRIVATE -fsanitize=thread -Wno-error=tsan
                                            -Wno-unknown-warning-option)
 # force a call to memcpy or __tsan_memcpy
