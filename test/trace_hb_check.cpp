@@ -24,7 +24,7 @@ x_times_plus_one(void *ptr)
 #define TYPE_MASK 0x00000000000000FFUL
 #define PTR_MASK  0xFFFFFFFFFFFF0000UL
 
-#define ZERO_FLAG       0x80
+#define ZERO_FLAG 0x80
 
 coldtrace_entry_type
 coldtrace_entry_parse_type(const void *buf)
@@ -35,22 +35,25 @@ coldtrace_entry_parse_type(const void *buf)
     return type;
 }
 
-uint64_t coldtrace_entry_parse_atomic_idx(const void *buf)
+uint64_t
+coldtrace_entry_parse_atomic_idx(const void *buf)
 {
-    return ((uint64_t*) (buf))[1];
+    return ((uint64_t *)(buf))[1];
 }
 
-void check_conforming(const void *entry)
+void
+check_conforming(const void *entry)
 {
     static uint64_t last_atomic_idx = -1;
-    coldtrace_entry_type type = coldtrace_entry_parse_type(entry);
+    coldtrace_entry_type type       = coldtrace_entry_parse_type(entry);
     if (type == COLDTRACE_ATOMIC_READ) {
         last_atomic_idx = coldtrace_entry_parse_atomic_idx(entry);
-    } else if (type == COLDTRACE_ATOMIC_WRITE)
-    {
+    } else if (type == COLDTRACE_ATOMIC_WRITE) {
         uint64_t write_idx = coldtrace_entry_parse_atomic_idx(entry);
-        if (write_idx < (2*X_TIMES) && last_atomic_idx + 1 != write_idx) {
-            log_fatal("atomic fetch_add was split: read_idx: %ld write_idx: %ld", last_atomic_idx, write_idx);
+        if (write_idx < (2 * X_TIMES) && last_atomic_idx + 1 != write_idx) {
+            log_fatal(
+                "atomic fetch_add was split: read_idx: %ld write_idx: %ld",
+                last_atomic_idx, write_idx);
         }
     }
 }
@@ -68,6 +71,6 @@ main()
     for (int i = 0; i < NUM_THREADS; i++) {
         pthread_join(*(threads + i), NULL);
     }
-    
+
     return 0;
 }
