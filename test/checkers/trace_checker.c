@@ -131,6 +131,12 @@ iter_pointer_value(struct entry_it it)
     return coldtrace_entry_parse_ptr(it.buf);
 }
 
+uint64_t
+iter_atomic_idx_value(struct entry_it it)
+{
+    return coldtrace_entry_parse_atomic_idx(it.buf);
+}
+
 static void
 init_expected_entry_iterator(struct next_expected_entry_iterator *iter,
                              struct expected_entry *exp)
