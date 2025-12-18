@@ -25,7 +25,6 @@ class PageCache
     std::vector<uint64_t> pageCacheSpans_;
     std::unordered_map<uint64_t, uint64_t> idSpanMap_;
 
-  private:
     PageCache() noexcept
     {
         void *temp = malloc(8);

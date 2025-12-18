@@ -24,7 +24,7 @@ x_times_plus_one(void *ptr)
 void *
 free_after_finish(void *ptr)
 {
-    while (1) {
+    while (true) {
         if (at.load(std::memory_order_acquire) >= (X_TIMES * NUM_THREADS)) {
             printf("var was %d\n", *(uint8_t *)ptr);
             free(ptr);

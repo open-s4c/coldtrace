@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// NOLINTBEGIN
 __attribute__((noinline)) int
 important_calculation(int i, int n, int m)
 {
@@ -60,3 +61,4 @@ main()
 
     return 0;
 }
+// NOLINTEND

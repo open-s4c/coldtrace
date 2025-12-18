@@ -18,83 +18,87 @@ extern "C" {
 #define CHECK_FUNC __attribute__((no_sanitize("thread")))
 
 struct expected_entry {
-    coldtrace_entry_type type;
-    bool set;
     unsigned atleast;
     unsigned atmost;
-    bool wild;
     int check; // for pointer: -1 = no check , != -1 = check on that location
+    coldtrace_entry_type type;
+    bool set;
+    bool wild;
     int size;
 };
 
 #define EXPECT_ENTRY(TYPE)                                                     \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
-        .check = -1, .size = -1                                                \
+        .atleast = 1, .atmost = 1, .check = -1, .type = TYPE, .set = true,     \
+        .wild = false, .size = -1,                                             \
     }
+
 #define EXPECT_VALUE(TYPE, CHECK)                                              \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
-        .check = CHECK, .size = -1,                                            \
+        .atleast = 1, .atmost = 1, .check = CHECK, .type = TYPE, .set = true,  \
+        .wild = false, .size = -1,                                             \
     }
 #define EXPECT_SIZE(TYPE, SIZE)                                                \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
-        .check = -1, .size = SIZE                                              \
+        .atleast = 1, .atmost = 1, .check = -1, .type = TYPE, .set = true,     \
+        .wild = false, .size = SIZE                                            \
     }
 #define EXPECT_VALUE_SIZE(TYPE, CHECK, SIZE)                                   \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
-        .check = CHECK, .size = SIZE                                           \
+        .atleast = 1, .atmost = 1, .check = CHECK, .type = TYPE, .set = true,  \
+        .wild = false, .size = SIZE                                            \
     }
 #define EXPECT_SUFFIX(TYPE)                                                    \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = true,    \
-        .check = -1, .size = -1,                                               \
+        .atleast = 1, .atmost = 1, .check = -1, .type = TYPE, .set = true,     \
+        .wild = true, .size = -1,                                              \
     }
+
 #define EXPECT_SUFFIX_VALUE(TYPE, CHECK)                                       \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = true,    \
-        .check = CHECK, .size = -1,                                            \
+        .atleast = 1, .atmost = 1, .check = CHECK, .type = TYPE, .set = true,  \
+        .wild = true, .size = -1,                                              \
     }
+
 #define EXPECT_SOME(TYPE, ATLEAST, ATMOST)                                     \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
-        .wild = false, .check = -1, .size = -1,                                \
+        .atleast = ATLEAST, .atmost = ATMOST, .check = -1, .type = TYPE,       \
+        .set = true, .wild = false, .size = -1,                                \
     }
+
 #define EXPECT_SOME_VALUE(TYPE, ATLEAST, ATMOST, CHECK)                        \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
-        .wild = false, .check = CHECK, .size = -1,                             \
+        .atleast = ATLEAST, .atmost = ATMOST, .check = CHECK, .type = TYPE,    \
+        .set = true, .wild = false, .size = -1,                                \
     }
 #define EXPECT_SOME_SIZE(TYPE, ATLEAST, ATMOST, SIZE)                          \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
-        .wild = false, .check = -1, .size = SIZE,                              \
+        .atleast = ATLEAST, .atmost = ATMOST, .check = -1, .type = TYPE,       \
+        .set = true, .wild = false, .size = SIZE,                              \
     }
 #define EXPECT_SOME_VALUE_SIZE(TYPE, ATLEAST, ATMOST, CHECK, SIZE)             \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
-        .wild = false, .check = CHECK, .size = SIZE,                           \
+        .atleast = ATLEAST, .atmost = ATMOST, .check = CHECK, .type = TYPE,    \
+        .set = true, .wild = false, .size = SIZE,                              \
     }
 
-#define EXPECTED_ANY_SUFFIX EXPECT_SUFFIX(0, 0)
+#define EXPECTED_ANY_SUFFIX EXPECT_SUFFIX(0)
 
 #define EXPECT_END                                                             \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = 0, .set = false, .atleast = 0, .atmost = 0, .wild = false,     \
-        .check = -1, .size = -1                                                \
+        .atleast = 0, .atmost = 0, .check = -1, .type = 0, .set = false,       \
+        .wild = false, .size = -1                                              \
     }
 
 typedef void (*entry_callback)(const void *entry, metadata_t *md);

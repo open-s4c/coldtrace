@@ -31,6 +31,7 @@
 
 #define NO_CHECK            -1
 #define CHECK_UNINITIALIZED (~(uint64_t)0)
+#define SIZE_OF_BUFFER      64
 
 static size_t _entry_callback_count = 0;
 static entry_callback _entry_callbacks[MAX_ENTRY_CALLBACKS];
@@ -38,8 +39,9 @@ static uint64_t _entry_ptr_values[MAX_ENTRY_VALUES];
 
 INTERPOSE(void, register_entry_callback, entry_callback foo)
 {
-    if (_entry_callback_count < MAX_ENTRY_CALLBACKS)
+    if (_entry_callback_count < MAX_ENTRY_CALLBACKS) {
         _entry_callbacks[_entry_callback_count++] = foo;
+    }
 }
 
 struct entry_it {
@@ -99,16 +101,20 @@ coldtrace_version_header(void *buf)
 static void
 iter_advance(struct entry_it *it)
 {
-    if (it->size < sizeof(uint64_t))
+    if (it->size < sizeof(uint64_t)) {
         return;
+    }
 
     size_t size = coldtrace_entry_get_size(it->buf);
-    if (size == 0)
+    if (size == 0) {
         return;
-    if (size > it->size)
+    }
+
+    if (size > it->size) {
         log_info("unexpected size=%lu != it->size=%lu (type=%s)", size,
                  it->size,
                  coldtrace_entry_type_str(coldtrace_entry_parse_type(it->buf)));
+    }
     it->buf += size;
     it->size -= size;
 }
@@ -116,8 +122,9 @@ iter_advance(struct entry_it *it)
 static bool
 iter_next(struct entry_it it)
 {
-    if (it.size < sizeof(uint64_t))
+    if (it.size < sizeof(uint64_t)) {
         return false;
+    }
     return coldtrace_entry_parse_size(it.buf) > 0;
 }
 
@@ -303,11 +310,11 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     }
 
     // 4. MATCH
-    char ptr_buf[64] = "";
+    char ptr_buf[SIZE_OF_BUFFER] = "";
     if (p == MATCH_INIT_PTR || p == MATCH_PTR) {
         snprintf(ptr_buf, sizeof(ptr_buf), " ptr=%lu", ptr_value);
     }
-    char size_buf[64] = "";
+    char size_buf[SIZE_OF_BUFFER] = "";
     if (s == MATCH_SIZE) {
         snprintf(size_buf, sizeof(size_buf), " size=%d", exp_it->e->size);
     }
@@ -316,14 +323,17 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
              coldtrace_entry_type_str(exp_it->e->type), ptr_buf, size_buf);
 
     // if it was required make it optional
-    if (exp_it->atleast > 0)
+    if (exp_it->atleast > 0) {
         (exp_it->atleast)--;
+    }
     // if atmost 0 make infinity
-    if (exp_it->atmost == 0)
+    if (exp_it->atmost == 0) {
         return;
+    }
     // if it has more ocuurencies left next
-    if ((exp_it->atmost)-- == 1)
+    if ((exp_it->atmost)-- == 1) {
         next_expected_entry_and_reset(exp_it);
+    }
 }
 
 static void
@@ -332,7 +342,6 @@ _check_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
 {
     coldtrace_entry_type type = iter_type(it);
     uint64_t ptr_value        = iter_pointer_value(it);
-    uint64_t size             = iter_size(it);
 
     // 1. TYPE CHECK
     bool t = _check_type(type, exp_it);
@@ -352,7 +361,7 @@ _check_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     }
 
     // 3. MATCH
-    char ptr_buf[64] = "";
+    char ptr_buf[SIZE_OF_BUFFER] = "";
     if (p == MATCH_INIT_PTR || p == MATCH_PTR) {
         sprintf(ptr_buf, " ptr=%lu", ptr_value);
     }
@@ -405,8 +414,9 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
         init_expected_entry_iterator(expected_it, exp);
     }
 
-    if (_close_callback)
+    if (_close_callback) {
         _close_callback(page, size);
+    }
 
     caslock_acquire(&loop_lock);
 
@@ -419,11 +429,13 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
         check_ascending_atomic_index(&previous_atomic_index, atomic_index, tid,
                                      entry);
 
-        for (size_t j = 0; j < _entry_callback_count; j++)
+        for (size_t j = 0; j < _entry_callback_count; j++) {
             _entry_callbacks[j](it.buf, md);
+        }
 
-        if (expected_it->e == NULL)
+        if (expected_it->e == NULL) {
             continue;
+        }
 
         coldtrace_entry_type type = iter_type(it);
         if (!(expected_it->e)->set) {
@@ -437,8 +449,9 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
 
     for (uint64_t t = 0; t < MAX_NTHREADS; t++) {
         struct expected_entry_iterator *it = &_expected_iterators[t];
-        if (it->e && it->e->set)
+        if (it->e && it->e->set) {
             log_info("thread=%lu expected trace not fully matched", t);
+        }
     }
     caslock_release(&loop_lock);
 }

@@ -51,12 +51,24 @@ jobs:
           run: clang-format --version
         - name: Configure
           run: cmake -Bbuild
-        - name: Build
-          run: cmake --build build
         - name: Run format
           run: cmake --build build --target format
         - name: Diff Check
           run: cmake --build build --target diff-check
+  check-linter:
+    runs-on: ubuntu-24.04
+    steps:
+        - uses: actions/checkout@v4
+          with:
+            submodules: recursive
+        - name: Check clang-tidy version
+          run: clang-tidy --version
+        - name: Configure
+          run: cmake -Bbuild
+            -DCMAKE_C_COMPILER=clang
+            -DCMAKE_CXX_COMPILER=clang++
+        - name: Run tidy
+          run: cmake --build build --target tidy
   report:
     if: always()
     runs-on: ubuntu-latest
