@@ -22,8 +22,8 @@ main(int argc, char **argv)
 
     char str[100] = "Learningisfun";
 
-    size_t n     = strlen(str);
-    void *result = do_memcpy(str + 20, str, n);
+    size_t n = strlen(str);
+    do_memcpy(str + 20, str, n);
 
     memmove(str + 8, str, 10);
 

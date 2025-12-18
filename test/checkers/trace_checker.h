@@ -18,59 +18,65 @@ extern "C" {
 #define CHECK_FUNC __attribute__((no_sanitize("thread")))
 
 struct expected_entry {
-    coldtrace_entry_type type;
-    bool set;
     unsigned atleast;
     unsigned atmost;
-    bool wild;
     int check; // for pointer: -1 = no check , != -1 = check on that location
+    coldtrace_entry_type type;
+    bool set;
+    bool wild;
 };
 
 #define EXPECT_ENTRY(TYPE)                                                     \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
-        .check = -1                                                            \
+        .atleast = 1, .atmost = 1, .check = -1, .type = TYPE, .set = true,     \
+        .wild = false                                                          \
     }
+
 #define EXPECT_VALUE(TYPE, CHECK)                                              \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = false,   \
-        .check = CHECK                                                         \
+        .atleast = 1, .atmost = 1, .check = CHECK, .type = TYPE, .set = true,  \
+        .wild = false                                                          \
     }
+
 #define EXPECT_SUFFIX(TYPE)                                                    \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = true,    \
-        .check = -1,                                                           \
+        .atleast = 1, .atmost = 1, .check = -1, .type = TYPE, .set = true,     \
+        .wild = true                                                           \
     }
+
 #define EXPECT_SUFFIX_VALUE(TYPE, CHECK)                                       \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = 1, .atmost = 1, .wild = true,    \
-        .check = CHECK,                                                        \
+        .atleast = 1, .atmost = 1, .check = CHECK, .type = TYPE, .set = true,  \
+        .wild = true                                                           \
     }
+
 #define EXPECT_SOME(TYPE, ATLEAST, ATMOST)                                     \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
-        .wild = false, .check = -1,                                            \
+        .atleast = ATLEAST, .atmost = ATMOST, .check = -1, .type = TYPE,       \
+        .set = true, .wild = false                                             \
     }
+
 #define EXPECT_SOME_VALUE(TYPE, ATLEAST, ATMOST, CHECK)                        \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = TYPE, .set = true, .atleast = ATLEAST, .atmost = ATMOST,       \
-        .wild = false, .check = CHECK,                                         \
+        .atleast = ATLEAST, .atmost = ATMOST, .check = CHECK, .type = TYPE,    \
+        .set = true, .wild = false                                             \
     }
 
-#define EXPECTED_ANY_SUFFIX EXPECT_SUFFIX(0, 0)
+#define EXPECTED_ANY_SUFFIX EXPECT_SUFFIX(0)
 
 #define EXPECT_END                                                             \
     (struct expected_entry)                                                    \
     {                                                                          \
-        .type = 0, .set = false, .atleast = 0, .atmost = 0, .wild = false,     \
-        .check = -1                                                            \
+        .atleast = 0, .atmost = 0, .check = -1, .type = 0, .set = false,       \
+        .wild = false                                                          \
     }
+
 
 void register_expected_trace(uint64_t tid, struct expected_entry *trace);
 void register_entry_callback(void (*callback)(const void *entry));
