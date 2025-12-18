@@ -1,5 +1,6 @@
 #include <stdlib.h>
 
+// NOLINTBEGIN
 int
 main(int argc, char **argv)
 {
@@ -8,3 +9,4 @@ main(int argc, char **argv)
     *x = 42;
     return 0;
 }
+// NOLINTEND

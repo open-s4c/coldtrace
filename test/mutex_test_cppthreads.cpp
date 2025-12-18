@@ -9,6 +9,7 @@ std::mutex queueLock_;
 void *
 once_plus_one(void *ptr)
 {
+    // NOLINTBEGIN
 #if 0
     uint8_t& at = *(uint8_t*) ptr;
 
@@ -38,6 +39,7 @@ once_plus_one(void *ptr)
         queueLock_.unlock();
     }
 #endif
+    // NOLINTEND
     return NULL;
 }
 

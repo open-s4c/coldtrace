@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// NOLINTBEGIN
 #define SCALING 10
 
 int
@@ -66,3 +67,4 @@ main()
 
     return 0;
 }
+// NOLINTEND
