@@ -51,6 +51,7 @@ const char *coldtrace_entry_type_str(coldtrace_entry_type type);
 coldtrace_entry_type coldtrace_entry_parse_type(const void *buf);
 uint64_t coldtrace_entry_parse_ptr(const void *buf);
 size_t coldtrace_entry_parse_size(const void *buf);
+uint64_t coldtrace_entry_parse_atomic_idx(const void *buf);
 
 static inline struct coldtrace_entry_header
 coldtrace_make_entry_header(const coldtrace_entry_type type, uint64_t ptr)
