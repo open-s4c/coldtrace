@@ -503,7 +503,6 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
     caslock_acquire(&loop_lock);
 
     for (int i = 0; iter_next(it); iter_advance(&it), i++) {
-
         uint64_t pos_alloc = iter_alloc_value(it);
         check_ascending_alloc_index(&previous_alloc_index, pos_alloc, tid, i);
 

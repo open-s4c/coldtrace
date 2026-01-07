@@ -7,11 +7,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define TYPE_MASK       0x00000000000000FFUL
-#define PTR_MASK        0xFFFFFFFFFFFF0000UL
-#define PTR_SHIFT_VALUE 16
-#define ZERO_FLAG       0x80
-#define INVALID_SIZE    -1
+#define TYPE_MASK            0x00000000000000FFUL
+#define PTR_MASK             0xFFFFFFFFFFFF0000UL
+#define PTR_SHIFT_VALUE      16
+#define ZERO_FLAG            0x80
+#define INVALID_SIZE         -1
 #define INVALID_ALLOC_INDEX  -1
 #define INVALID_ATOMIC_INDEX -1
 
