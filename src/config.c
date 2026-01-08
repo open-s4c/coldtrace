@@ -6,6 +6,7 @@
 #include <assert.h>
 #include <coldtrace/config.h>
 #include <coldtrace/utils.h>
+#include <dice/log.h>
 #include <dice/module.h>
 #include <string.h>
 
@@ -20,8 +21,7 @@ DICE_HIDE char pattern_[128];
 DICE_MODULE_INIT({
     char *var = getenv("COLDTRACE_PATH");
     if (var == NULL) {
-        log_printf("Set COLDTRACE_PATH to a valid directory\n");
-        exit(EXIT_FAILURE);
+        log_fatal("Set COLDTRACE_PATH to a valid directory\n");
     }
     coldtrace_set_path(var);
 
@@ -47,8 +47,7 @@ DICE_HIDE void
 coldtrace_set_path(const char *path)
 {
     if (strlen(path) >= (sizeof(pattern_) - sizeof(COLDTRACE_FILE_SUFFIX))) {
-        log_printf("error: path too long\n");
-        exit(EXIT_FAILURE);
+        log_fatal("error: path too long\n");
     }
     strcpy(path_, path);
     strcpy(pattern_, path);

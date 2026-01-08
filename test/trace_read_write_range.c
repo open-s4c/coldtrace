@@ -1,3 +1,4 @@
+#include <dice/log.h>
 #include <pthread.h>
 #include <trace_checker.h>
 
