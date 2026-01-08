@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include <stdint.h>
+#undef LOG_PREFIX
 #define LOG_PREFIX "TRACE_CHECKER: "
 #ifndef LOG_LEVEL
     #define LOG_LEVEL INFO

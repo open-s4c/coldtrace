@@ -7,6 +7,7 @@
 #include <dice/compiler.h>
 #include <dice/log.h>
 #include <dirent.h>
+#include <errno.h>
 #include <ftw.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -29,7 +30,7 @@ ensure_dir_empty(const char *path)
 {
     DIR *dir = opendir(path);
     if (!dir) {
-        perror("opendir");
+        log_info("opendir: %s", strerror(errno));
         return -1;
     }
 
@@ -52,7 +53,7 @@ ensure_dir_empty(const char *path)
         struct stat st;
         if (stat(filepath, &st) == 0 && S_ISREG(st.st_mode)) {
             if (remove(filepath) != 0) {
-                perror(filepath);
+                log_info("%s %s", filepath, strerror(errno));
                 return -1;
             }
         }
@@ -73,14 +74,14 @@ ensure_dir_exists(const char *path)
         if (S_ISDIR(st.st_mode)) {
             return 0; // Exists
         } else {
-            log_printf("not a directory: %s\n", path);
+            log_info("not a directory: %s\n", path);
             return -1;
         }
     }
 
     // Try to create the directory
     if (mkdir(path, 0755) != 0) {
-        perror("mkdir failed");
+        log_info("mkdir failed: %s", strerror(errno));
         return -1;
     }
 
