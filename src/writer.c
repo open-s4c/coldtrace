@@ -54,8 +54,7 @@ get_trace_(struct writer_impl *impl)
         }
     }
     if (ftruncate(fd, impl->size) == -1) {
-        perror("ftruncate get_trace");
-        exit(EXIT_FAILURE);
+        log_fatal("ftruncate get_trace: %s", strerror(errno));
     }
     impl->buffer =
         mmap(NULL, impl->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
@@ -87,8 +86,7 @@ new_trace_(struct writer_impl *impl)
     sprintf(file_name, pattern, impl->tid, impl->enumerator);
     int fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
     if (ftruncate(fd, impl->size) == -1) {
-        perror("ftruncate new_trace");
-        exit(EXIT_FAILURE);
+        log_fatal("ftruncate new_trace: %s", strerror(errno));
     }
 
     impl->buffer =

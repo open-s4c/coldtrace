@@ -54,7 +54,7 @@ copy_mapped_files_(const char *path)
     snprintf(proc_maps, sizeof(proc_maps), "%s/maps", path);
     FILE *file = fopen(proc_maps, "r");
     if (!file) {
-        perror("Failed to open proc map file");
+        log_info("Failed to open proc map file: %s", strerror(errno));
         return -1;
     }
 
@@ -189,14 +189,14 @@ cp_(const char *src, const char *dst)
 {
     FILE *fsrc = fopen(src, "rb");
     if (!fsrc) {
-        perror("fopen");
+        log_info("fopen: %s", strerror(errno));
         return -1;
     }
 
     FILE *fdst = fopen(dst, "wb");
     if (!fdst) {
         fclose(fsrc);
-        perror("fopen");
+        log_info("fopen: %s", strerror(errno));
         return -1;
     }
 
