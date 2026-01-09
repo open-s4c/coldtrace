@@ -29,7 +29,7 @@ REAL_DECL(int, pthread_attr_getstack, const pthread_attr_t *attr,
           void **stackaddr, size_t *stacksize);
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_START, {
-    coldtrace_thread_init(md, self_id(md));
+    coldtrace_thread_init(md);
 
     void *stackaddr;
     size_t stacksize;
@@ -51,7 +51,6 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_EXIT, {
     struct coldtrace_atomic_entry *e = coldtrace_thread_append(
         md, COLDTRACE_THREAD_EXIT, (void *)REAL(pthread_self));
     e->atomic_index = coldtrace_next_atomic_idx();
-    coldtrace_thread_fini(md);
 })
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
@@ -61,6 +60,8 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
         e->atomic_index = coldtrace_next_atomic_idx();
         coldtrace_thread_fini(md);
         coldtrace_main_thread_fini();
+    } else {
+        coldtrace_thread_fini(md);
     }
 })
 

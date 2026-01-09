@@ -20,6 +20,7 @@
 #include <dice/log.h>
 #include <dice/module.h>
 #include <dice/self.h>
+#include <dice/types.h>
 #include <vsync/spinlock/caslock.h>
 
 #define MAX_NTHREADS        128
@@ -29,12 +30,11 @@
 #define NO_CHECK            -1
 #define CHECK_UNINITIALIZED (~(uint64_t)0)
 
-typedef void (*entry_callback)(const void *entry);
 static size_t _entry_callback_count = 0;
 static entry_callback _entry_callbacks[MAX_ENTRY_CALLBACKS];
 static uint64_t _entry_ptr_values[MAX_ENTRY_VALUES];
 
-INTERPOSE(void, register_entry_callback, void (*foo)(const void *entry))
+INTERPOSE(void, register_entry_callback, entry_callback foo)
 {
     if (_entry_callback_count < MAX_ENTRY_CALLBACKS)
         _entry_callbacks[_entry_callback_count++] = foo;
@@ -341,8 +341,9 @@ _check_entry(struct entry_it it, struct expected_entry_iterator *iter,
 
 // Overwrite writer_close function to check pages before being written
 void
-coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
+coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
 {
+    uint64_t tid               = self_id(md);
     static caslock_t loop_lock = CASLOCK_INIT();
 
     log_info("checking thread=%lu", tid);
@@ -362,7 +363,7 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
 
     for (int i = 0; iter_next(it); iter_advance(&it), i++) {
         for (size_t j = 0; j < _entry_callback_count; j++)
-            _entry_callbacks[j](it.buf);
+            _entry_callbacks[j](it.buf, md);
 
         if (expected_it->e == NULL)
             continue;

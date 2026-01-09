@@ -75,7 +75,6 @@ set(MODS
     dice.o
     dice-box.o
     dice-self.o
-    dice-self-box.o
     writer.o)
 
 if(NOT APPLE)
@@ -85,7 +84,7 @@ endif()
 
 add_library(coldtrace SHARED)
 target_link_libraries(coldtrace PUBLIC vsync dice.h)
-target_link_libraries(coldtrace PUBLIC ${MODS})
+target_link_libraries(coldtrace PUBLIC ${MODS} dice-self-box.o)
 
 set(COLDTRACE_OBJS
     ${MODS}

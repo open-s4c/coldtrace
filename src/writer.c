@@ -4,6 +4,8 @@
 #include <dice/compiler.h>
 #include <dice/log.h>
 #include <dice/mempool.h>
+#include <dice/self.h>
+#include <dice/types.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <stdbool.h>
@@ -21,7 +23,11 @@ struct writer_impl {
     uint64_t offset;
     uint64_t tid;
     uint32_t enumerator;
+    metadata_t *md;
 };
+
+STATIC_ASSERT(sizeof(struct writer_impl) == sizeof(struct coldtrace_writer),
+              "incorrect writer_impl size");
 
 static void
 get_trace_(struct writer_impl *impl)
@@ -74,7 +80,7 @@ new_trace_(struct writer_impl *impl)
         impl->offset = 0;
         return;
     }
-    coldtrace_writer_close(impl->buffer, impl->offset, impl->tid);
+    coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
     munmap(impl->buffer, impl->size);
 
     impl->enumerator = (impl->enumerator + 1) % coldtrace_get_max();
@@ -123,16 +129,18 @@ coldtrace_writer_reserve(struct coldtrace_writer *writer, size_t size)
 }
 
 DICE_HIDE void
-coldtrace_writer_init(struct coldtrace_writer *ct, uint64_t id)
+coldtrace_writer_init(struct coldtrace_writer *ct, metadata_t *md)
 {
     // Ensure the size of implementation matches the public size
     assert(sizeof(struct writer_impl) == sizeof(struct coldtrace_writer));
+    assert(md != NULL);
     struct writer_impl *impl;
     impl         = (struct writer_impl *)ct;
     impl->initd  = true;
-    impl->tid    = id;
+    impl->tid    = self_id(md);
     impl->buffer = NULL;
     impl->size   = 0;
+    impl->md     = md;
 }
 
 DICE_HIDE void
@@ -141,7 +149,7 @@ coldtrace_writer_fini(struct coldtrace_writer *ct)
     struct writer_impl *impl = (struct writer_impl *)ct;
     if (!impl->initd)
         return;
-    coldtrace_writer_close(impl->buffer, impl->offset, impl->tid);
+    coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
 
     if (coldtrace_writes_disabled())
         mempool_free(impl->buffer);
@@ -149,6 +157,6 @@ coldtrace_writer_fini(struct coldtrace_writer *ct)
 
 
 __attribute__((weak)) void
-coldtrace_writer_close(void *page, size_t size, uint64_t id)
+coldtrace_writer_close(void *page, size_t size, metadata_t *md)
 {
 }

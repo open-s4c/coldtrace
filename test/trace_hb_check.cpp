@@ -22,7 +22,7 @@ x_times_plus_one(void *ptr)
 }
 
 void
-check_conforming(const void *entry)
+check_conforming(const void *entry, metadata_t *md)
 {
     static uint64_t last_atomic_idx = -1;
     coldtrace_entry_type type       = coldtrace_entry_parse_type(entry);
