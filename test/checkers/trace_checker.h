@@ -97,10 +97,36 @@ struct expected_entry {
         .check = -1, .size = -1                                                \
     }
 
+typedef void (*entry_callback)(const void *entry, metadata_t *md);
 void register_expected_trace(uint64_t tid, struct expected_entry *trace);
-void register_entry_callback(void (*callback)(const void *entry));
+void register_entry_callback(entry_callback callback);
 void register_close_callback(void (*callback)(const void *page, size_t size));
 void register_final_callback(void (*callback)(void));
+
+/* Returns the Dice-assigned thread identifier for the current handler
+ * invocation. IDs start at 1; `NO_THREAD` is reserved for representing no
+ * thread and should never be returned. */
+thread_id self_id(struct metadata *self);
+
+/* Get or allocate a memory area in TLS.
+ *
+ * `global` must be a unique pointer, typically a global variable of the desired
+ * type.
+ */
+void *self_tls(struct metadata *self, const void *global, size_t size);
+
+/* Return self object as opaque metadata.
+ *
+ * Return NULL if no self object is registered for current thread.
+ */
+struct metadata *self_md(void);
+
+/* Helper macro that gets or creates a memory area with the size of the type
+ * pointed by global_ptr.
+ */
+#define SELF_TLS(self, global_ptr)                                             \
+    ((__typeof(global_ptr))self_tls((self), (global_ptr),                      \
+                                    sizeof(*(global_ptr))))
 
 #ifdef __cplusplus
 }

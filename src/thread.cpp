@@ -35,7 +35,7 @@ get_coldtrace_thread(metadata_t *md)
 {
     struct coldtrace_thread *th = SELF_TLS(md, &tls_key_);
     if (!th->initd) {
-        coldtrace_writer_init(&th->writer, self_id(md));
+        coldtrace_writer_init(&th->writer, md);
         th->initd = true;
     }
     return th;
@@ -96,10 +96,10 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
 }
 
 DICE_HIDE void
-coldtrace_thread_init(struct metadata *md, uint64_t thread_id)
+coldtrace_thread_init(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
-    coldtrace_writer_init(&th->writer, thread_id);
+    coldtrace_writer_init(&th->writer, md);
 }
 
 DICE_HIDE void

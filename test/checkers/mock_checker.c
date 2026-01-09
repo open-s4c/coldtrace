@@ -7,7 +7,7 @@ register_expected_trace(uint64_t tid, struct expected_entry *trace)
 }
 
 void
-register_entry_callback(void (*callback)(const void *entry))
+register_entry_callback(void (*callback)(const void *entry, metadata_t *md))
 {
     abort();
 }
@@ -23,3 +23,21 @@ register_final_callback(void (*callback)(void))
 {
     abort();
 }
+
+thread_id
+self_id(struct metadata *self)
+{
+    abort();
+}
+
+void *
+self_tls(struct metadata *self, const void *global, size_t size)
+{
+    abort();
+}
+
+struct metadata *
+self_md(void)
+{
+    abort();
+};
