@@ -2,6 +2,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
+#include <dice/types.h>
 #include <pthread.h>
 #include <trace_checker.h>
 
@@ -11,19 +12,25 @@
 std::atomic<uint32_t> at{0};
 pthread_barrier_t barrier;
 
-uint32_t fetch_add_return_values[NUM_THREADS * X_TIMES] = {0};
-thread_local uint64_t thread_nr                         = 0;
+struct storage {
+    uint32_t fetch_add_return_values[X_TIMES];
+    uint64_t last_atomic_idx;
+    uint32_t count;
+} thread_local_storage;
 
 void *
 x_times_plus_one(void *ptr)
 {
-    thread_nr = (uint64_t)ptr;
-    log_info("thread_nr %lu", thread_nr);
+    (void)ptr;
+    metadata_t *md       = self_md();
+    struct storage *tls  = SELF_TLS(md, &thread_local_storage);
+    tls->last_atomic_idx = -1;
+    log_info("thread_nr %lu", self_id(md));
     pthread_barrier_wait(&barrier);
     for (int i = 0; i < X_TIMES; i++) {
         // save return value of fetch add (read value)
         // we use it as an enumerator of the atomic ops
-        fetch_add_return_values[X_TIMES * thread_nr + i] =
+        tls->fetch_add_return_values[i] =
             at.fetch_add(1, std::memory_order_relaxed);
     }
     return NULL;
@@ -32,12 +39,14 @@ x_times_plus_one(void *ptr)
 #define OFFSET_UNINITIALIZED (uint64_t) - 1
 
 void
-check_conforming(const void *entry)
+check_conforming(const void *entry, metadata_t *md)
 {
-    static thread_local uint64_t last_atomic_idx = -1;
-    static thread_local uint32_t count           = 0;
-    static uint64_t offset                       = OFFSET_UNINITIALIZED;
-    coldtrace_entry_type type = coldtrace_entry_parse_type(entry);
+    struct storage *tls               = SELF_TLS(md, &thread_local_storage);
+    uint32_t *fetch_add_return_values = tls->fetch_add_return_values;
+    uint64_t &last_atomic_idx         = tls->last_atomic_idx;
+    uint32_t &count                   = tls->count;
+    static uint64_t offset            = OFFSET_UNINITIALIZED;
+    coldtrace_entry_type type         = coldtrace_entry_parse_type(entry);
     if (coldtrace_entry_parse_ptr(entry) != (uint64_t)&at) {
         // only check operations that are on at
         return;
@@ -47,8 +56,7 @@ check_conforming(const void *entry)
         if (offset == OFFSET_UNINITIALIZED) {
             // save offset, for the case that there are atomic ops
             // before the first fetch add
-            offset = last_atomic_idx -
-                     fetch_add_return_values[X_TIMES * thread_nr + count] * 2;
+            offset = last_atomic_idx - fetch_add_return_values[count] * 2;
         }
     } else if (type == COLDTRACE_ATOMIC_WRITE) {
         uint64_t write_idx = coldtrace_entry_parse_atomic_idx(entry);
@@ -56,27 +64,23 @@ check_conforming(const void *entry)
             // do not check after one thread can have finished the atomics
             return;
         }
-        if (fetch_add_return_values[X_TIMES * thread_nr + count] == 0) {
+        if (fetch_add_return_values[count] == 0) {
             // it can happen that this is not yet written, because that write is
             // instrumented and triggers the creation of a new file
             return;
         }
         // check that the r/w operations for return value x have idx 2x/ 2x + 1
         // (modulo offset)
-        if (last_atomic_idx - offset !=
-            fetch_add_return_values[X_TIMES * thread_nr + count] * 2) {
+        if (last_atomic_idx - offset != fetch_add_return_values[count] * 2) {
             log_fatal(
                 "wrong atomic idx on read of fetch_add\n%ld: %d %u %ld %ld",
-                thread_nr, count,
-                fetch_add_return_values[X_TIMES * thread_nr + count],
+                self_id(md), count, fetch_add_return_values[count],
                 last_atomic_idx, write_idx);
         }
-        if (write_idx - offset !=
-            fetch_add_return_values[X_TIMES * thread_nr + count] * 2 + 1) {
+        if (write_idx - offset != fetch_add_return_values[count] * 2 + 1) {
             log_fatal(
                 "wrong atomic idx on write of fetch_add\n%ld: %d %u %ld %ld",
-                thread_nr, count,
-                fetch_add_return_values[X_TIMES * thread_nr + count],
+                self_id(md), count, fetch_add_return_values[count],
                 last_atomic_idx, write_idx);
         }
         count++;
