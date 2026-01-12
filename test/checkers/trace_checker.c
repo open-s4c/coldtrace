@@ -359,6 +359,15 @@ coldtrace_writer_close(void *page, const size_t size, uint64_t tid)
 
     caslock_acquire(&loop_lock);
 
+    struct entry_it print_it = iter_init(page, size);
+    for (int i = 0; iter_next(print_it); iter_advance(&print_it), i++) {
+        coldtrace_entry_type type = iter_type(print_it);
+        log_info("thread=%lu entry=%d %s %lu %lu", tid, i,
+                 coldtrace_entry_type_str(type), iter_pointer_value(print_it),
+                 iter_size(print_it));
+    }
+
+
     for (int i = 0; iter_next(it); iter_advance(&it), i++) {
         for (size_t j = 0; j < _entry_callback_count; j++)
             _entry_callbacks[j](it.buf);
