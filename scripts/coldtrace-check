@@ -7,5 +7,6 @@ export TSANO_LIBDIR="$COLDTRACE_BUILD/deps/dice/deps/tsano"
 TSANO="$COLDTRACE_ROOT/deps/dice/deps/tsano/tsano"
 export COLDTRACE_PATH=/tmp/traces
 export COLDTRACE_MAX_FILES=3
+export COLDTRACE_TRACE_SIZE=4096
 export COLDTRACE_DISABLE_COPY=true
 exec $TSANO env LD_PRELOAD="$PRELOAD" "$@"
