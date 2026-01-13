@@ -41,6 +41,11 @@ DICE_MODULE_INIT({
     var = getenv("COLDTRACE_DISABLE_WRITES");
     if (var && (strcmp(var, "yes") == 0 || strcmp(var, "true") == 0))
         coldtrace_disable_writes();
+
+    var = getenv("COLDTRACE_TRACE_SIZE");
+    if (var) {
+        coldtrace_set_trace_size(strtoull(var, NULL, 10));
+    }
 })
 
 DICE_HIDE void
