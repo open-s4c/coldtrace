@@ -64,9 +64,11 @@ check_conforming(const void *entry, metadata_t *md)
             // do not check after one thread can have finished the atomics
             return;
         }
-        if (fetch_add_return_values[count] == 0) {
-            // it can happen that this is not yet written, because that write is
-            // instrumented and triggers the creation of a new file
+        if (count > 0 && fetch_add_return_values[count] == 0) {
+            // it can happen that the return value was not yet written, because
+            // that write is instrumented and triggers the creation of a new
+            // file
+            count++;
             return;
         }
         // check that the r/w operations for return value x have idx 2x/ 2x + 1
