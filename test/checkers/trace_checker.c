@@ -31,16 +31,16 @@
 
 #define NO_CHECK            -1
 #define CHECK_UNINITIALIZED (~(uint64_t)0)
-#define SIZE_OF_BUFFER      64
+#define BUFFER_SIZE         64
 
 static size_t _entry_callback_count = 0;
 static entry_callback _entry_callbacks[MAX_ENTRY_CALLBACKS];
 static uint64_t _entry_ptr_values[MAX_ENTRY_VALUES];
 
-INTERPOSE(void, register_entry_callback, entry_callback foo)
+INTERPOSE(void, register_entry_callback, entry_callback callback)
 {
     if (_entry_callback_count < MAX_ENTRY_CALLBACKS) {
-        _entry_callbacks[_entry_callback_count++] = foo;
+        _entry_callbacks[_entry_callback_count++] = callback;
     }
 }
 
@@ -78,15 +78,15 @@ INTERPOSE(void, register_expected_trace, uint64_t tid,
 
 static void (*_close_callback)(const void *page, size_t size);
 INTERPOSE(void, register_close_callback,
-          void (*foo)(const void *page, size_t size))
+          void (*callback)(const void *page, size_t size))
 {
-    _close_callback = foo;
+    _close_callback = callback;
 }
 
 static void (*_final_callback)(void);
-INTERPOSE(void, register_final_callback, void (*foo)(void))
+INTERPOSE(void, register_final_callback, void (*callback)(void))
 {
-    _final_callback = foo;
+    _final_callback = callback;
 }
 
 // -----------------------------------------------------------------------------
@@ -214,7 +214,8 @@ validate_coldtrace_version_header(void *page)
     struct version_header *file_header = coldtrace_version_header(page);
 
     if (!version_header_equal(*file_header)) {
-        char found[64], expected[64];
+        char found[BUFFER_SIZE];
+        char expected[BUFFER_SIZE];
         version_header_str(found, sizeof(found), *file_header);
         version_header_str(expected, sizeof(expected), current_version_header);
         log_fatal(" Coldtrace version mismatch found=%s excpected=%s", found,
@@ -310,11 +311,11 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     }
 
     // 4. MATCH
-    char ptr_buf[SIZE_OF_BUFFER] = "";
+    char ptr_buf[BUFFER_SIZE] = "";
     if (p == MATCH_INIT_PTR || p == MATCH_PTR) {
         snprintf(ptr_buf, sizeof(ptr_buf), " ptr=%lu", ptr_value);
     }
-    char size_buf[SIZE_OF_BUFFER] = "";
+    char size_buf[BUFFER_SIZE] = "";
     if (s == MATCH_SIZE) {
         snprintf(size_buf, sizeof(size_buf), " size=%d", exp_it->e->size);
     }
@@ -361,7 +362,7 @@ _check_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     }
 
     // 3. MATCH
-    char ptr_buf[SIZE_OF_BUFFER] = "";
+    char ptr_buf[BUFFER_SIZE] = "";
     if (p == MATCH_INIT_PTR || p == MATCH_PTR) {
         sprintf(ptr_buf, " ptr=%lu", ptr_value);
     }

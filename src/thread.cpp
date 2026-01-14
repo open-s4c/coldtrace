@@ -74,11 +74,12 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
     std::vector<void *> &stack = th->stack;
     uint32_t &stack_bot        = th->stack_bottom;
     uint32_t stack_top         = (uint32_t)th->stack.size();
-    uint64_t *stack_base       = (uint64_t *)&stack[0];
+    uint64_t *stack_base       = (uint64_t *)stack.data();
     size_t stack_size          = (stack_top - stack_bot) * sizeof(uint64_t);
     void *e = coldtrace_writer_reserve(&th->writer, len + stack_size);
-    if (e == NULL)
+    if (e == NULL) {
         log_fatal("error: Could not reserve entry in writer");
+    }
 
     struct coldtrace_entry_header *entry =
         static_cast<struct coldtrace_entry_header *>(e);
@@ -134,8 +135,8 @@ DICE_HIDE void
 coldtrace_thread_stack_pop(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
-    if (th->stack.size() != 0) {
-        assert(th->stack.size() > 0);
+    if (!th->stack.empty()) {
+        assert(!th->stack.empty());
         th->stack.pop_back();
         th->stack_bottom =
             std::min(th->stack_bottom, (uint32_t)th->stack.size());

@@ -96,19 +96,17 @@ check_ascending_generic(uint64_t *prev, uint64_t idx, struct index_set *set,
     }
 }
 void
-check_ascending_alloc_index(uint64_t *prev, uint64_t alloc_index, uint64_t tid,
+check_ascending_alloc_index(uint64_t *prev, uint64_t idx, uint64_t tid,
                             int entry)
 {
-    check_ascending_generic(prev, alloc_index, &alloc_indexes, "alloc", tid,
-                            entry);
+    check_ascending_generic(prev, idx, &alloc_indexes, "alloc", tid, entry);
 }
 
 void
-check_ascending_atomic_index(uint64_t *prev, uint64_t atomic_index,
-                             uint64_t tid, int entry)
+check_ascending_atomic_index(uint64_t *prev, uint64_t idx, uint64_t tid,
+                             int entry)
 {
-    check_ascending_generic(prev, atomic_index, &atomic_indexes, "atomic", tid,
-                            entry);
+    check_ascending_generic(prev, idx, &atomic_indexes, "atomic", tid, entry);
 }
 
 void

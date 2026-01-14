@@ -45,8 +45,9 @@ is_type_valid(coldtrace_entry_type type)
 const char *
 coldtrace_entry_type_str(coldtrace_entry_type type)
 {
-    if (!is_type_valid(type))
+    if (!is_type_valid(type)) {
         return "INVALID_EVENT";
+    }
     return type_map_[type & ~ZERO_FLAG];
 }
 
@@ -79,7 +80,8 @@ coldtrace_entry_parse_alloc_index(const void *buf)
         type == COLDTRACE_MUNMAP) {
         uint64_t alloc_index = ((uint64_t *)buf)[2];
         return alloc_index;
-    } else if (type == COLDTRACE_FREE) {
+    }
+    if (type == COLDTRACE_FREE) {
         uint64_t alloc_index = ((uint64_t *)buf)[1];
         return alloc_index;
     }

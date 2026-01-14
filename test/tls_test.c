@@ -5,6 +5,9 @@
 #include <time.h>
 #include <unistd.h>
 
+#define TIMESPEC_500MS_ARRAY ((const struct timespec[]){{0, 500000000L}})
+#define TIMESPEC_50MS_ARRAY  ((const struct timespec[]){{0, 500000L}})
+
 __thread double diff;
 
 void *
@@ -12,7 +15,7 @@ to_call(void *ptr)
 {
     time_t *start_time = (time_t *)ptr;
     time_t timer;
-    nanosleep((const struct timespec[]){{0, 500000000L}}, NULL);
+    nanosleep(TIMESPEC_500MS_ARRAY, NULL);
     time(&timer);
 
     diff = difftime(timer, *start_time);
@@ -21,7 +24,8 @@ to_call(void *ptr)
     return &diff;
 }
 
-#define NUM_THREADS 16
+#define NUM_THREADS     16
+#define MAX_BUFFER_SIZE 4096
 
 int
 main()
@@ -32,10 +36,10 @@ main()
     pthread_t threads[NUM_THREADS];
     for (int i = 0; i < NUM_THREADS; i++) {
         pthread_create(&threads[i], NULL, to_call, (void *)&timer);
-        nanosleep((const struct timespec[]){{0, 500000L}}, NULL);
+        nanosleep(TIMESPEC_50MS_ARRAY, NULL);
     }
 
-    char buffer[4096];
+    char buffer[MAX_BUFFER_SIZE];
     sprintf(buffer, "/proc/%d/maps", getpid());
     FILE *map = fopen(buffer, "r");
     while (fgets(buffer, sizeof(buffer), map) != 0) {

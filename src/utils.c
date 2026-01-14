@@ -17,6 +17,9 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define MAX_PATH_LENGTH 4096
+#define DIR_PERMISSIONS                                                        \
+    (S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH)
 
 DICE_HIDE bool
 has_ext(const char *fname, const char *ext)
@@ -35,16 +38,19 @@ ensure_dir_empty(const char *path)
     }
 
     struct dirent *entry;
-    char filepath[4096];
+    char filepath[MAX_PATH_LENGTH];
 
     while ((entry = readdir(dir)) != NULL) {
         // Skip "." and ".."
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+        if (strcmp(entry->d_name, ".") == 0 ||
+            strcmp(entry->d_name, "..") == 0) {
             continue;
+        }
 
         // Check for .bin extension
-        if (!has_ext(entry->d_name, ".bin"))
+        if (!has_ext(entry->d_name, ".bin")) {
             continue;
+        }
 
         // Build full path
         snprintf(filepath, sizeof(filepath), "%s/%s", path, entry->d_name);
@@ -73,14 +79,14 @@ ensure_dir_exists(const char *path)
         // Check if it is actually a directory
         if (S_ISDIR(st.st_mode)) {
             return 0; // Exists
-        } else {
-            log_info("not a directory: %s\n", path);
-            return -1;
         }
+
+        log_info("not a directory: %s\n", path);
+        return -1;
     }
 
     // Try to create the directory
-    if (mkdir(path, 0755) != 0) {
+    if (mkdir(path, DIR_PERMISSIONS) != 0) {
         log_info("mkdir failed: %s", strerror(errno));
         return -1;
     }
