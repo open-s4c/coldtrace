@@ -4,7 +4,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
-
+// NOLINTBEGIN
 int
 main()
 {
@@ -33,3 +33,4 @@ main()
     sleep(1);
     return 0;
 }
+// NOLINTEND

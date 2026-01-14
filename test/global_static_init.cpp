@@ -17,8 +17,8 @@ class PageCache
     }
     std::mutex &GetPageMutex();
     uint64_t get();
-    bool contains(uint64_t);
-    void put(uint64_t, uint64_t);
+    bool contains(uint64_t key);
+    void put(uint64_t key, uint64_t value);
 
   private:
     std::mutex pageMtx_;
@@ -27,7 +27,7 @@ class PageCache
 
     PageCache() noexcept
     {
-        void *temp = malloc(8);
+        void *temp = malloc(8); // NOLINT
         pageCacheSpans_.push_back((uint64_t)temp);
         free(temp);
     }

@@ -28,7 +28,7 @@ int
 main()
 {
     register_expected_trace(1, expected_1);
-    void *lock = (void *)0x42;
+    void *lock = (void *)0x42; // NOLINT
     AnnotateRWLockCreate(__FILE__, __LINE__, lock);
     AnnotateRWLockAcquired(__FILE__, __LINE__, lock, 0);
     AnnotateRWLockReleased(__FILE__, __LINE__, lock, 0);

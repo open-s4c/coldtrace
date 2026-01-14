@@ -35,10 +35,10 @@ static size_t _entry_callback_count = 0;
 static entry_callback _entry_callbacks[MAX_ENTRY_CALLBACKS];
 static uint64_t _entry_ptr_values[MAX_ENTRY_VALUES];
 
-INTERPOSE(void, register_entry_callback, entry_callback foo)
+INTERPOSE(void, register_entry_callback, entry_callback callback)
 {
     if (_entry_callback_count < MAX_ENTRY_CALLBACKS) {
-        _entry_callbacks[_entry_callback_count++] = foo;
+        _entry_callbacks[_entry_callback_count++] = callback;
     }
 }
 
@@ -77,15 +77,15 @@ INTERPOSE(void, register_expected_trace, uint64_t tid,
 
 static void (*_close_callback)(const void *page, size_t size);
 INTERPOSE(void, register_close_callback,
-          void (*foo)(const void *page, size_t size))
+          void (*callback)(const void *page, size_t size))
 {
-    _close_callback = foo;
+    _close_callback = callback;
 }
 
 static void (*_final_callback)(void);
-INTERPOSE(void, register_final_callback, void (*foo)(void))
+INTERPOSE(void, register_final_callback, void (*callback)(void))
 {
-    _final_callback = foo;
+    _final_callback = callback;
 }
 
 // -----------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+// NOLINTBEGIN
 #define SCALING 100000
 
 int *y[SCALING];
@@ -36,3 +37,4 @@ main(int argc, char **argv)
     }
     return 0;
 }
+// NOLINTEND

@@ -33,7 +33,9 @@ struct expected_entry expected_3[] = {
 void __tsan_read_range(void *addr, long int size);
 void __tsan_write_range(void *addr, long int size);
 
-int shared_data[10];
+#define SHARED_DATA_COUNT 10
+
+int shared_data[SHARED_DATA_COUNT];
 
 void *
 reader(void *arg)
@@ -41,7 +43,7 @@ reader(void *arg)
     // Mark that we are reading a range of memory
     __tsan_read_range(shared_data, sizeof(shared_data));
     int sum = 0;
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < SHARED_DATA_COUNT; i++) {
         sum += shared_data[i];
     }
     log_info("Sum: %d\n", sum);
@@ -53,7 +55,7 @@ writer(void *arg)
 {
     // Mark that we are writing to a range of memory
     __tsan_write_range(shared_data, sizeof(shared_data));
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < SHARED_DATA_COUNT; i++) {
         shared_data[i] = i;
     }
     return NULL;
@@ -66,7 +68,8 @@ main()
     register_expected_trace(2, expected_2);
     register_expected_trace(3, expected_3);
 
-    pthread_t t1, t2;
+    pthread_t t1;
+    pthread_t t2;
     pthread_create(&t1, NULL, reader, NULL);
     pthread_join(t1, NULL);
     pthread_create(&t2, NULL, writer, NULL);
