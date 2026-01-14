@@ -26,7 +26,7 @@ main()
         log_fatal("Null pointer has been returned");
     }
 
-    *ptr1 = 20;
+    *ptr1 = 20; // NOLINT
 
     free(ptr1);
     ptr1 = NULL;

@@ -10,12 +10,14 @@
 #include <dice/module.h>
 #include <string.h>
 
+#define DEFAULT_PATH_SIZE 128
+
 // global configuration
 DICE_HIDE uint32_t max_file_count_ = -1;
 DICE_HIDE size_t trace_size_       = COLDTRACE_DEFAULT_TRACE_SIZE;
 DICE_HIDE bool disable_writes_     = false;
-DICE_HIDE char path_[128];
-DICE_HIDE char pattern_[128];
+DICE_HIDE char path_[DEFAULT_PATH_SIZE];
+DICE_HIDE char pattern_[DEFAULT_PATH_SIZE];
 #define COLDTRACE_FILE_SUFFIX "/freezer_log_%d_%d.bin"
 
 DICE_MODULE_INIT({

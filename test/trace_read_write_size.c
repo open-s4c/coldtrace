@@ -14,23 +14,24 @@ struct expected_entry expected_1[] = {
     EXPECT_END,
 };
 
+#define MAX_ENTRIES 10
 int
 main(void)
 {
     register_expected_trace(1, expected_1);
 
     // alloc
-    int *arr = (int *)malloc(10 * sizeof(int));
+    int *arr = (int *)malloc(MAX_ENTRIES * sizeof(int));
     if (!arr) {
         log_fatal("malloc failed");
         return 1;
     }
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < MAX_ENTRIES; i++) {
         arr[i] = i * 2; // write
     }
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < MAX_ENTRIES; i++) {
         printf("arr[%d] = %d\n", i, arr[i]); // read
     }
 

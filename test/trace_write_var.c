@@ -23,7 +23,7 @@ main()
 {
     register_expected_trace(1, expected);
 
-    x = 120;               // WRITE
+    x = 120;               // NOLINT // WRITE
     log_printf("%d\n", x); // READ
     return 0;
 }

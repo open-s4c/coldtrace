@@ -1,6 +1,8 @@
 Checks: >
-  clang-analyzer-*,
-  -clang-analyzer-security.insecureAPI.*
+  readability-*,
+  -clang-analyzer-security.insecureAPI.*,
+  -readability-identifier-length,
+  -readability-function-cognitive-complexity
 WarningsAsErrors: '*'
 HeaderFilterRegex: '^(?!dice/).*'
 FormatStyle: none

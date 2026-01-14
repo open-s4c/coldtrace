@@ -17,6 +17,10 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#define FORMAT_EXPANSION_SPACE 20
+#define FILE_PERMISSIONS                                                       \
+    (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+
 struct writer_impl {
     bool initd;
     uint64_t *buffer;
@@ -62,14 +66,14 @@ get_trace_(struct writer_impl *impl)
     }
 
     const char *pattern = coldtrace_get_file_pattern();
-    char file_name[strlen(pattern) + 20];
+    char file_name[strlen(pattern) + FORMAT_EXPANSION_SPACE];
     sprintf(file_name, pattern, impl->tid, impl->enumerator);
-    int fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, 0666);
+    int fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, FILE_PERMISSIONS);
     while (fd == -1) {
         if (errno == EEXIST) {
             impl->enumerator++;
             sprintf(file_name, pattern, impl->tid, impl->enumerator);
-            fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, 0666);
+            fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, FILE_PERMISSIONS);
         } else {
             break;
         }
@@ -105,9 +109,9 @@ new_trace_(struct writer_impl *impl)
     impl->offset     = 0;
 
     const char *pattern = coldtrace_get_file_pattern();
-    char file_name[strlen(pattern) + 20];
+    char file_name[strlen(pattern) + FORMAT_EXPANSION_SPACE];
     sprintf(file_name, pattern, impl->tid, impl->enumerator);
-    int fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, 0666);
+    int fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, FILE_PERMISSIONS);
     if (ftruncate(fd, impl->size) == -1) {
         log_fatal("ftruncate new_trace: %s", strerror(errno));
     }
@@ -120,9 +124,9 @@ new_trace_(struct writer_impl *impl)
 
 
 DICE_HIDE void *
-coldtrace_writer_reserve(struct coldtrace_writer *writer, size_t size)
+coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
 {
-    struct writer_impl *impl = (struct writer_impl *)writer;
+    struct writer_impl *impl = (struct writer_impl *)ct;
     get_trace_(impl);
     if (impl->buffer == MAP_FAILED || impl->buffer == NULL) {
         return NULL;
@@ -131,8 +135,9 @@ coldtrace_writer_reserve(struct coldtrace_writer *writer, size_t size)
     // check if size of trace was reduced
     size_t sz         = coldtrace_get_trace_size();
     size_t trace_size = impl->size;
-    if (unlikely(sz < trace_size))
+    if (unlikely(sz < trace_size)) {
         trace_size = sz;
+    }
 
     if ((impl->offset + size) > trace_size) {
         new_trace_(impl);
@@ -165,12 +170,14 @@ DICE_HIDE void
 coldtrace_writer_fini(struct coldtrace_writer *ct)
 {
     struct writer_impl *impl = (struct writer_impl *)ct;
-    if (!impl->initd)
+    if (!impl->initd) {
         return;
+    }
     coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
 
-    if (coldtrace_writes_disabled())
+    if (coldtrace_writes_disabled()) {
         mempool_free(impl->buffer);
+    }
 }
 
 
