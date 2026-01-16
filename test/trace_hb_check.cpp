@@ -27,9 +27,9 @@ check_conforming(const void *entry, metadata_t *md)
     static uint64_t last_atomic_idx = -1;
     coldtrace_entry_type type       = coldtrace_entry_parse_type(entry);
     if (type == COLDTRACE_ATOMIC_READ) {
-        last_atomic_idx = coldtrace_entry_parse_atomic_idx(entry);
+        last_atomic_idx = coldtrace_entry_parse_atomic_index(entry);
     } else if (type == COLDTRACE_ATOMIC_WRITE) {
-        uint64_t write_idx = coldtrace_entry_parse_atomic_idx(entry);
+        uint64_t write_idx = coldtrace_entry_parse_atomic_index(entry);
         if (write_idx < (2 * X_TIMES) && last_atomic_idx + 1 != write_idx) {
             log_fatal(
                 "atomic fetch_add was split: read_idx: %ld write_idx: %ld",

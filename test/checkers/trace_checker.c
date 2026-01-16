@@ -9,6 +9,7 @@
     #define LOG_LEVEL INFO
 #endif
 
+#include "dice/mempool.h"
 #include "trace_checker.h"
 
 #include <assert.h>
@@ -21,11 +22,14 @@
 #include <dice/module.h>
 #include <dice/self.h>
 #include <dice/types.h>
+#include <stdio.h>
+#include <string.h>
 #include <vsync/spinlock/caslock.h>
 
 #define MAX_NTHREADS        128
 #define MAX_ENTRY_VALUES    128
 #define MAX_ENTRY_CALLBACKS 100
+#define MAX_CAPACITY        128
 
 #define NO_CHECK            -1
 #define CHECK_UNINITIALIZED (~(uint64_t)0)
@@ -33,6 +37,8 @@
 static size_t _entry_callback_count = 0;
 static entry_callback _entry_callbacks[MAX_ENTRY_CALLBACKS];
 static uint64_t _entry_ptr_values[MAX_ENTRY_VALUES];
+static bool *alloc_indexes  = NULL;
+static bool *atomic_indexes = NULL;
 
 INTERPOSE(void, register_entry_callback, entry_callback foo)
 {
@@ -137,15 +143,21 @@ iter_pointer_value(struct entry_it it)
 }
 
 uint64_t
-iter_atomic_idx_value(struct entry_it it)
-{
-    return coldtrace_entry_parse_atomic_idx(it.buf);
-}
-
-uint64_t
 iter_size(struct entry_it it)
 {
     return coldtrace_entry_parse_size(it.buf);
+}
+
+uint64_t
+iter_atomic_index_value(struct entry_it it)
+{
+    return coldtrace_entry_parse_atomic_index(it.buf);
+}
+
+uint64_t
+iter_alloc_index_value(struct entry_it it)
+{
+    return coldtrace_entry_parse_alloc_index(it.buf);
 }
 
 // -----------------------------------------------------------------------------
@@ -172,6 +184,129 @@ next_expected_entry_and_reset(struct expected_entry_iterator *iter)
     iter->atleast = iter->e->atleast;
     iter->atmost  = iter->e->atmost;
     iter->check   = iter->e->check;
+}
+
+// -----------------------------------------------------------------------------
+// alloc and atomic index functions
+// -----------------------------------------------------------------------------
+
+static size_t alloc_capacity  = 0;
+static size_t atomic_capacity = 0;
+static caslock_t alloc_lock   = CASLOCK_INIT();
+static caslock_t atomic_lock  = CASLOCK_INIT();
+
+static void
+create_alloc_occureces(size_t pos)
+{
+    caslock_acquire(&alloc_lock);
+
+    if (pos >= alloc_capacity) {
+        size_t new_capacity = (alloc_capacity == 0) ? 1 : alloc_capacity;
+        if (pos >= new_capacity) {
+            new_capacity = pos + 1;
+        }
+
+        // allocate new block
+        bool *new_block = mempool_alloc(new_capacity * sizeof(bool));
+        if (!new_block) {
+            log_fatal("alloc failed for alloc indexes");
+            caslock_release(&alloc_lock);
+            return;
+        }
+
+        // copy old contents using alloc_capacity
+        if (alloc_indexes) {
+            memcpy(new_block, alloc_indexes, alloc_capacity * sizeof(bool));
+            mempool_free(alloc_indexes);
+        }
+
+        // zero new slots
+        memset(new_block + alloc_capacity, 0,
+               (new_capacity - alloc_capacity) * sizeof(bool));
+
+        alloc_indexes  = new_block;
+        alloc_capacity = new_capacity;
+    }
+
+    alloc_indexes[pos] = true;
+    caslock_release(&alloc_lock);
+}
+
+static void
+check_ascending_alloc_index(uint64_t *prev, uint64_t pos, uint64_t tid, int i)
+{
+    if (pos != (uint64_t)-1) {
+        // Ascending order check
+        if (*prev != UINT64_MAX) {
+            if (pos <= *prev) {
+                log_fatal(
+                    "Ascending order violation for alloc indexes: prev=%lu "
+                    "current=%lu "
+                    "(thread=%lu entry=%d)",
+                    *prev, pos, tid, i);
+            }
+        }
+        *prev = pos;
+
+        create_alloc_occureces(pos);
+    }
+}
+
+static void
+create_atomic_occureces(size_t pos)
+{
+    caslock_acquire(&atomic_lock);
+
+    if (pos >= atomic_capacity) {
+        size_t new_capacity = (atomic_capacity == 0) ? 1 : atomic_capacity;
+        if (pos >= new_capacity) {
+            new_capacity = pos + 1;
+        }
+
+        // allocate new block
+        bool *new_block = mempool_alloc(new_capacity * sizeof(bool));
+        if (!new_block) {
+            log_fatal("alloc failed for atomic indexes");
+            caslock_release(&atomic_lock);
+            return;
+        }
+
+        // copy old contents
+        if (atomic_indexes) {
+            memcpy(new_block, atomic_indexes, atomic_capacity * sizeof(bool));
+            mempool_free(atomic_indexes);
+        }
+
+        // zero new slots
+        memset(new_block + atomic_capacity, 0,
+               (new_capacity - atomic_capacity) * sizeof(bool));
+
+        atomic_indexes  = new_block;
+        atomic_capacity = new_capacity;
+    }
+    atomic_indexes[pos] = true;
+
+    caslock_release(&atomic_lock);
+}
+
+static void
+check_ascending_atomic_index(uint64_t *prev, uint64_t pos, uint64_t tid, int i)
+{
+    if (pos != (uint64_t)-1) {
+        // Ascending order check
+        if (*prev != UINT64_MAX) {
+            if (pos <= *prev) {
+                log_fatal(
+                    "Ascending order violation for atomic indexes: prev=%lu "
+                    "current=%lu "
+                    "(thread=%lu entry=%d)",
+                    *prev, pos, tid, i);
+            }
+        }
+        *prev = pos;
+
+        create_atomic_occureces(pos);
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -351,6 +486,9 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
     struct expected_entry *exp                  = _expected[tid];
     struct expected_entry_iterator *expected_it = &_expected_iterators[tid];
 
+    uint64_t previous_alloc_index  = UINT64_MAX;
+    uint64_t previous_atomic_index = UINT64_MAX;
+
     // Initialize only once
     if (expected_it->e == NULL && exp != NULL) {
         init_expected_entry_iterator(expected_it, exp);
@@ -362,6 +500,13 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
     caslock_acquire(&loop_lock);
 
     for (int i = 0; iter_next(it); iter_advance(&it), i++) {
+        uint64_t pos_alloc = iter_alloc_index_value(it);
+        check_ascending_alloc_index(&previous_alloc_index, pos_alloc, tid, i);
+
+        uint64_t pos_atomic = iter_atomic_index_value(it);
+        check_ascending_atomic_index(&previous_atomic_index, pos_atomic, tid,
+                                     i);
+
         for (size_t j = 0; j < _entry_callback_count; j++)
             _entry_callbacks[j](it.buf, md);
 
@@ -397,11 +542,53 @@ check_empty_expected_trace()
     }
 }
 
+static void
+check_not_seen_alloc_indexes()
+{
+    caslock_acquire(&alloc_lock);
+    size_t cap_snapshot = alloc_capacity;
+    log_info(" alloc indexes %lu", cap_snapshot);
+    log_info("Missing alloc indexes (up to alloc_capacity):");
+    for (size_t i = 0; i < cap_snapshot; i++) {
+        if (!alloc_indexes[i]) {
+            log_fatal("%zu", i);
+        }
+    }
+
+    mempool_free(alloc_indexes);
+    alloc_indexes  = NULL;
+    alloc_capacity = 0;
+
+    caslock_release(&alloc_lock);
+}
+
+static void
+check_not_seen_atomic_indexes()
+{
+    caslock_acquire(&atomic_lock);
+    size_t cap_snapshot = atomic_capacity;
+    log_info(" atomic indexes %lu", cap_snapshot);
+    log_info("Missing atomic indexes (up to atomic_capacity):");
+    for (size_t i = 0; i < cap_snapshot; i++) {
+        if (!atomic_indexes[i]) {
+            log_fatal("%zu", i);
+        }
+    }
+
+    mempool_free(atomic_indexes);
+    atomic_indexes  = NULL;
+    atomic_capacity = 0;
+
+    caslock_release(&atomic_lock);
+}
 // Overwrite main_thread_fini function to do final callback
 void
 coldtrace_main_thread_fini()
 {
     check_empty_expected_trace();
+    check_not_seen_alloc_indexes();
+    check_not_seen_atomic_indexes();
+
     if (_final_callback) {
         _final_callback();
         log_info("final check OK");
