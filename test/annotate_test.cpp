@@ -13,7 +13,7 @@ void AnnotateRWLockReleased(const char *file, int line,
 int
 main()
 {
-    void *lock = (void *)0x42;
+    void *lock = (void *)0x42; // NOLINT
     AnnotateRWLockCreate(__FILE__, __LINE__, lock);
     AnnotateRWLockAcquired(__FILE__, __LINE__, lock, 0);
     AnnotateRWLockReleased(__FILE__, __LINE__, lock, 0);

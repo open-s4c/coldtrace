@@ -45,8 +45,9 @@ is_type_valid(coldtrace_entry_type type)
 const char *
 coldtrace_entry_type_str(coldtrace_entry_type type)
 {
-    if (!is_type_valid(type))
+    if (!is_type_valid(type)) {
         return "INVALID_EVENT";
+    }
     return type_map_[type & ~ZERO_FLAG];
 }
 

@@ -4,15 +4,16 @@
 #include <string>
 #include <trace_checker.h>
 
-#define NUM_THREADS 2
+#define NUM_THREADS      2
+#define MAX_DATA_ENTRIES 1000
 
 // Global
-std::string computation(int);
-void print(std::string);
+std::string computation(int value);
+void print(std::string s);
 
 std::atomic<int> arr[3];
 
-std::string data[1000]; // non-atomic data
+std::string data[MAX_DATA_ENTRIES]; // non-atomic data
 
 void
 print(std::string s)
@@ -107,12 +108,15 @@ ThreadB(void *arg)
 
     //  v0, v1, v2 might turn out to be -1, some or all of them.
     //  Otherwise it is safe to read the non-atomic data because of the fences:
-    if (v0 != -1)
+    if (v0 != -1) {
         print(data[v0]);
-    if (v1 != -1)
+    }
+    if (v1 != -1) {
         print(data[v1]);
-    if (v2 != -1)
+    }
+    if (v2 != -1) {
         print(data[v2]);
+    }
     return NULL;
 }
 
@@ -127,7 +131,7 @@ main()
     arr[2].store(-1);
 
     pthread_t threads[NUM_THREADS];
-    ThreadAArgs *args = new ThreadAArgs{10, 20, 30};
+    ThreadAArgs *args = new ThreadAArgs{10, 20, 30}; // NOLINT
 
     pthread_create(threads + 0, NULL, ThreadA, args);
     pthread_join(*(threads), NULL);
