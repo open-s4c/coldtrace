@@ -9,6 +9,8 @@
     #define LOG_LEVEL INFO
 #endif
 
+#include "dice/mempool.h"
+#include "indexes_checker.h"
 #include "trace_checker.h"
 
 #include <assert.h>
@@ -21,11 +23,14 @@
 #include <dice/module.h>
 #include <dice/self.h>
 #include <dice/types.h>
+#include <stdio.h>
+#include <string.h>
 #include <vsync/spinlock/caslock.h>
 
 #define MAX_NTHREADS        128
 #define MAX_ENTRY_VALUES    128
 #define MAX_ENTRY_CALLBACKS 100
+#define MAX_CAPACITY        128
 
 #define NO_CHECK            -1
 #define CHECK_UNINITIALIZED (~(uint64_t)0)
@@ -71,7 +76,6 @@ INTERPOSE(void, register_expected_trace, uint64_t tid,
         _entry_ptr_values[i] = CHECK_UNINITIALIZED;
     }
 }
-
 
 static void (*_close_callback)(const void *page, size_t size);
 INTERPOSE(void, register_close_callback,
@@ -137,15 +141,21 @@ iter_pointer_value(struct entry_it it)
 }
 
 uint64_t
-iter_atomic_idx_value(struct entry_it it)
-{
-    return coldtrace_entry_parse_atomic_idx(it.buf);
-}
-
-uint64_t
 iter_size(struct entry_it it)
 {
     return coldtrace_entry_parse_size(it.buf);
+}
+
+uint64_t
+iter_atomic_index_value(struct entry_it it)
+{
+    return coldtrace_entry_parse_atomic_index(it.buf);
+}
+
+uint64_t
+iter_alloc_index_value(struct entry_it it)
+{
+    return coldtrace_entry_parse_alloc_index(it.buf);
 }
 
 // -----------------------------------------------------------------------------
@@ -351,6 +361,9 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
     struct expected_entry *exp                  = _expected[tid];
     struct expected_entry_iterator *expected_it = &_expected_iterators[tid];
 
+    uint64_t previous_alloc_index  = UINT64_MAX;
+    uint64_t previous_atomic_index = UINT64_MAX;
+
     // Initialize only once
     if (expected_it->e == NULL && exp != NULL) {
         init_expected_entry_iterator(expected_it, exp);
@@ -362,6 +375,13 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
     caslock_acquire(&loop_lock);
 
     for (int i = 0; iter_next(it); iter_advance(&it), i++) {
+        uint64_t pos_alloc = iter_alloc_index_value(it);
+        check_ascending_alloc_index(&previous_alloc_index, pos_alloc, tid, i);
+
+        uint64_t pos_atomic = iter_atomic_index_value(it);
+        check_ascending_atomic_index(&previous_atomic_index, pos_atomic, tid,
+                                     i);
+
         for (size_t j = 0; j < _entry_callback_count; j++)
             _entry_callbacks[j](it.buf, md);
 
@@ -402,6 +422,9 @@ void
 coldtrace_main_thread_fini()
 {
     check_empty_expected_trace();
+    check_not_seen_alloc_indexes();
+    check_not_seen_atomic_indexes();
+
     if (_final_callback) {
         _final_callback();
         log_info("final check OK");
