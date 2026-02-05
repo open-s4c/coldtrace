@@ -1,5 +1,6 @@
 #include <assert.h>
 #include <coldtrace/config.h>
+#include <coldtrace/version.h>
 #include <coldtrace/writer.h>
 #include <dice/compiler.h>
 #include <dice/log.h>
@@ -25,6 +26,15 @@ struct writer_impl {
     uint32_t enumerator;
     metadata_t *md;
 };
+
+void
+create_coldtrace_version_header(struct writer_impl *impl)
+{
+    struct version_header *header =
+        (struct version_header *)coldtrace_writer_reserve(
+            (struct coldtrace_writer *)impl, sizeof(struct version_header));
+    *header = current_version_header;
+}
 
 STATIC_ASSERT(sizeof(struct writer_impl) == sizeof(struct coldtrace_writer),
               "incorrect writer_impl size");
@@ -65,6 +75,7 @@ get_trace_(struct writer_impl *impl)
     impl->buffer =
         mmap(NULL, impl->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     close(fd);
+    create_coldtrace_version_header(impl);
 }
 
 static void
@@ -98,6 +109,7 @@ new_trace_(struct writer_impl *impl)
     impl->buffer =
         mmap(NULL, impl->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     close(fd);
+    create_coldtrace_version_header(impl);
 }
 
 

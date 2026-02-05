@@ -33,6 +33,7 @@ def get_multiple_file_log(s):
 # ##############################################################################
 # Constants that tie the unpacking logic to L3's core structure's layout
 # ##############################################################################
+COLD_VER_HEADER_SZ = 8     # bytes; sizeof(struct version_header)
 COLD_LOG_HEADER_SZ = 8  # bytes; offsetof(L3_LOG, slots)
 COLD_BASE_ENTRY_SZ = 8       # bytes; sizeof(L3_ENTRY)
 COLD_ACCESS_ENTRY_SZ = 4 * 8       # bytes; sizeof(L3_ENTRY)
@@ -95,6 +96,10 @@ nentries = 0
 for f in file_list:
     print(f"opening {f}")
     with open(f, 'rb') as file:
+        header = file.read(COLD_VER_HEADER_SZ)
+        git_hash, padding, major, minor, patch = struct.unpack('<I B B B B', header) 
+        print(f"Coldtrace Version Header fields: git-commit-hash={git_hash:08x} version={major}.{minor}.{patch}")
+
     # Keep reading chunks of log-entries from file ...
         while True:
             row = file.read(COLD_BASE_ENTRY_SZ)

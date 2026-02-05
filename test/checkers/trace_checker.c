@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <coldtrace/config.h>
 #include <coldtrace/entries.h>
+#include <coldtrace/version.h>
 #include <dice/chains/capture.h>
 #include <dice/ensure.h>
 #include <dice/interpose.h>
@@ -89,6 +90,11 @@ INTERPOSE(void, register_final_callback, void (*foo)(void))
 // -----------------------------------------------------------------------------
 // trace iterator (actual)
 // -----------------------------------------------------------------------------
+static struct version_header *
+coldtrace_version_header(void *buf)
+{
+    return (struct version_header *)buf;
+}
 
 static void
 iter_advance(struct entry_it *it)
@@ -118,10 +124,15 @@ iter_next(struct entry_it it)
 struct entry_it
 iter_init(void *buf, size_t size)
 {
-    return (struct entry_it){
+    struct entry_it it = {
         .buf  = buf,
         .size = size,
     };
+
+    // skip coldtrace version header
+    it.buf  = (char *)buf + sizeof(struct version_header);
+    it.size = size - sizeof(struct version_header);
+    return it;
 }
 
 coldtrace_entry_type
@@ -179,7 +190,30 @@ next_expected_entry_and_reset(struct expected_entry_iterator *iter)
     iter->atmost  = iter->e->atmost;
     iter->check   = iter->e->check;
 }
+// -----------------------------------------------------------------------------
+// version header
+// -----------------------------------------------------------------------------
 
+const char *
+version_header_str(struct version_header header)
+{
+    static char buf[64];
+    snprintf(buf, sizeof(buf), "git=%08x version=%u.%u.%u", header.git_hash,
+             header.major, header.minor, header.patch);
+    return buf;
+}
+
+static void
+validate_coldtrace_version_header(void *page)
+{
+    struct version_header *file_header = coldtrace_version_header(page);
+
+    if (!version_header_equal(*file_header)) {
+        log_fatal(" Coldtrace version mismatch found=%s excpected=%s",
+                  version_header_str(*file_header),
+                  version_header_str(current_version_header));
+    }
+}
 // -----------------------------------------------------------------------------
 // matching functions
 // -----------------------------------------------------------------------------
@@ -351,6 +385,8 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
 {
     uint64_t tid               = self_id(md);
     static caslock_t loop_lock = CASLOCK_INIT();
+
+    validate_coldtrace_version_header(page);
 
     log_info("checking thread=%lu", tid);
     struct entry_it it                          = iter_init(page, size);
