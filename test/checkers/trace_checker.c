@@ -15,6 +15,7 @@
 #include <assert.h>
 #include <coldtrace/config.h>
 #include <coldtrace/entries.h>
+#include <coldtrace/version.h>
 #include <dice/chains/capture.h>
 #include <dice/ensure.h>
 #include <dice/interpose.h>
@@ -89,6 +90,11 @@ INTERPOSE(void, register_final_callback, void (*foo)(void))
 // -----------------------------------------------------------------------------
 // trace iterator (actual)
 // -----------------------------------------------------------------------------
+static struct version_header *
+coldtrace_version_header(void *buf)
+{
+    return (struct version_header *)buf;
+}
 
 static void
 iter_advance(struct entry_it *it)
@@ -118,10 +124,15 @@ iter_next(struct entry_it it)
 struct entry_it
 iter_init(void *buf, size_t size)
 {
-    return (struct entry_it){
+    struct entry_it it = {
         .buf  = buf,
         .size = size,
     };
+
+    // skip coldtrace version header
+    it.buf  = (char *)buf + sizeof(struct version_header);
+    it.size = size - sizeof(struct version_header);
+    return it;
 }
 
 coldtrace_entry_type
@@ -351,6 +362,11 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
 {
     uint64_t tid               = self_id(md);
     static caslock_t loop_lock = CASLOCK_INIT();
+
+    struct version_header *v_header = coldtrace_version_header(page);
+    log_info("ColdTrace version header: GIT COMMIT HASH=%x VERSION=%d.%d.%d",
+             v_header->git_hash, v_header->major, v_header->minor,
+             v_header->patch);
 
     log_info("checking thread=%lu", tid);
     struct entry_it it                          = iter_init(page, size);
