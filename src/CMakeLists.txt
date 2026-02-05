@@ -26,7 +26,8 @@ set(SRCS
     config.c
     utils.c
     writer.c
-    entries.c)
+    entries.c
+    version.c)
 
 # subscribers
 set(SRCS
