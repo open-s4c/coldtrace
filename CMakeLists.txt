@@ -1,8 +1,28 @@
 cmake_minimum_required(VERSION 3.20)
 project(
   coldtrace
-  VERSION 0.1
+  VERSION 0.1.0
   LANGUAGES C CXX)
+
+# Get the short (8‑char) commit hash
+execute_process(
+    COMMAND git rev-parse --short=8 HEAD
+    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+    OUTPUT_VARIABLE GIT_HASH
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+string(SUBSTRING "${GIT_HASH}" 0 8 HASH8)
+math(EXPR GIT_HASH_UINT32 "0x${HASH8}")
+
+# Configure a header file
+configure_file(
+    ${CMAKE_SOURCE_DIR}/include/coldtrace/version.h.in
+    ${CMAKE_BINARY_DIR}/include/coldtrace/version.h
+    @ONLY
+)
+
+include_directories("${CMAKE_BINARY_DIR}/include")
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 

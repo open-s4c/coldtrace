@@ -1,0 +1,25 @@
+#ifndef COLDTRACE_VERSION_H_IN
+#define COLDTRACE_VERSION_H_IN
+
+#define GIT_COMMIT_HASH @GIT_HASH_UINT32@
+
+#define VERSION_MAJOR @PROJECT_VERSION_MAJOR@
+#define VERSION_MINOR @PROJECT_VERSION_MINOR@
+#define VERSION_PATCH @PROJECT_VERSION_PATCH@
+#define VERSION_PADDING 5
+
+#include <stdbool.h>
+#include <stdint.h>
+
+struct version_header {
+    uint32_t git_hash; // first 4 bytes of commit hash
+    uint8_t padding;
+    uint8_t major;
+    uint8_t minor;
+    uint8_t patch;
+};
+
+extern const struct version_header current_version_header;
+bool version_header_equal(const struct version_header file_header);
+
+#endif // COLDTRACE_VERSION_H_IN
