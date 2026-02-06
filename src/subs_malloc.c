@@ -25,7 +25,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_CALLOC, {
     struct calloc_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_alloc_entry *e =
         coldtrace_thread_append(md, COLDTRACE_ALLOC, ev->ret);
-    e->size        = (uint64_t)ev->size;
+    e->size        = (uint64_t)ev->number * (uint64_t)ev->size;
     e->alloc_index = coldtrace_next_alloc_idx();
     e->caller      = (uint64_t)ev->pc;
 })
