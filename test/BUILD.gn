@@ -194,7 +194,7 @@ group("tests") {
 }
 
 action("run_tests") {
-  script = "//build/scripts/run_gn_tests.py"
+  script = "//gn/scripts/run_gn_tests.py"
   deps = test_targets + [
     "//src:coldtrace_shared",
     ":trace_checker",

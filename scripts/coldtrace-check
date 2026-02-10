@@ -2,7 +2,11 @@
 
 COLDTRACE_ROOT="$(readlink -f $(dirname $(readlink -f $0))/..)"
 if [ -z "$COLDTRACE_BUILD" ]; then
-  COLDTRACE_BUILD="$COLDTRACE_ROOT/build"
+  if [ -n "$GN_OUT_DIR" ]; then
+    COLDTRACE_BUILD="$COLDTRACE_ROOT/$GN_OUT_DIR"
+  else
+    COLDTRACE_BUILD="$COLDTRACE_ROOT/build"
+  fi
 fi
 PRELOAD="$COLDTRACE_BUILD/test/libtrace_checker.so"
 if [ -z "$TSANO_LIBDIR" ]; then

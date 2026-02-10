@@ -1,0 +1,33 @@
+declare_args() {
+  is_debug = false
+  enable_lto = true
+  dice_use_clang = false
+  dice_dispatch_chains = "1,4,2,3,5,6,0"
+  dice_max_types = 128
+  dice_max_chains = 16
+  dice_max_builtin_slots = 16
+  dice_mempool_size = "1024*1024*200"
+  dice_log_level = ""
+  dice_sanitizer = ""
+  dice_coverage = false
+  coldtrace_base_slot = 3
+  coldtrace_tests = false
+  coldtrace_use_tsan = true
+  coldtrace_have_pthread_clocklock_clockwait = true
+}
+
+declare_args() {
+  dice_link_override = is_debug
+}
+
+declare_args() {
+  coldtrace_use_gcc = !dice_use_clang
+}
+
+if (!defined(default_toolchain)) {
+  default_toolchain = "//gn/toolchain:default"
+}
+
+set_default_toolchain(default_toolchain)
+
+is_apple = (target_os == "mac")

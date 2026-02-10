@@ -1,7 +1,11 @@
 #!/usr/bin/env sh
 set -e
 
-out_dir="${1:-out/gn}"
+if [ -n "$GN_OUT_DIR" ]; then
+  out_dir="$GN_OUT_DIR"
+else
+  out_dir="${1:-out/gn}"
+fi
 
 ninja -C "$out_dir" -t clean run_tests
 ninja -C "$out_dir" run_tests

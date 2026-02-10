@@ -2,7 +2,11 @@
 COLDTRACE_SCRIPTS="$(readlink -f $(dirname $(readlink -f $0)))"
 COLDTRACE_ROOT="$(readlink -f $COLDTRACE_SCRIPTS/..)"
 if [ -z "$COLDTRACE_BUILD" ]; then
-  COLDTRACE_BUILD="$COLDTRACE_ROOT/build"
+  if [ -n "$GN_OUT_DIR" ]; then
+    COLDTRACE_BUILD="$COLDTRACE_ROOT/$GN_OUT_DIR"
+  else
+    COLDTRACE_BUILD="$COLDTRACE_ROOT/build"
+  fi
 fi
 PRELOAD="$COLDTRACE_BUILD/src/libcoldtrace.so"
 
