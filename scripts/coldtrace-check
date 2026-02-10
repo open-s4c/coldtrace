@@ -6,7 +6,11 @@ if [ -z "$COLDTRACE_BUILD" ]; then
 fi
 PRELOAD="$COLDTRACE_BUILD/test/libtrace_checker.so"
 if [ -z "$TSANO_LIBDIR" ]; then
-  TSANO_LIBDIR="$COLDTRACE_BUILD"
+  if [ -f "$COLDTRACE_BUILD/libtsano.so" ]; then
+    TSANO_LIBDIR="$COLDTRACE_BUILD"
+  else
+    TSANO_LIBDIR="$COLDTRACE_BUILD/deps/dice/deps/tsano"
+  fi
 fi
 export TSANO_LIBDIR
 TSANO="$COLDTRACE_ROOT/deps/dice/deps/tsano/tsano"
