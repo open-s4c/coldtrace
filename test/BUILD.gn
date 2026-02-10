@@ -1,0 +1,215 @@
+test_include_dirs = [
+  "//src",
+  "//test/checkers",
+  "//deps/dice/test/include",
+  "//include",
+  "//deps/dice/include",
+  "//deps/dice/deps/libvsync/include",
+]
+
+config("test_common") {
+  include_dirs = test_include_dirs
+  defines = [ "_GNU_SOURCE" ]
+  cflags = [
+    "-fPIC",
+    "-g3",
+    "-Wall",
+    "-Werror",
+    "-Wextra",
+    "-Wno-uninitialized",
+    "-Wno-unused-variable",
+    "-Wno-unused-parameter",
+    "-Wno-unused-function",
+    "-Wno-ignored-qualifiers",
+    "-Wno-frame-address",
+    "-Wno-unused-command-line-argument",
+  ]
+  if (coldtrace_use_tsan) {
+    cflags += [ "-fsanitize=thread" ]
+    ldflags = [ "-fsanitize=thread" ]
+    if (dice_use_clang) {
+      ldflags += [ "-shared-libsan" ]
+    }
+  }
+  if (coldtrace_use_gcc) {
+    cflags += [ "-Wno-use-after-free" ]
+  }
+}
+
+config("test_lib_common") {
+  include_dirs = test_include_dirs
+  defines = [ "_GNU_SOURCE" ]
+  cflags = [
+    "-fPIC",
+    "-g3",
+    "-Wall",
+    "-Werror",
+    "-Wextra",
+    "-Wno-uninitialized",
+    "-Wno-unused-variable",
+    "-Wno-unused-parameter",
+    "-Wno-unused-function",
+    "-Wno-ignored-qualifiers",
+    "-Wno-frame-address",
+    "-Wno-unused-command-line-argument",
+  ]
+  if (coldtrace_use_gcc) {
+    cflags += [ "-Wno-use-after-free" ]
+  }
+}
+
+shared_library("trace_checker") {
+  output_name = "libtrace_checker"
+  output_dir = "$root_out_dir/test"
+  configs = [ ":test_lib_common" ]
+  sources = [
+    "checkers/trace_checker.c",
+    "checkers/indexes_checker.c",
+  ]
+  deps = [ "//src:coldtrace" ]
+  libs = [ "pthread" ]
+}
+
+shared_library("mock_checker") {
+  output_name = "libmock_checker"
+  output_dir = "$root_out_dir/test"
+  configs = [ ":test_lib_common" ]
+  sources = [ "checkers/mock_checker.c" ]
+  libs = [ "pthread" ]
+}
+
+test_sources = [
+  "annotate_test.cpp",
+  "atomic_test.cpp",
+  "cmp_xchg.cpp",
+  "create_test.c",
+  "envvar_test.c",
+  "foo.c",
+  "global_static_init.cpp",
+  "init_test.cpp",
+  "memmove_test.c",
+  "mutex_test.cpp",
+  "mutex_test_cppthreads.cpp",
+  "notify.cpp",
+  "nuclear_test.c",
+  "simple_malloc_test.c",
+  "simple_mmap_test.c",
+  "spinlock.cpp",
+  "tls_test.c",
+  "trace_alloc_free.c",
+  "trace_annotate_rwlock.c",
+  "trace_atomic.cpp",
+  "trace_calloc.c",
+  "trace_create_join.c",
+  "trace_cxa_guard.cpp",
+  "trace_fail.c",
+  "trace_fence.cpp",
+  "trace_hb_check.cpp",
+  "trace_hb_check_2.cpp",
+  "trace_lock_unlock.c",
+  "trace_main_close.c",
+  "trace_memcpy.c",
+  "trace_mman.c",
+  "trace_mutex_2.cpp",
+  "trace_pthread_mutex_clocklock.c",
+  "trace_pthread_rwlock.c",
+  "trace_pthread_spinlock.c",
+  "trace_pthread_spintrylock.c",
+  "trace_read_write_range.c",
+  "trace_read_write_size.c",
+  "trace_write_var.c",
+  "trace_zero_flag.c",
+  "uaf1.c",
+  "uaf2.c",
+  "uaf_conc.c",
+  "uaf_conc_tsan.c",
+  "unmap.c",
+]
+
+if (!coldtrace_have_pthread_clocklock_clockwait) {
+  test_sources += [
+    "trace_pthread_cond_clockwait.c",
+    "trace_pthread_cond_clocklock.c",
+  ]
+}
+
+test_targets = []
+test_entries = []
+
+foreach(src, test_sources) {
+  test_name = get_path_info(src, "name")
+  is_trace = string_replace(test_name, "trace_", "") != test_name
+  kind = "normal"
+  if (is_trace) {
+    kind = "trace"
+  }
+  expect_fail = "0"
+  if (test_name == "trace_fail") {
+    expect_fail = "1"
+  }
+  target_name = "test_${test_name}"
+  test_targets += [ ":${target_name}" ]
+
+  executable(target_name) {
+    output_name = test_name
+    output_dir = "$root_out_dir/test"
+    configs = [ ":test_common" ]
+    sources = [ src ]
+    deps = []
+    libs = [ "pthread" ]
+    cflags = []
+
+    if (test_name == "trace_fence") {
+      cflags += [
+        "-Wno-error=tsan",
+        "-Wno-unknown-warning-option",
+      ]
+    }
+
+    if (test_name == "trace_memcpy") {
+      cflags += [ "-fno-builtin" ]
+    }
+
+    if (test_name == "trace_hb_check" || test_name == "trace_hb_check_2") {
+      deps += [ "//src:entries_obj" ]
+    }
+
+    if (is_trace) {
+      deps += [ ":mock_checker" ]
+    }
+  }
+
+
+  options = []
+  if (test_name == "atomic_test" || test_name == "spinlock") {
+    options += [ "-ensure-traces" ]
+  }
+
+  options_text = string_join(",", options)
+  test_entries += [ "${test_name}|${kind}|${options_text}|${expect_fail}" ]
+}
+
+group("tests") {
+  deps = test_targets
+}
+
+action("run_tests") {
+  script = "//build/scripts/run_gn_tests.py"
+  deps = test_targets + [
+    "//src:coldtrace_shared",
+    ":trace_checker",
+    "//deps/dice/deps/tsano:tsano",
+  ]
+  outputs = [ "$root_out_dir/run_tests.stamp" ]
+  args = [
+    "--root-dir",
+    rebase_path("//", root_build_dir),
+    "--build-dir",
+    root_build_dir,
+    "--stamp",
+    rebase_path("$root_out_dir/run_tests.stamp", root_build_dir),
+  ]
+  foreach(entry, test_entries) {
+    args += [ "--test", entry ]
+  }
+}

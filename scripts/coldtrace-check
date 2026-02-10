@@ -1,9 +1,14 @@
 #!/bin/sh
 
 COLDTRACE_ROOT="$(readlink -f $(dirname $(readlink -f $0))/..)"
-COLDTRACE_BUILD="$COLDTRACE_ROOT/build"
+if [ -z "$COLDTRACE_BUILD" ]; then
+  COLDTRACE_BUILD="$COLDTRACE_ROOT/build"
+fi
 PRELOAD="$COLDTRACE_BUILD/test/libtrace_checker.so"
-export TSANO_LIBDIR="$COLDTRACE_BUILD/deps/dice/deps/tsano"
+if [ -z "$TSANO_LIBDIR" ]; then
+  TSANO_LIBDIR="$COLDTRACE_BUILD"
+fi
+export TSANO_LIBDIR
 TSANO="$COLDTRACE_ROOT/deps/dice/deps/tsano/tsano"
 export COLDTRACE_PATH=/tmp/traces
 export COLDTRACE_MAX_FILES=3
