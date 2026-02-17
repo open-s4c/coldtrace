@@ -62,3 +62,8 @@ add_custom_target(format
     COMMENT "Running clang-format on all source files")
 
 add_custom_target(diff-check COMMAND git --no-pager diff --exit-code)
+
+include(CTest) 
+add_custom_target(coverage COMMAND gcovr -r ${CMAKE_SOURCE_DIR} --html --html-details -o coverage.html --gcov-ignore-parse-errors=negative_hits.warn --gcov-use-existing-files
+)
+#--gcov-executable gcov       --gcov-ignore-parse-errors=negative_hits.warn       --gcov-use-existing-files
