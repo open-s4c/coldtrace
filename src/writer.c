@@ -90,8 +90,10 @@ get_trace_(struct writer_impl *impl)
 static void
 new_trace_(struct writer_impl *impl)
 {
+    coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
     if (coldtrace_writes_disabled()) {
         size_t trace_size = coldtrace_get_trace_size();
+
         if (impl->size != trace_size) {
             impl->size = trace_size;
             mempool_free(impl->buffer);
@@ -101,7 +103,6 @@ new_trace_(struct writer_impl *impl)
         create_coldtrace_version_header(impl);
         return;
     }
-    coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
     munmap(impl->buffer, impl->size);
 
     impl->enumerator = (impl->enumerator + 1) % coldtrace_get_max();

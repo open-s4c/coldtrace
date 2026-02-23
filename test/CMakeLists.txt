@@ -38,6 +38,7 @@ foreach(SRC ${SRCS})
     add_test(NAME ${TARGET}-test
              COMMAND ${PROJECT_SOURCE_DIR}/scripts/coldtrace-check
                      ${CMAKE_CURRENT_BINARY_DIR}/${TARGET})
+    set_tests_properties(${TARGET}-test PROPERTIES LABELS "trace")
   else()
     add_test(
       NAME ${TARGET}-test
