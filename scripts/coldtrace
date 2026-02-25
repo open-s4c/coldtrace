@@ -1,10 +1,23 @@
 #!/bin/sh
 COLDTRACE_SCRIPTS="$(readlink -f $(dirname $(readlink -f $0)))"
 COLDTRACE_ROOT="$(readlink -f $COLDTRACE_SCRIPTS/..)"
-COLDTRACE_BUILD="$COLDTRACE_ROOT/build"
+if [ -z "$COLDTRACE_BUILD" ]; then
+  if [ -n "$GN_OUT_DIR" ]; then
+    COLDTRACE_BUILD="$COLDTRACE_ROOT/$GN_OUT_DIR"
+  else
+    COLDTRACE_BUILD="$COLDTRACE_ROOT/build"
+  fi
+fi
 PRELOAD="$COLDTRACE_BUILD/src/libcoldtrace.so"
 
-export TSANO_LIBDIR="$COLDTRACE_BUILD/deps/dice/deps/tsano"
+if [ -z "$TSANO_LIBDIR" ]; then
+  if [ -f "$COLDTRACE_BUILD/libtsano.so" ]; then
+    TSANO_LIBDIR="$COLDTRACE_BUILD"
+  else
+    TSANO_LIBDIR="$COLDTRACE_BUILD/deps/dice/deps/tsano"
+  fi
+fi
+export TSANO_LIBDIR
 TSANO="$COLDTRACE_ROOT/deps/dice/deps/tsano/tsano"
 
 args=""

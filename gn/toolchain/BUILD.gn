@@ -1,0 +1,71 @@
+toolchain("default") {
+  cc = getenv("CC")
+  if (cc == "") {
+    cc = "cc"
+  }
+
+  cxx = getenv("CXX")
+  if (cxx == "") {
+    cxx = "c++"
+  }
+
+  ar = getenv("AR")
+  if (ar == "") {
+    ar = "ar"
+  }
+
+  ld = cxx
+
+  tool("cc") {
+    depfile = "{{output}}.d"
+    depsformat = "gcc"
+    outputs = [ "{{target_out_dir}}/{{label_name}}/{{source_name_part}}.o" ]
+    command = "$cc -MMD -MF {{output}}.d -c {{source}} -o {{output}} {{cflags}} {{defines}} {{include_dirs}}"
+  }
+
+  tool("cxx") {
+    depfile = "{{output}}.d"
+    depsformat = "gcc"
+    outputs = [ "{{target_out_dir}}/{{label_name}}/{{source_name_part}}.o" ]
+    command = "$cxx -MMD -MF {{output}}.d -c {{source}} -o {{output}} {{cflags}} {{defines}} {{include_dirs}}"
+  }
+
+  tool("alink") {
+    default_output_dir = "."
+    outputs = [ "{{output_dir}}/{{target_output_name}}{{output_extension}}" ]
+    default_output_extension = ".a"
+    command = "$ar rcs {{output}} {{inputs}}"
+    description = "AR {{output}}"
+  }
+
+  tool("solink") {
+    default_output_dir = "."
+    outputs = [ "{{output_dir}}/{{target_output_name}}{{output_extension}}" ]
+    default_output_extension = ".so"
+    lib_switch = "-l"
+    lib_dir_switch = "-L"
+    command = "$ld -shared -o {{output}} {{inputs}} {{ldflags}} {{libs}}"
+    description = "SOLINK {{output}}"
+  }
+
+  tool("link") {
+    default_output_dir = "."
+    outputs = [ "{{output_dir}}/{{target_output_name}}{{output_extension}}" ]
+    default_output_extension = ""
+    lib_switch = "-l"
+    lib_dir_switch = "-L"
+    command = "$ld -o {{output}} {{inputs}} {{ldflags}} {{libs}}"
+    description = "LINK {{output}}"
+  }
+
+  tool("stamp") {
+    command = "touch {{output}}"
+  }
+
+  tool("copy") {
+    command = "cp -f {{source}} {{output}}"
+  }
+
+  tool("action") {
+  }
+}
