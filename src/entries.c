@@ -121,7 +121,6 @@ coldtrace_entry_get_size(const void *buf)
         case COLDTRACE_FREE: {
             const struct coldtrace_free_entry *e = buf;
             next += sizeof(struct coldtrace_free_entry);
-            next += (e->stack.depth - e->stack.popped) * sizeof(uint64_t);
         } break;
 
         case COLDTRACE_ALLOC:
@@ -197,6 +196,10 @@ static const size_t space_map_[] = {
     [COLDTRACE_FENCE]             = sizeof(struct coldtrace_atomic_entry),
     [COLDTRACE_THREAD_CREATE]     = sizeof(struct coldtrace_atomic_entry),
     [COLDTRACE_THREAD_START]      = sizeof(struct coldtrace_thread_init_entry),
+    [COLDTRACE_MALLOC]            = sizeof(struct coldtrace_malloc_entry),
+    [COLDTRACE_CALLOC]            = sizeof(struct coldtrace_calloc_entry),
+    [COLDTRACE_REALLOC]           = sizeof(struct coldtrace_realloc_entry),
+    [COLDTRACE_ALIGNED_ALLOC]     = sizeof(struct coldtrace_aligned_alloc_entry),
 };
 
 size_t

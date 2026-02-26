@@ -39,7 +39,11 @@
 #define COLDTRACE_FENCE             21
 #define COLDTRACE_MMAP              22
 #define COLDTRACE_MUNMAP            23
-#define COLDTRACE_END_              24
+#define COLDTRACE_MALLOC            24
+#define COLDTRACE_CALLOC            25
+#define COLDTRACE_ALIGNED_ALLOC     26
+#define COLDTRACE_REALLOC           27
+#define COLDTRACE_END_              28
 
 typedef uint8_t coldtrace_entry_type;
 
@@ -97,11 +101,46 @@ struct coldtrace_alloc_entry {
     struct coldtrace_stack_diff stack;
 };
 
+struct coldtrace_malloc_entry {
+    struct coldtrace_entry_header _;
+    uint64_t size;
+    uint64_t alloc_index;
+    uint64_t timestamp_sec;
+    uint64_t timestamp_nsec;
+};
+
+struct coldtrace_calloc_entry {
+    struct coldtrace_entry_header _;
+    uint64_t size;
+    uint64_t alloc_index;
+    uint64_t number;
+    uint64_t timestamp_sec;
+    uint64_t timestamp_nsec;
+};
+
+struct coldtrace_aligned_alloc_entry {
+    struct coldtrace_entry_header _;
+    uint64_t size;
+    uint64_t alloc_index;
+    uint64_t alignment;
+    uint64_t timestamp_sec;
+    uint64_t timestamp_nsec;
+};
+
+struct coldtrace_realloc_entry {
+    struct coldtrace_entry_header _;
+    uint64_t size;
+    uint64_t alloc_index;
+    uint64_t old_ptr;
+    uint64_t timestamp_sec;
+    uint64_t timestamp_nsec;
+};
+
 struct coldtrace_free_entry {
     struct coldtrace_entry_header _;
     uint64_t alloc_index;
-    uint64_t caller;
-    struct coldtrace_stack_diff stack;
+    uint64_t timestamp_sec;
+    uint64_t timestamp_nsec;
 };
 
 struct coldtrace_atomic_entry {

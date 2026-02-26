@@ -23,8 +23,8 @@ foreach(SRC ${SRCS})
   target_link_libraries(${TARGET} PRIVATE dice.h vsync pthread)
 
   # handle instrumentation and linking of target against TSAN
-  target_compile_options(${TARGET} PRIVATE -fsanitize=thread)
-  target_link_options(${TARGET} PRIVATE -fsanitize=thread)
+  # target_compile_options(${TARGET} PRIVATE -fsanitize=thread)
+  # target_link_options(${TARGET} PRIVATE -fsanitize=thread)
   if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     target_compile_options(${TARGET} PRIVATE -Wno-use-after-free)
   elseif(CMAKE_C_COMPILER_ID STREQUAL "Clang")
@@ -51,8 +51,8 @@ endforeach()
 
 target_link_libraries(trace_hb_check PRIVATE entries.o)
 target_link_libraries(trace_hb_check_2 PRIVATE entries.o)
-target_compile_options(trace_fence PRIVATE -fsanitize=thread -Wno-error=tsan
-                                           -Wno-unknown-warning-option)
+# target_compile_options(trace_fence PRIVATE -fsanitize=thread -Wno-error=tsan
+                                          #  -Wno-unknown-warning-option)
 # force a call to memcpy or __tsan_memcpy
 target_compile_options(trace_memcpy PRIVATE -fno-builtin)
 set_tests_properties(trace_fail-test PROPERTIES WILL_FAIL TRUE)

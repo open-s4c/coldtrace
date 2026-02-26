@@ -69,6 +69,32 @@ ensure_dir_empty(const char *path)
     return 0;
 }
 
+#define MAX_PATH_LENGTH 1024
+static int
+mkdir_(const char *path, unsigned int mode)
+{
+    char temp[MAX_PATH_LENGTH];
+    char *p = NULL;
+    size_t len;
+
+    snprintf(temp, sizeof(temp), "%s", path);
+    len = strlen(temp);
+    if (temp[len - 1] == '/') {
+        temp[len - 1] = 0;
+    }
+
+    for (p = temp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = 0;
+            if (mkdir(temp, mode) && errno != EEXIST) {
+                return -1;
+            }
+            *p = '/';
+        }
+    }
+    return mkdir(temp, mode) && errno != EEXIST ? -1 : 0;
+}
+
 DICE_HIDE int
 ensure_dir_exists(const char *path)
 {
@@ -86,7 +112,7 @@ ensure_dir_exists(const char *path)
     }
 
     // Try to create the directory
-    if (mkdir(path, DIR_PERMISSIONS) != 0) {
+    if (mkdir_(path, DIR_PERMISSIONS) != 0) {
         log_info("mkdir failed: %s", strerror(errno));
         return -1;
     }

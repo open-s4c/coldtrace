@@ -198,7 +198,7 @@ coldtrace_writer_init(struct coldtrace_writer *ct, metadata_t *md)
     struct writer_impl *impl;
     impl         = (struct writer_impl *)ct;
     impl->initd  = true;
-    impl->tid    = self_id(md);
+    impl->tid    = os_id(md);
     impl->buffer = NULL;
     impl->size   = 0;
     impl->md     = md;

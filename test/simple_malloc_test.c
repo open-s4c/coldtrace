@@ -2,14 +2,20 @@
 #include <stdlib.h>
 
 // NOLINTBEGIN
+volatile void *ptr1, *ptr2, *ptr3;
+
 int
 main(void)
 {
-    void *ptr1 = malloc(1024);
-    void *ptr2 = malloc(1024);
+    ptr1 = malloc(1024);
+    ptr2 = calloc(4, 7);
 
-    (void)ptr1;
-    free(ptr2);
+    ptr1 = realloc((void*)ptr1, 2048);
+    free((void*)ptr2);
+
+    ptr3 = aligned_alloc(16, 48);
+    
+    free((void*)ptr1);
 
     return 0;
 }

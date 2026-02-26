@@ -12,6 +12,22 @@ import os
 import re
 from collections import defaultdict
 
+from datetime import datetime
+
+def convert_timespec(seconds, nanoseconds):
+    dt_object = datetime.fromtimestamp(seconds)
+    
+    # Format base time
+    base = dt_object.strftime('%m-%d %H:%M:%S')
+    
+    # Format full 9-digit nanoseconds
+    return f"{base}.{nanoseconds:09d}"
+
+def get_timestamp(file):
+    raw_ext = file.read(16)
+    seconds, nanoseconds = struct.unpack('<QQ', raw_ext)
+    return convert_timespec(seconds, nanoseconds)
+
 def get_multiple_file_log(s):
     absolute_path = os.path.abspath(s)
     print(absolute_path)
@@ -73,6 +89,41 @@ class EntryType(Enum):
     FENCE   = 21
     MMAP    = 22
     MUNMAP  = 23
+    MALLOC  = 24
+    CALLOC  = 25
+    ALIGNED_ALLOC  = 26
+    REALLOC  = 27
+
+size_lookup = {
+    EntryType.FREE: 16,
+    EntryType.ALLOC: COLD_ALLOC_ENTRY_SZ,
+    EntryType.READ: 32,
+    EntryType.WRITE: 32,
+    EntryType.ATOMIC_READ: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.ATOMIC_WRITE: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.LOCK_ACQUIRE: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.LOCK_RELEASE: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.THREAD_CREATE: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.THREAD_START: COLD_THREAD_ENTRY_SZ,
+    EntryType.RW_LOCK_CREATE: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.RW_LOCK_DESTROY: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.RW_LOCK_ACQ_SHR: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.RW_LOCK_ACQ_EXC: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.RW_LOCK_REL_SHR: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.RW_LOCK_REL_EXC: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.RW_LOCK_REL: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.CXA_GUARD_ACQUIRE: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.CXA_GUARD_RELEASE: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.THREAD_JOIN: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.THREAD_EXIT: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.FENCE: COLD_ATOMIC_ENTRY_SZ,
+    EntryType.MMAP: COLD_ALLOC_ENTRY_SZ,
+    EntryType.MUNMAP: COLD_ALLOC_ENTRY_SZ,
+    EntryType.MALLOC: 24,
+    EntryType.CALLOC: 32,
+    EntryType.ALIGNED_ALLOC: 32,
+    EntryType.REALLOC: 32
+}
 
 ZERO_FLAG = 0b10000000
 PTR_MASK = 0x0000_FFFF_FFFF_FFFF
@@ -116,27 +167,24 @@ for f in file_list:
                 print(f"entry_type_raw: {entry_type_raw} tid: {tid} ptr: {ptr:x}")
             zero_flag = ZERO_FLAG & entry_type_raw > 0
             entry_type = EntryType(entry_type_raw & ~ZERO_FLAG)
-            if (entry_type.value == 0): # free
-                raw_ext = file.read(COLD_FREE_ENTRY_SZ - COLD_BASE_ENTRY_SZ)
+            if (entry_type == EntryType.CALLOC):
+                raw_ext = file.read(size_lookup[EntryType.CALLOC] - COLD_BASE_ENTRY_SZ)
+                size, alloc_index, number = struct.unpack('<QQQ', raw_ext)
+            elif(entry_type == EntryType.MALLOC):
+                raw_ext = file.read(size_lookup[EntryType.MALLOC] - COLD_BASE_ENTRY_SZ)
+                size, alloc_index = struct.unpack('<QQ', raw_ext)
+            elif (entry_type == EntryType.REALLOC):
+                raw_ext = file.read(size_lookup[EntryType.REALLOC] - COLD_BASE_ENTRY_SZ)
+                size, alloc_index, old_ptr = struct.unpack('<QQQ', raw_ext)
+            elif (entry_type == EntryType.ALIGNED_ALLOC):
+                raw_ext = file.read(size_lookup[EntryType.ALIGNED_ALLOC] - COLD_BASE_ENTRY_SZ)
+                size, alloc_index, alignment = struct.unpack('<QQQ', raw_ext)
+            elif(entry_type.value == 0): # free
+                raw_ext = file.read(size_lookup[EntryType.FREE] - COLD_BASE_ENTRY_SZ)
                 len_raw_ext = len(raw_ext)
-                if not raw_ext or raw_ext == 0 or len_raw_ext < (COLD_FREE_ENTRY_SZ - COLD_BASE_ENTRY_SZ) or (row == b'\x00'*COLD_BASE_ENTRY_SZ and raw_ext == b'\x00'*(COLD_FREE_ENTRY_SZ - COLD_BASE_ENTRY_SZ)):
+                if not raw_ext or raw_ext == 0 or len_raw_ext < (size_lookup[EntryType.FREE] - COLD_BASE_ENTRY_SZ) or (row == b'\x00'*COLD_BASE_ENTRY_SZ and raw_ext == b'\x00'*(size_lookup[EntryType.FREE] - COLD_BASE_ENTRY_SZ)):
                     break
-                alloc_index, caller_0, popped_stack, stack_depth = struct.unpack('<QQII', raw_ext)
-                if debug:
-                    print(f"alloc_index: {alloc_index} caller_0: {caller_0:x} popped_stack: {popped_stack} stack_depth: {stack_depth}")
-                stacks[tid] = stacks[tid][:popped_stack]
-                if debug:
-                    print(stacks)
-                    print(f"reading {stack_depth - popped_stack} stack pointers")
-                for i in range(popped_stack, stack_depth):
-                    address, = struct.unpack('<Q', file.read(8))
-                    stacks[tid].append(address)
-                if debug:
-                    print(stacks)
-                caller_1 = stacks[tid][stack_depth - 1] if stack_depth - 1 >= 0 else 0
-                caller_2 = stacks[tid][stack_depth - 2] if stack_depth - 2 >= 0 else 0
-                if debug:
-                    print(stacks)
+                alloc_index, = struct.unpack('<Q', raw_ext)
             elif (entry_type.value == 1 or entry_type.value == 22 or entry_type.value == 23 ): # alloc
                 raw_ext = file.read(COLD_ALLOC_ENTRY_SZ - COLD_BASE_ENTRY_SZ)
 
@@ -179,10 +227,10 @@ for f in file_list:
                 atomic_timestamp, thread_stack_ptr, thread_stack_size = struct.unpack('<QQQ', file.read(COLD_THREAD_ENTRY_SZ - COLD_BASE_ENTRY_SZ))
             else:
                 atomic_timestamp, = struct.unpack('<Q', file.read(COLD_ATOMIC_ENTRY_SZ - COLD_BASE_ENTRY_SZ))
-
+            timestamp = get_timestamp(file)
             match entry_type:
                 case EntryType.FREE:
-                    print(f"{nentries}) {tid}: Freed memory @{ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x} [{alloc_index}]\n")
+                    print(f"{timestamp} {tid} free'd @{ptr:x} [{alloc_index}]\n")
                 case EntryType.ALLOC:
                     print(f"{nentries}) {tid}: Allocated {size}B of memory @{ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x} [{alloc_index}]\n")
                 case EntryType.READ:
@@ -232,7 +280,14 @@ for f in file_list:
                     print(f"{nentries}) {tid}: mmap-ed region of {size} from {ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x} [{alloc_index}]\n")
                 case EntryType.MUNMAP:
                     print(f"{nentries}) {tid}: munmap-ed region of {size} from {ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x} [{alloc_index}]\n")
-
+                case EntryType.MALLOC:
+                    print(f"{timestamp} {tid} malloc'ed {size}B of memory @{ptr:x} [{alloc_index}]\n")
+                case EntryType.CALLOC:
+                    print(f"{timestamp} {tid} calloc'ed {number} x {size}B of memory @{ptr:x} [{alloc_index}]\n")
+                case EntryType.REALLOC:
+                    print(f"{timestamp} {tid} realloc'ed {old_ptr:x} to {size}B of memory @{ptr:x} [{alloc_index}]\n")
+                case EntryType.ALIGNED_ALLOC:
+                    print(f"{timestamp} {tid} aligned_alloc'ed {size}B of memory @{ptr:x} with alignment: {alignment} [{alloc_index}]\n")
 
             nentries += 1
 
