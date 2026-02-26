@@ -10,6 +10,7 @@ int *y[SCALING];
 void *
 free_thread(void *ptr)
 {
+    sleep(1);
     free(ptr);
     return NULL;
 }

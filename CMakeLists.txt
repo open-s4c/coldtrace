@@ -51,6 +51,8 @@ if(NOT libvsync_DIR)
 endif()
 add_library(vsync ALIAS libvsync::vsync)
 
+add_subdirectory(deps/lz4/build/cmake)
+
 add_compile_options(
   -Wall
   -Werror

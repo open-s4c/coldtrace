@@ -9,6 +9,7 @@
 #include <dice/types.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lz4.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -65,26 +66,60 @@ get_trace_(struct writer_impl *impl)
         return;
     }
 
+    impl->buffer = mmap(NULL, impl->size, PROT_READ | PROT_WRITE,
+                        MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (impl->buffer == MAP_FAILED) {
+        log_fatal("mmap failed: %s (errno %d)\n", strerror(errno), errno);
+    }
+    create_coldtrace_version_header(impl);
+}
+
+static void
+write_to_file(struct writer_impl *impl)
+{
+    // 1. Determine the maximum possible size for the compressed data
+    int max_compressed_size = LZ4_compressBound(impl->size);
+
+    // 2. Allocate an aligned buffer
+    void *compressed_buf = NULL;
+    if (posix_memalign(&compressed_buf, 4096, max_compressed_size) != 0) {
+        log_fatal("Failed to allocate aligned memory for compression\n");
+    }
+
+    // 3. Perform the compression
+    int compressed_data_size =
+        LZ4_compress_fast((const char *)impl->buffer, (char *)compressed_buf,
+                          impl->size, max_compressed_size, 10);
+
+    if (compressed_data_size <= 0) {
+        log_fatal("Compression failed\n");
+    }
+
     const char *pattern = coldtrace_get_file_pattern();
     char file_name[strlen(pattern) + FORMAT_EXPANSION_SPACE];
     sprintf(file_name, pattern, impl->tid, impl->enumerator);
-    int fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, FILE_PERMISSIONS);
-    while (fd == -1) {
-        if (errno == EEXIST) {
-            impl->enumerator++;
-            sprintf(file_name, pattern, impl->tid, impl->enumerator);
-            fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, FILE_PERMISSIONS);
-        } else {
-            break;
-        }
+
+    int fd = open(file_name, O_WRONLY | O_CREAT | O_TRUNC, FILE_PERMISSIONS);
+
+    if (fd == -1) {
+        free(compressed_buf);
+        log_fatal("Failed to open file: %s\n", strerror(errno));
     }
-    if (ftruncate(fd, impl->size) == -1) {
-        log_fatal("ftruncate get_trace: %s", strerror(errno));
+
+    // 4. Pre-allocate disk space based on the NEW compressed size
+    if (posix_fallocate(fd, 0, compressed_data_size) != 0) {
+        log_fatal("posix_fallocate failed: %s (errno %d)\n", strerror(errno),
+                  errno);
     }
-    impl->buffer =
-        mmap(NULL, impl->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+
+    // 5. Write the compressed data
+    ssize_t written = write(fd, compressed_buf, compressed_data_size);
+    if (written == -1) {
+        log_fatal("write failed: %s (errno %d)\n", strerror(errno), errno);
+    }
     close(fd);
-    create_coldtrace_version_header(impl);
+
+    free(compressed_buf);
 }
 
 static void
@@ -103,23 +138,25 @@ new_trace_(struct writer_impl *impl)
         create_coldtrace_version_header(impl);
         return;
     }
-    munmap(impl->buffer, impl->size);
 
-    impl->enumerator = (impl->enumerator + 1) % coldtrace_get_max();
-    impl->size       = coldtrace_get_trace_size();
-    impl->offset     = 0;
+    write_to_file(impl);
 
-    const char *pattern = coldtrace_get_file_pattern();
-    char file_name[strlen(pattern) + FORMAT_EXPANSION_SPACE];
-    sprintf(file_name, pattern, impl->tid, impl->enumerator);
-    int fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, FILE_PERMISSIONS);
-    if (ftruncate(fd, impl->size) == -1) {
-        log_fatal("ftruncate new_trace: %s", strerror(errno));
+    size_t trace_size = coldtrace_get_trace_size();
+    if (impl->size != trace_size) {
+        munmap(impl->buffer, impl->size);
+        impl->size   = trace_size;
+        impl->buffer = mmap(NULL, impl->size, PROT_READ | PROT_WRITE,
+                            MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (impl->buffer == MAP_FAILED) {
+            log_fatal("mmap failed: %s (errno %d)\n", strerror(errno), errno);
+        }
+    } else {
+        memset(impl->buffer, 0, impl->size);
     }
 
-    impl->buffer =
-        mmap(NULL, impl->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-    close(fd);
+    impl->enumerator = (impl->enumerator + 1) % coldtrace_get_max();
+    impl->offset     = 0;
+
     create_coldtrace_version_header(impl);
 }
 
@@ -178,6 +215,9 @@ coldtrace_writer_fini(struct coldtrace_writer *ct)
 
     if (coldtrace_writes_disabled()) {
         mempool_free(impl->buffer);
+    } else {
+        write_to_file(impl);
+        munmap(impl->buffer, impl->size);
     }
 }
 

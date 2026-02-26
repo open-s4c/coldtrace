@@ -45,7 +45,7 @@ set(MODS)
 foreach(SRC ${SRCS})
   get_filename_component(TARGET ${SRC} NAME_WLE)
   add_library(${TARGET}.o OBJECT ${SRC})
-  target_link_libraries(${TARGET}.o PUBLIC vsync dice.h)
+  target_link_libraries(${TARGET}.o PUBLIC vsync dice.h lz4_static)
   if(SLOT_${TARGET})
     target_compile_options(
       ${TARGET}.o PRIVATE -DCOLDTRACE_BASE_SLOT=${COLDTRACE_BASE_SLOT}
@@ -84,7 +84,7 @@ set(MODS
 endif()
 
 add_library(coldtrace SHARED)
-target_link_libraries(coldtrace PUBLIC vsync dice.h)
+target_link_libraries(coldtrace PUBLIC vsync dice.h lz4_static)
 target_link_libraries(coldtrace PUBLIC ${MODS} dice-self-box.o)
 
 set(COLDTRACE_OBJS
