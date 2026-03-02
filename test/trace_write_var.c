@@ -1,6 +1,5 @@
 #include "trace_checker.h"
 
-#include <assert.h>
 #include <dice/log.h>
 #include <pthread.h>
 #include <stdbool.h>

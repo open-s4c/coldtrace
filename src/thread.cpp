@@ -136,7 +136,6 @@ coldtrace_thread_stack_pop(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
     if (!th->stack.empty()) {
-        assert(!th->stack.empty());
         th->stack.pop_back();
         th->stack_bottom =
             std::min(th->stack_bottom, (uint32_t)th->stack.size());
