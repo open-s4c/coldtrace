@@ -2,7 +2,6 @@
  * Copyright (C) 2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: MIT
  */
-#include <assert.h>
 #include <coldtrace/entries.h>
 #include <dice/log.h>
 #include <stdbool.h>
@@ -60,7 +59,9 @@ coldtrace_entry_parse_type(const void *buf)
     uint64_t ptr = ((uint64_t *)buf)[0];
     coldtrace_entry_type type =
         (coldtrace_entry_type)(ptr & TYPE_MASK & ~ZERO_FLAG);
-    assert(is_type_valid(type));
+    if (!is_type_valid(type)) {
+        log_fatal("Invalid entry type (at %s:%d)", __FILE__, __LINE__);
+    }
     return type;
 }
 
@@ -202,6 +203,8 @@ static const size_t space_map_[] = {
 size_t
 coldtrace_entry_fixed_size(coldtrace_entry_type type)
 {
-    assert(is_type_valid(type));
+    if (!is_type_valid(type)) {
+        log_fatal("Invalid entry type (at %s:%d)", __FILE__, __LINE__);
+    }
     return space_map_[type & ~ZERO_FLAG];
 }

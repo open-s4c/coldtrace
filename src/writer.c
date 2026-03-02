@@ -1,4 +1,3 @@
-#include <assert.h>
 #include <coldtrace/config.h>
 #include <coldtrace/version.h>
 #include <coldtrace/writer.h>
@@ -50,7 +49,9 @@ STATIC_ASSERT(sizeof(struct writer_impl) == sizeof(struct coldtrace_writer),
 static void
 get_trace_(struct writer_impl *impl)
 {
-    assert(impl->initd);
+    if (!impl->initd) {
+        log_fatal("Writer not initialized (at %s:%d)", __FILE__, __LINE__);
+    }
     if (impl->buffer) {
         return;
     }
@@ -156,8 +157,14 @@ DICE_HIDE void
 coldtrace_writer_init(struct coldtrace_writer *ct, metadata_t *md)
 {
     // Ensure the size of implementation matches the public size
-    assert(sizeof(struct writer_impl) == sizeof(struct coldtrace_writer));
-    assert(md != NULL);
+    if (sizeof(struct writer_impl) != sizeof(struct coldtrace_writer)) {
+        log_fatal(
+            "Size mismatch between writer_impl %zu and coldtrace_writer %zu",
+            sizeof(struct writer_impl), sizeof(struct coldtrace_writer));
+    }
+    if (md == NULL) {
+        log_fatal("No metadata provided (at %s:%d)", __FILE__, __LINE__);
+    }
     struct writer_impl *impl;
     impl         = (struct writer_impl *)ct;
     impl->initd  = true;

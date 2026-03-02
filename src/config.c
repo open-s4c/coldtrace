@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <assert.h>
 #include <coldtrace/config.h>
 #include <coldtrace/utils.h>
 #include <dice/log.h>
@@ -27,12 +26,19 @@ DICE_MODULE_INIT({
     }
     coldtrace_set_path(var);
 
-    if (ensure_dir_exists(var) != 0)
-        abort();
+    if (ensure_dir_exists(var) != 0) {
+        log_fatal(
+            "COLDTRACE_PATH '%s' already exists, choose a non-existing "
+            "directory",
+            var);
+    }
 
     if (getenv("COLDTRACE_DISABLE_CLEANUP") == NULL)
-        if (ensure_dir_empty(var) != 0)
-            abort();
+        if (ensure_dir_empty(var) != 0) {
+            log_fatal(
+                "COLDTRACE_PATH '%s' is not empty, the directory must be empty",
+                var);
+        }
 
     var = getenv("COLDTRACE_MAX_FILES");
     if (var) {
