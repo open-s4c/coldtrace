@@ -86,5 +86,19 @@ add_custom_target(tidy
   WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
   COMMENT "Running clang-tidy only on project files"
 )
+#  cmake -S . -B build -DCOVERAGE=ON -DCMAKE_BUILD_TYPE=Debug
+# cmake --build build/
+# ctest --test-dir build/ --output-on-failure
+# cd build
+#  lcov --capture --directory build --output-file coverage.info --ignore-errors negative
+# lcov --remove coverage.info     '/usr/*'     '*/deps/*'       --output-file coverage.cleaned.info
+# genhtml coverage.cleaned.info build --output-directory coverage_html
+
+if(COVERAGE)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage -O0 -g")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} --coverage -O0 -g")
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} --coverage")
+    set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} --coverage")
+endif()
 
 add_custom_target(diff-check COMMAND git --no-pager diff --exit-code)

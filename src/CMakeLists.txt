@@ -53,6 +53,11 @@ foreach(SRC ${SRCS})
     target_compile_options(${TARGET}.o PRIVATE -DDICE_BUILTIN)
   endif()
   set(MODS ${MODS} ${TARGET}.o)
+
+  if(COVERAGE) 
+    target_compile_options(${TARGET}.o PUBLIC --coverage -fprofile-update=atomic) 
+    target_link_options(${TARGET}.o PUBLIC --coverage) 
+  endif()
 endforeach()
 
 target_compile_options(

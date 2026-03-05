@@ -1,0 +1,30 @@
+#!/bin/sh
+
+COLDTRACE_ROOT="$(readlink -f $(dirname $(readlink -f $0))/..)"
+COLDTRACE_BUILD="$COLDTRACE_ROOT/${1:-build}"
+echo "===aaaaa $COLDTRACE_BUILD ==="
+
+COVERAGE_INFO="$COLDTRACE_BUILD/coverage.info"
+COVERAGE_CLEANED="$COLDTRACE_BUILD/coverage.cleaned.info"
+HTML_DIR="$COLDTRACE_BUILD/coverage_html"
+
+cmake -S . -B "$COLDTRACE_BUILD" -DCOVERAGE=ON -DCMAKE_BUILD_TYPE=Debug
+
+cmake --build "$COLDTRACE_BUILD"
+
+ctest --test-dir "$COLDTRACE_BUILD" --output-on-failure
+
+lcov --capture --directory "$COLDTRACE_BUILD" \
+     --output-file "$COVERAGE_INFO" \
+     --ignore-errors negative
+
+echo "=== Cleaning coverage ==="
+lcov --remove "$COVERAGE_INFO" \
+     '/usr/*' \
+     '*/deps/*' \
+     --output-file "$COVERAGE_CLEANED"
+
+echo "=== Generating HTML report ==="
+genhtml "$COVERAGE_CLEANED" --output-directory "$HTML_DIR"
+
+echo "=== Coverage report generated in $HTML_DIR ==="

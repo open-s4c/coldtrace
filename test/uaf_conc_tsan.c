@@ -10,6 +10,7 @@ int *y[SCALING];
 void *
 free_thread(void *ptr)
 {
+    sleep(2);
     free(ptr);
     return NULL;
 }
@@ -20,6 +21,7 @@ write_42_thread(void *ptr)
     for (int j = 0; j < SCALING; j++) {
         *y[j] = 42;
     }
+    sleep(1);
     int *x = (int *)ptr;
     *x     = 42;
     return NULL;

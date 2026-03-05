@@ -5,8 +5,18 @@ include_directories(../deps/dice/test/include)
 add_library(trace_checker SHARED checkers/trace_checker.c checkers/indexes_checker.c)
 target_link_libraries(trace_checker PUBLIC vsync dice.h ${COLDTRACE_OBJS})
 
+if(COVERAGE)
+    target_compile_options(trace_checker PRIVATE --coverage)
+    target_link_options(trace_checker PRIVATE --coverage)
+endif()
+
 add_library(mock_checker SHARED checkers/mock_checker.c)
 target_link_libraries(mock_checker PUBLIC vsync dice.h)
+
+if(COVERAGE)
+    target_compile_options(mock_checker PRIVATE --coverage)
+    target_link_options(mock_checker PRIVATE --coverage)
+endif()
 
 set(OPTIONS_atomic_test -ensure-traces)
 set(OPTIONS_spinlock -ensure-traces)
@@ -39,6 +49,11 @@ foreach(SRC ${SRCS})
              COMMAND ${PROJECT_SOURCE_DIR}/scripts/coldtrace-check
                      ${CMAKE_CURRENT_BINARY_DIR}/${TARGET})
     set_tests_properties(${TARGET}-test PROPERTIES LABELS "trace")
+
+    if(COVERAGE) 
+      target_compile_options(${TARGET} PRIVATE --coverage -fprofile-update=atomic) 
+      target_link_options(${TARGET} PRIVATE --coverage) 
+    endif()
   else()
     add_test(
       NAME ${TARGET}-test
