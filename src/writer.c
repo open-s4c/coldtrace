@@ -246,6 +246,8 @@ coldtrace_writer_fini(struct coldtrace_writer *ct)
     }
     coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
 
+    // See writer.h contract: backend selection must remain stable for active
+    // writers, so cleanup follows coldtrace_writes_disabled().
     if (coldtrace_writes_disabled()) {
         if (impl->buffer) {
             mempool_free(impl->buffer);
