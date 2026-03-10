@@ -18,7 +18,9 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_WAIT, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_LOCK_ACQUIRE, ev->sem);
-        e->atomic_index = coldtrace_next_atomic_idx();
+        if (e != NULL) {
+            e->atomic_index = coldtrace_next_atomic_idx();
+        }
     }
 })
 
@@ -27,7 +29,9 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_TRYWAIT, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_LOCK_ACQUIRE, ev->sem);
-        e->atomic_index = coldtrace_next_atomic_idx();
+        if (e != NULL) {
+            e->atomic_index = coldtrace_next_atomic_idx();
+        }
     }
 })
 
@@ -36,7 +40,9 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e =
             coldtrace_thread_append(md, COLDTRACE_LOCK_ACQUIRE, ev->sem);
-        e->atomic_index = coldtrace_next_atomic_idx();
+        if (e != NULL) {
+            e->atomic_index = coldtrace_next_atomic_idx();
+        }
     }
 })
 
@@ -44,5 +50,7 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_SEM_POST, {
     const struct sem_post_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e =
         coldtrace_thread_append(md, COLDTRACE_LOCK_RELEASE, ev->sem);
-    e->atomic_index = coldtrace_next_atomic_idx();
+    if (e != NULL) {
+        e->atomic_index = coldtrace_next_atomic_idx();
+    }
 })

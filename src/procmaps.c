@@ -132,12 +132,14 @@ copy_maps_and_mapped_files_(void)
             "Failed to copy /proc/self/maps to '%s', cannot generate coldtrace "
             "dump",
             coldtrace_get_path());
+        return;
     }
     if (copy_mapped_files_(coldtrace_get_path()) != 0) {
         log_fatal(
             "Failed to copy mapped files to '%s', coldtrace dump will be "
             "incomplete",
             coldtrace_get_path());
+        return;
     }
 }
 
