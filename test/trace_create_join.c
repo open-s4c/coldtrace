@@ -23,8 +23,9 @@ struct expected_entry expected_2[] = {
 };
 
 void *
-run()
+run(void *arg)
 {
+    (void)arg;
     return 0;
 }
 
