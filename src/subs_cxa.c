@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 
+#include <coldtrace/aliases.h>
 #include <coldtrace/counters.h>
 #include <coldtrace/thread.h>
 #include <dice/events/cxa.h>

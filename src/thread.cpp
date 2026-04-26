@@ -7,7 +7,6 @@ extern "C" {
 #include <coldtrace/config.h>
 #include <coldtrace/thread.h>
 #include <coldtrace/writer.h>
-#include <dice/events/pthread.h>
 #include <dice/log.h>
 #include <dice/module.h>
 #include <dice/pubsub.h>
