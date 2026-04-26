@@ -2,6 +2,8 @@
  * Copyright (C) 2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: MIT
  */
+
+#include <coldtrace/aliases.h>
 #include <coldtrace/counters.h>
 #include <coldtrace/thread.h>
 #include <dice/events/annotate_rwlock.h>

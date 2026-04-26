@@ -2,6 +2,8 @@
  * Copyright (C) 2025 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: MIT
  */
+
+#include <coldtrace/aliases.h>
 #include <coldtrace/thread.h>
 #include <dice/events/memcpy.h>
 #include <dice/module.h>
