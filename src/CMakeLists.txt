@@ -20,7 +20,7 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
 
 # main functionality
 set(SRCS
-    thread.cpp
+    thread.c
     procmaps.c
     counters.c
     config.c

@@ -29,7 +29,9 @@ set_max_idx(struct index_set *set, uint64_t idx)
 void
 destroy(struct index_set *set)
 {
-    mempool_free(set->content);
+    if (set->content) {
+        mempool_free(set->content);
+    }
     set->content  = NULL;
     set->capacity = 0;
     set->max_idx  = 0;

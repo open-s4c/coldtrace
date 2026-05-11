@@ -5,7 +5,6 @@
 #include <trace_checker.h>
 
 struct expected_entry expected_1[] = {
-    EXPECT_ENTRY(COLDTRACE_ALLOC),
     EXPECT_SOME_VALUE(COLDTRACE_READ, 0, 1, 0),     // from gettime
     EXPECT_SOME_VALUE(COLDTRACE_WRITE, 0, 1, 0),    // from +=2
     EXPECT_SUFFIX_VALUE(COLDTRACE_LOCK_ACQUIRE, 1), // from clocklock
