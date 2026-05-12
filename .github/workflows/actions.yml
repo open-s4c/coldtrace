@@ -18,6 +18,8 @@ jobs:
         - cc: clang
           cxx: clang++
     runs-on: ${{ matrix.os }}
+    env:
+      COLDTRACE_DISABLE_CLEANUP: true
     steps:
       - uses: actions/checkout@v4
         with:
