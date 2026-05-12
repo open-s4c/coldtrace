@@ -206,14 +206,14 @@ cp_(const char *src, const char *dst)
 {
     FILE *fsrc = fopen(src, "rb");
     if (!fsrc) {
-        log_info("fopen: %s", strerror(errno));
+        log_info("fopen '%s': %s", src, strerror(errno));
         return -1;
     }
 
     FILE *fdst = fopen(dst, "wb");
     if (!fdst) {
         fclose(fsrc);
-        log_info("fopen: %s", strerror(errno));
+        log_info("fopen '%s': %s", dst, strerror(errno));
         return -1;
     }
 
