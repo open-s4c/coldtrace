@@ -17,6 +17,7 @@ fun()
 {
     check();
     return nullptr;
+    
 }
 
 int
