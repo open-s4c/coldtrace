@@ -83,6 +83,11 @@ copy_mapped_files_(const char *path)
             continue;
         }
 
+        // skip coldtrace's own trace files
+        if (strstr(src, "/freezer_log_")) {
+            continue;
+        }
+
         // Create the destination path.
         snprintf(dst, sizeof(dst), "%s%s", path, src);
         last_slash = strrchr(dst, '/');
