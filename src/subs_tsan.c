@@ -16,15 +16,15 @@
 
 DICE_MODULE_INIT()
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_ENTER, {
-    const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    coldtrace_thread_stack_push(md, (void *)ev->caller);
-})
+// PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_ENTER, {
+//     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
+//     coldtrace_thread_stack_push(md, (void *)ev->caller);
+// })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
-    const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
-    coldtrace_thread_stack_pop(md);
-})
+// PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
+//     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
+//     coldtrace_thread_stack_pop(md);
+// })
 
 PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ, {
     struct ma_read_event *ev  = EVENT_PAYLOAD(ev);
