@@ -38,9 +38,14 @@ jobs:
       - name: Build
         run: cmake --build build
       - name: Test
+        env:
+          DICE_EXCLUDE_DSO: nonsense
         run: ctest --test-dir build --output-on-failure
       - name: Test disabled writes
-        run: COLDTRACE_DISABLE_WRITES=true ctest --test-dir build -L trace --output-on-failure
+        env:
+          DICE_EXCLUDE_DSO: nonsense
+          COLDTRACE_DISABLE_WRITES: true
+        run: ctest --test-dir build -L trace --output-on-failure
       - name: Install
         run: cmake --install build
   check-format:
