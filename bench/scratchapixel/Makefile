@@ -43,7 +43,7 @@ TARGET+=	header
 TARGET+=	tsan
 DEP.tsan=	.sanitized.bld
 DIR.tsan=	$(DIR.sanitized)
-RUN.tsan=	$(TESTER) 'env TSAN_OPTIONS=report_bugs=0 $(RUNCMD)'
+RUN.tsan=	$(TESTER) 'env TSAN_OPTIONS=report_bugs=0 setarch $(uname -m) -R $(RUNCMD)'
 PRO.tsan=	$(PARSE)
 # Linux: if TSAN fails with "FATAL: ThreadSanitizer: unexpected memory mapping"
 # Try running this
