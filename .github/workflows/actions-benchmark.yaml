@@ -1,0 +1,36 @@
+name: Run Benchmarks
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y miller cmake make
+
+      - name: Build project
+        run: |
+          cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=Release
+          cmake --build build
+
+      - name: Run benchmark script
+        run: |
+          chmod +x scripts/benchmark.sh
+          ./scripts/benchmark.sh --config --build --force-run --force-sum
+
+      - name: Print summary to GitHub Actions
+        run: |
+          SUMMARY_FILE=$(ls results/bench-*.md | head -n 1)
+          cat "$SUMMARY_FILE" >> $GITHUB_STEP_SUMMARY

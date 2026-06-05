@@ -1,4 +1,5 @@
 build
+results
 .cache
 .kakrc
 deps/bingo-installer/

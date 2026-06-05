@@ -70,7 +70,7 @@ PRO.baseline=	$(PARSECMD)
 TARGET+=	tsan
 DEP.tsan=	.populate.run
 DIR.tsan=	$(DIR.sanitized)
-RUN.tsan=	env TSAN_OPTIONS=report_bugs=0 $(RUNCMD)
+RUN.tsan=	env TSAN_OPTIONS=report_bugs=0 setarch $(uname -m) -R $(RUNCMD)
 PRO.tsan=	$(PARSECMD)
 # Linux: if TSAN fails with "FATAL: ThreadSanitizer: unexpected memory mapping"
 # Try running this
