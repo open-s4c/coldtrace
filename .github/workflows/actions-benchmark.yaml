@@ -2,7 +2,7 @@ name: Run Benchmarks
 
 on:
   push:
-    branches: [ main, master, ci ]
+    branches: [ main, master ]
   pull_request:
   workflow_dispatch:
 
@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       actions: read
+      contents: read
       
     steps:
       - name: Checkout code

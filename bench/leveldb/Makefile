@@ -57,6 +57,13 @@ RUN.populate= 	rm -rf $(DBDIR) && $(COMMAND) --threads=1 --benchmarks=fillseq
 TARGET+=	results
 PRO.results=	echo 'variant; time_s; count; count_1' > $(WORKDIR)/results.csv
 
+TSAN_ASLR_WORKAROUND := $(shell \
+    if [ "$$(uname -s)" = "Linux" ] && \
+       uname -r | awk -F. '{if ($$1 > 6 || ($$1 == 6 && $$2 >= 6)) exit 0; else exit 1}'; then \
+        echo "setarch $$(uname -m) -R"; \
+    fi \
+)
+
 # ------------------------------------------------------------------------------
 # Variants
 # ------------------------------------------------------------------------------
@@ -70,7 +77,7 @@ PRO.baseline=	$(PARSECMD)
 TARGET+=	tsan
 DEP.tsan=	.populate.run
 DIR.tsan=	$(DIR.sanitized)
-RUN.tsan=	env TSAN_OPTIONS=report_bugs=0 setarch $(uname -m) -R $(RUNCMD)
+RUN.tsan=	env TSAN_OPTIONS=report_bugs=0 $(TSAN_ASLR_WORKAROUND) $(RUNCMD)
 PRO.tsan=	$(PARSECMD)
 # Linux: if TSAN fails with "FATAL: ThreadSanitizer: unexpected memory mapping"
 # Try running this
