@@ -35,6 +35,13 @@ CFG.sanitized=	cmake ../$(DIR.clone)/$(RASTERIZATION) \
 			-DCMAKE_EXE_LINKER_FLAGS=$(LDFLAGS)
 BLD.sanitized=	$(MAKE) -j 8
 
+TSAN_ASLR_WORKAROUND := $(shell \
+    if [ "$$(uname -s)" = "Linux" ] && \
+       uname -r | awk -F. '{if ($$1 > 6 || ($$1 == 6 && $$2 >= 6)) exit 0; else exit 1}'; then \
+        echo "setarch $$(uname -m) -R"; \
+    fi \
+)
+
 # ------------------------------------------------------------------------------
 # Variants
 # ------------------------------------------------------------------------------
@@ -49,7 +56,7 @@ PRO.baseline=	$(PARSE)
 TARGET+=	tsan
 DEP.tsan=	.sanitized.bld
 DIR.tsan=	$(DIR.sanitized)
-RUN.tsan=	$(TESTER) 'env TSAN_OPTIONS=report_bugs=0 setarch $(uname -m) -R $(RUNCMD)'
+RUN.tsan=	$(TESTER) 'env TSAN_OPTIONS=report_bugs=0 $(TSAN_ASLR_WORKAROUND) $(RUNCMD)'
 PRO.tsan=	$(PARSE)
 # Linux: if TSAN fails with "FATAL: ThreadSanitizer: unexpected memory mapping"
 # Try running this
