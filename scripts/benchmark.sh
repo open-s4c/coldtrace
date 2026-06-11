@@ -91,6 +91,7 @@ done
 # --- GENERATE SUMMARY ---
 DATE=$(date "+%Y-%m-%d %H:%M:%S")
 HOST=$(hostname -s)
+BRANCH=$(git branch --show-current 2>/dev/null || echo "")
 FILE_DATE=$(echo "$DATE" | tr ' ' '_' | tr ':' '-') 
 SUMMARY="$RESULTS_DIR/bench-$FILE_DATE.md"
 
@@ -104,7 +105,7 @@ echo "--> Generating Environment Metadata"
     echo "## Environment"
     echo
     echo "- OS:  $(uname -srm)"
-    echo "- Tag: $(git rev-parse --short HEAD 2>/dev/null || echo 'N/A') ($(git branch --show-current 2>/dev/null || echo 'detached'))"
+    echo "- Tag: $(git rev-parse --short HEAD 2>/dev/null || echo 'N/A') (${BRANCH:-detached})"
 } >> "$SUMMARY"
 
 # --- PROCESS & APPEND BENCHMARK RESULTS ---

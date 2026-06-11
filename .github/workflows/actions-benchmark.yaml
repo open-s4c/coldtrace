@@ -8,7 +8,16 @@ on:
 
 jobs:
   benchmark:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-24.04, ubuntu-22.04]
+        cfg:
+          - cc: gcc
+            cxx: g++
+          - cc: clang
+            cxx: clang++
+    runs-on: ${{ matrix.os }}
+
     permissions:
       actions: read
       contents: read
@@ -33,14 +42,17 @@ jobs:
           
           if [ -n "$LAST_RUN" ] && [ "$LAST_RUN" != "null" ]; then
             echo "Found previous successful run on main: $LAST_RUN"
-            gh run download $LAST_RUN --name benchmark-results --dir previous_results || echo "No previous artifact found."
+            gh run download $LAST_RUN --name "results-${{ matrix.os }}-${{ matrix.cfg.cc }}" --dir previous_results || echo "No previous artifact found."
           else
             echo "No previous successful run found on the main branch."
           fi
 
       - name: Build project
         run: |
-          cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=Release
+          cmake -S . -Bbuild \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=${{ matrix.cfg.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cfg.cxx }}
           cmake --build build
 
       - name: Run benchmark script
@@ -62,14 +74,13 @@ jobs:
             echo "Comparing $PREV_SUMMARY against $CURR_SUMMARY"  
             python3 scripts/bench-comparison.py "$PREV_SUMMARY" "$CURR_SUMMARY" >> $GITHUB_STEP_SUMMARY
           else
-            echo "Skipping comparison: No previous baseline from main available."
+            echo "Skipping comparison: No previous baseline from main available for this matrix configuration."
           fi
 
       - name: Save current results as Artifact (Main branch only)
         uses: actions/upload-artifact@v4
-        # Save the baseline only if we are on main AND the workflow hasn't failed
         if: github.ref == 'refs/heads/main' && success()
         with:
-          name: benchmark-results
+          name: "results-${{ matrix.os }}-${{ matrix.cfg.cc }}"
           path: results/
           overwrite: true
