@@ -104,6 +104,12 @@ struct coldtrace_free_entry {
     struct coldtrace_stack_diff stack;
 };
 
+struct coldtrace_atomic_access_entry {
+    struct coldtrace_entry_header _;
+    uint64_t size;
+    uint64_t atomic_index;
+};
+
 struct coldtrace_atomic_entry {
     struct coldtrace_entry_header _;
     uint64_t atomic_index;
