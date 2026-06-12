@@ -40,6 +40,7 @@ COLD_ACCESS_ENTRY_SZ = 4 * 8       # bytes; sizeof(L3_ENTRY)
 COLD_ALLOC_ENTRY_SZ = 5 * 8       # bytes; sizeof(L3_ENTRY)
 COLD_FREE_ENTRY_SZ = 4 * 8       # bytes; sizeof(L3_ENTRY)
 COLD_ATOMIC_ENTRY_SZ = 2 * 8       # bytes; sizeof(L3_ENTRY)
+COLD_ATOMIC_ACCESS_ENTRY_SZ = 3 * 8  # bytes; sizeof(L3_ENTRY)
 COLD_THREAD_ENTRY_SZ = 4 * 8       # bytes; sizeof(L3_ENTRY)
 
 if len(sys.argv) != 2 and not (len(sys.argv) == 3 and sys.argv[2] == "-d"):
@@ -177,6 +178,9 @@ for f in file_list:
                     print(stacks)
             elif (entry_type.value == 9):
                 atomic_timestamp, thread_stack_ptr, thread_stack_size = struct.unpack('<QQQ', file.read(COLD_THREAD_ENTRY_SZ - COLD_BASE_ENTRY_SZ))
+            elif (entry_type.value == 4 or entry_type.value == 5): # ATOMIC_READ & ATOMIC_WRITE
+                raw_ext = file.read(COLD_ATOMIC_ACCESS_ENTRY_SZ - COLD_BASE_ENTRY_SZ)
+                size, atomic_timestamp = struct.unpack('<QQ', raw_ext)
             else:
                 atomic_timestamp, = struct.unpack('<Q', file.read(COLD_ATOMIC_ENTRY_SZ - COLD_BASE_ENTRY_SZ))
 
@@ -193,9 +197,9 @@ for f in file_list:
                 case EntryType.WRITE:
                     print(f"{nentries}) {tid}: write access {size}B @{ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x}\n")
                 case EntryType.ATOMIC_READ:
-                    print(f"{nentries}) {tid}: atomic read @{ptr:x} [{atomic_timestamp}]\n")
+                    print(f"{nentries}) {tid}: atomic read {size}B @{ptr:x} [{atomic_timestamp}]\n")
                 case EntryType.ATOMIC_WRITE:
-                    print(f"{nentries}) {tid}: atomic write @{ptr:x} [{atomic_timestamp}]\n")
+                    print(f"{nentries}) {tid}: atomic write {size}B @{ptr:x} [{atomic_timestamp}]\n")
                 case EntryType.LOCK_ACQUIRE:
                     print(f"{nentries}) {tid}: acquire lock @{ptr:x} [{atomic_timestamp}]\n")
                 case EntryType.LOCK_RELEASE:

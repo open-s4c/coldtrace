@@ -22,6 +22,13 @@ TARGET+=	rendertri
 DIR.rendertri=	rendertri
 BLD.rendertri=	$(MAKE) CXX_FLAGS='$(CXX_FLAGS) $(CXXFLAGS_EXTRA) $(LDFLAGS)'
 
+TSAN_ASLR_WORKAROUND := $(shell \
+    if [ "$$(uname -s)" = "Linux" ] && \
+       uname -r | awk -F. '{if ($$1 > 6 || ($$1 == 6 && $$2 >= 6)) exit 0; else exit 1}'; then \
+        echo "setarch $$(uname -m) -R"; \
+    fi \
+)
+
 # ------------------------------------------------------------------------------
 # Variants
 # ------------------------------------------------------------------------------
@@ -29,7 +36,7 @@ TARGET+=	header
 
 TARGET+=	tsan
 DIR.tsan=	rendertri
-RUN.tsan=	$(TESTER) 'env TSAN_OPTIONS=report_bugs=0 $(RUNCMD)'
+RUN.tsan=	$(TESTER) 'env TSAN_OPTIONS=report_bugs=0 $(TSAN_ASLR_WORKAROUND) $(RUNCMD)'
 PRO.tsan=	$(PARSE)
 # Linux: if TSAN fails with "FATAL: ThreadSanitizer: unexpected memory mapping"
 # Try running this
