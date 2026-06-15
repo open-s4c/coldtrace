@@ -67,14 +67,9 @@ def compare_benchmarks(prev_data, curr_data):
             if (benchmark in prev_data and variant in prev_data[benchmark] 
                 and variant in CHECK_VARIANTS):
                 
-                if benchmark.lower() == "leveldb":
-                    prev_count = prev_data[benchmark][variant].get("count", 0)
-                    curr_count = curr_data[benchmark][variant].get("count", 0)
-                    speedup = curr_count / prev_count if prev_count > 0 else float('inf')
-                else:
-                    prev_time = prev_data[benchmark][variant].get("time_ms", 0)
-                    curr_time = curr_data[benchmark][variant].get("time_ms", 0)
-                    speedup = prev_time / curr_time if curr_time > 0 else float('inf')
+                prev_time = prev_data[benchmark][variant].get("time_ms", 0)
+                curr_time = curr_data[benchmark][variant].get("time_ms", 0)
+                speedup = prev_time / curr_time if curr_time > 0 else float('inf')
 
                 comparison[benchmark][variant] = {
                     "speedup": speedup,

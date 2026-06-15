@@ -6,12 +6,7 @@
 # ------------------------------------------------------------------------------
 DBDIR=		/tmp/bench.db
 COMMAND=	./db_bench --db=$(DBDIR)
-RUNCMD= 	$(COMMAND) --threads=1 --benchmarks=readrandom --duration=10
-PARSECMD=	cat $(WORKDIR)/$*.run.log  \
-		| grep benchstats \
-		| cut -d: -f2 \
-		| xargs -n1 echo "$*"';' \
-		| tee -a $(WORKDIR)/results.csv
+RUNCMD= 	$(COMMAND) --threads=1 --benchmarks=readrandom --reads=500000
 BUNDLE_DIR=	$(PROJECT)/build/bench/lib/
 
 # ------------------------------------------------------------------------------
@@ -54,9 +49,6 @@ TARGET+=	populate
 DIR.populate=	$(DIR.vanilla)
 RUN.populate= 	rm -rf $(DBDIR) && $(COMMAND) --threads=1 --benchmarks=fillseq
 
-TARGET+=	results
-PRO.results=	echo 'variant; time_s; count; count_1' > $(WORKDIR)/results.csv
-
 TSAN_ASLR_WORKAROUND := $(shell \
     if [ "$$(uname -s)" = "Linux" ] && \
        uname -r | awk -F. '{if ($$1 > 6 || ($$1 == 6 && $$2 >= 6)) exit 0; else exit 1}'; then \
@@ -67,18 +59,19 @@ TSAN_ASLR_WORKAROUND := $(shell \
 # ------------------------------------------------------------------------------
 # Variants
 # ------------------------------------------------------------------------------
+TARGET+=	header
 
 TARGET+=	baseline
 DEP.baseline=	.populate.run
 DIR.baseline=	$(DIR.vanilla)
-RUN.baseline= 	env $(RUNCMD)
-PRO.baseline=	$(PARSECMD)
+RUN.baseline= 	$(TESTER) '$(RUNCMD)'
+PRO.baseline=	$(PARSE)
 
 TARGET+=	tsan
 DEP.tsan=	.populate.run
 DIR.tsan=	$(DIR.sanitized)
-RUN.tsan=	env TSAN_OPTIONS=report_bugs=0 $(TSAN_ASLR_WORKAROUND) $(RUNCMD)
-PRO.tsan=	$(PARSECMD)
+RUN.tsan=	$(TESTER) 'env TSAN_OPTIONS=report_bugs=0 $(TSAN_ASLR_WORKAROUND) $(RUNCMD)'
+PRO.tsan=	$(PARSE)
 # Linux: if TSAN fails with "FATAL: ThreadSanitizer: unexpected memory mapping"
 # Try running this
 #	sudo sysctl vm.mmap_rnd_bits=30
@@ -86,23 +79,23 @@ PRO.tsan=	$(PARSECMD)
 TARGET+=	tsano
 DEP.tsano=	.populate.run
 DIR.tsano=	$(DIR.sanitized)
-RUN.tsano=	env TSANO_LIBDIR=$(TSANO_LIBDIR) $(TSANO_CMD) $(RUNCMD)
-PRO.tsano=	$(PARSECMD)
+RUN.tsano=	$(TESTER) 'env TSANO_LIBDIR=$(TSANO_LIBDIR) $(TSANO_CMD) $(RUNCMD)'
+PRO.tsano=	$(PARSE)
 
 TARGET+=	coldtrace
 DEP.coldtrace=	.populate.run
 DIR.coldtrace=	$(DIR.sanitized)
 DIR.coldtrace=	$(DIR.tsan)
-RUN.coldtrace=	env $(COLDTRACE_CMD) $(RUNCMD)
-PRO.coldtrace=	$(PARSECMD)
+RUN.coldtrace=	$(TESTER) 'env $(COLDTRACE_CMD) $(RUNCMD)'
+PRO.coldtrace=	$(PARSE)
 
 TARGET+=	nowrites
 DEP.nowrites=	.populate.run
 DIR.nowrites=	$(DIR.sanitized)
 DIR.nowrites=	$(DIR.tsan)
-RUN.nowrites=	env COLDTRACE_DISABLE_WRITES=true \
-			$(COLDTRACE_CMD) $(RUNCMD)
-PRO.nowrites=	$(PARSECMD)
+RUN.nowrites=	$(TESTER) 'env COLDTRACE_DISABLE_WRITES=true \
+			$(COLDTRACE_CMD) $(RUNCMD)'
+PRO.nowrites=	$(PARSE)
 
 # file to build internal tool (freezer)
 # assumes libfreeze.so to be in the current directory
@@ -110,9 +103,9 @@ PRO.nowrites=	$(PARSECMD)
 DEP.freezer=	.populate.run
 DIR.freezer=	$(DIR.sanitized)
 DIR.freezer=	$(DIR.tsan)
-RUN.freezer=	env FREEZER_TRACE_PATH=traces \
-			LD_PRELOAD=$(ROOTDIR)/libfreeze.so $(RUNCMD)
-PRO.freezer=	$(PARSECMD)
+RUN.freezer=	FREEZER_TRACE_PATH=traces $(TESTER) \
+		'env LD_PRELOAD=$(ROOTDIR)/libfreeze.so $(RUNCMD)'
+PRO.freezer=	$(PARSE)
 
 # ------------------------------------------------------------------------------
 BENCHMK= ../bench.mk

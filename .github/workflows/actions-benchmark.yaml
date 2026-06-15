@@ -9,6 +9,7 @@ on:
 jobs:
   benchmark:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-24.04, ubuntu-22.04]
         cfg:
@@ -16,6 +17,7 @@ jobs:
             cxx: g++
           - cc: clang
             cxx: clang++
+        benchmark: [leveldb, raytracing, scratchapixel]
     runs-on: ${{ matrix.os }}
 
     permissions:
@@ -23,64 +25,59 @@ jobs:
       contents: read
       
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y miller hyperfine cmake make python3
 
-      - name: Download previous benchmark results from main
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          # Find the last successful workflow run ID on the main branch
-          LAST_RUN=$(gh run list --branch main --workflow "Run Benchmarks" --status success --json databaseId --jq '.[0].databaseId')
-          
-          if [ -n "$LAST_RUN" ] && [ "$LAST_RUN" != "null" ]; then
-            echo "Found previous successful run on main: $LAST_RUN"
-            gh run download $LAST_RUN --name "results-${{ matrix.os }}-${{ matrix.cfg.cc }}" --dir previous_results || echo "No previous artifact found."
-          else
-            echo "No previous successful run found on the main branch."
-          fi
+      - name: Checkout current code
+        uses: actions/checkout@v6
+        with:
+          path: current
+          submodules: recursive
 
-      - name: Build project
+      - name: Checkout main branch (Baseline)
+        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+        uses: actions/checkout@v6
+        with:
+          ref: main
+          path: baseline
+          submodules: recursive
+
+      - name: Build and Benchmark Baseline
+        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
+        working-directory: ./baseline
         run: |
           cmake -S . -Bbuild \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_C_COMPILER=${{ matrix.cfg.cc }} \
             -DCMAKE_CXX_COMPILER=${{ matrix.cfg.cxx }}
           cmake --build build
-
-      - name: Run benchmark script
-        run: |
           chmod +x scripts/benchmark.sh
-          ./scripts/benchmark.sh --config --build --force-run --force-sum
+          ./scripts/benchmark.sh --config --build --force-run --force-sum ${{ matrix.benchmark }}
 
-      - name: Print current summary to GitHub Actions
+      - name: Build and Benchmark Current Code
+        working-directory: ./current
+        run: |
+          cmake -S . -Bbuild \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_C_COMPILER=${{ matrix.cfg.cc }} \
+            -DCMAKE_CXX_COMPILER=${{ matrix.cfg.cxx }}
+          cmake --build build
+          chmod +x scripts/benchmark.sh
+          ./scripts/benchmark.sh --config --build --force-run --force-sum ${{ matrix.benchmark }}
+
+      - name: Print summary to GitHub Actions
+        working-directory: ./current
         run: |
           SUMMARY_FILE=$(ls results/bench-*.md | head -n 1)
           cat "$SUMMARY_FILE" >> $GITHUB_STEP_SUMMARY
 
       - name: Compare Benchmarks
+        if: github.event_name == 'pull_request' || github.ref != 'refs/heads/main'
         run: |
-          if [ -d "previous_results" ]; then
-            PREV_SUMMARY=$(ls previous_results/bench-*.md | head -n 1)
-            CURR_SUMMARY=$(ls results/bench-*.md | head -n 1)
+          PREV_SUMMARY=$(ls baseline/results/bench-*.md | head -n 1)
+          CURR_SUMMARY=$(ls current/results/bench-*.md | head -n 1)
 
-            echo "Comparing $PREV_SUMMARY against $CURR_SUMMARY"  
-            python3 scripts/bench-comparison.py "$PREV_SUMMARY" "$CURR_SUMMARY" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Skipping comparison: No previous baseline from main available for this matrix configuration."
-          fi
-
-      - name: Save current results as Artifact (Main branch only)
-        uses: actions/upload-artifact@v4
-        if: github.ref == 'refs/heads/main' && success()
-        with:
-          name: "results-${{ matrix.os }}-${{ matrix.cfg.cc }}"
-          path: results/
-          overwrite: true
+          echo "Comparing $PREV_SUMMARY against $CURR_SUMMARY"  
+          python3 current/scripts/bench-comparison.py "$PREV_SUMMARY" "$CURR_SUMMARY" >> $GITHUB_STEP_SUMMARY
