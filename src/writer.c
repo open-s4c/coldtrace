@@ -30,7 +30,7 @@ struct writer_impl {
     metadata_t *md;
 };
 
-void
+static bool
 create_coldtrace_version_header(struct writer_impl *impl)
 {
     struct version_header *header =
@@ -39,22 +39,26 @@ create_coldtrace_version_header(struct writer_impl *impl)
 
     if (header == NULL) {
         log_fatal("error: Could not reserve version header in writer");
+        return false;
     }
     *header = current_version_header;
+    return true;
 }
 
 STATIC_ASSERT(sizeof(struct writer_impl) == sizeof(struct coldtrace_writer),
               "incorrect writer_impl size");
 
-static void
+static bool
 get_trace_(struct writer_impl *impl)
 {
     if (!impl->initd) {
         log_fatal("Writer not initialized (at %s:%d)", __FILE__, __LINE__);
+        return false;
     }
-    if (impl->buffer) {
-        return;
+    if (impl->buffer && impl->buffer != MAP_FAILED) {
+        return true;
     }
+    impl->buffer = NULL;
 
     impl->size       = coldtrace_get_trace_size();
     impl->offset     = 0;
@@ -62,8 +66,16 @@ get_trace_(struct writer_impl *impl)
 
     if (coldtrace_writes_disabled()) {
         impl->buffer = mempool_alloc(impl->size);
-        create_coldtrace_version_header(impl);
-        return;
+        if (impl->buffer == NULL) {
+            log_fatal("Could not allocate trace buffer");
+            return false;
+        }
+        if (!create_coldtrace_version_header(impl)) {
+            mempool_free(impl->buffer);
+            impl->buffer = NULL;
+            return false;
+        }
+        return true;
     }
 
     const char *pattern = coldtrace_get_file_pattern();
@@ -79,16 +91,32 @@ get_trace_(struct writer_impl *impl)
             break;
         }
     }
+    if (fd == -1) {
+        log_fatal("open get_trace: %s", strerror(errno));
+        return false;
+    }
     if (ftruncate(fd, impl->size) == -1) {
         log_fatal("ftruncate get_trace: %s", strerror(errno));
+        close(fd);
+        return false;
     }
     impl->buffer =
         mmap(NULL, impl->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     close(fd);
-    create_coldtrace_version_header(impl);
+    if (impl->buffer == MAP_FAILED) {
+        log_fatal("mmap get_trace: %s", strerror(errno));
+        impl->buffer = NULL;
+        return false;
+    }
+    if (!create_coldtrace_version_header(impl)) {
+        munmap(impl->buffer, impl->size);
+        impl->buffer = NULL;
+        return false;
+    }
+    return true;
 }
 
-static void
+static bool
 new_trace_(struct writer_impl *impl)
 {
     coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
@@ -97,14 +125,27 @@ new_trace_(struct writer_impl *impl)
 
         if (impl->size != trace_size) {
             impl->size = trace_size;
-            mempool_free(impl->buffer);
+            if (impl->buffer) {
+                mempool_free(impl->buffer);
+            }
             impl->buffer = mempool_alloc(impl->size);
+            if (impl->buffer == NULL) {
+                log_fatal("Could not allocate trace buffer");
+                return false;
+            }
         }
         impl->offset = 0;
-        create_coldtrace_version_header(impl);
-        return;
+        if (!create_coldtrace_version_header(impl)) {
+            mempool_free(impl->buffer);
+            impl->buffer = NULL;
+            return false;
+        }
+        return true;
     }
-    munmap(impl->buffer, impl->size);
+    if (impl->buffer && impl->buffer != MAP_FAILED) {
+        munmap(impl->buffer, impl->size);
+    }
+    impl->buffer = NULL;
 
     impl->enumerator = (impl->enumerator + 1) % coldtrace_get_max();
     impl->size       = coldtrace_get_trace_size();
@@ -114,14 +155,30 @@ new_trace_(struct writer_impl *impl)
     char file_name[strlen(pattern) + FORMAT_EXPANSION_SPACE];
     sprintf(file_name, pattern, impl->tid, impl->enumerator);
     int fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, FILE_PERMISSIONS);
+    if (fd == -1) {
+        log_fatal("open new_trace: %s", strerror(errno));
+        return false;
+    }
     if (ftruncate(fd, impl->size) == -1) {
         log_fatal("ftruncate new_trace: %s", strerror(errno));
+        close(fd);
+        return false;
     }
 
     impl->buffer =
         mmap(NULL, impl->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     close(fd);
-    create_coldtrace_version_header(impl);
+    if (impl->buffer == MAP_FAILED) {
+        log_fatal("mmap new_trace: %s", strerror(errno));
+        impl->buffer = NULL;
+        return false;
+    }
+    if (!create_coldtrace_version_header(impl)) {
+        munmap(impl->buffer, impl->size);
+        impl->buffer = NULL;
+        return false;
+    }
+    return true;
 }
 
 
@@ -129,8 +186,7 @@ DICE_HIDE void *
 coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
 {
     struct writer_impl *impl = (struct writer_impl *)ct;
-    get_trace_(impl);
-    if (impl->buffer == MAP_FAILED || impl->buffer == NULL) {
+    if (!get_trace_(impl)) {
         return NULL;
     }
 
@@ -142,8 +198,7 @@ coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
     }
 
     if ((impl->offset + size) > trace_size) {
-        new_trace_(impl);
-        if (impl->buffer == MAP_FAILED || impl->buffer == NULL) {
+        if (!new_trace_(impl)) {
             return NULL;
         }
     }
@@ -156,22 +211,30 @@ coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
 DICE_HIDE void
 coldtrace_writer_init(struct coldtrace_writer *ct, metadata_t *md)
 {
+    struct writer_impl *impl;
+    impl             = (struct writer_impl *)ct;
+    impl->initd      = false;
+    impl->tid        = 0;
+    impl->buffer     = NULL;
+    impl->size       = 0;
+    impl->offset     = 0;
+    impl->enumerator = 0;
+    impl->md         = md;
+
     // Ensure the size of implementation matches the public size
     if (sizeof(struct writer_impl) != sizeof(struct coldtrace_writer)) {
         log_fatal(
             "Size mismatch between writer_impl %zu and coldtrace_writer %zu",
             sizeof(struct writer_impl), sizeof(struct coldtrace_writer));
+        return;
     }
     if (md == NULL) {
         log_fatal("No metadata provided (at %s:%d)", __FILE__, __LINE__);
+        return;
     }
-    struct writer_impl *impl;
-    impl         = (struct writer_impl *)ct;
-    impl->initd  = true;
-    impl->tid    = self_id(md);
-    impl->buffer = NULL;
-    impl->size   = 0;
-    impl->md     = md;
+
+    impl->initd = true;
+    impl->tid   = self_id(md);
 }
 
 DICE_HIDE void
@@ -183,9 +246,20 @@ coldtrace_writer_fini(struct coldtrace_writer *ct)
     }
     coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
 
+    // See writer.h contract: backend selection must remain stable for active
+    // writers, so cleanup follows coldtrace_writes_disabled().
     if (coldtrace_writes_disabled()) {
-        mempool_free(impl->buffer);
+        if (impl->buffer) {
+            mempool_free(impl->buffer);
+        }
+    } else if (impl->buffer && impl->buffer != MAP_FAILED) {
+        munmap(impl->buffer, impl->size);
     }
+
+    impl->buffer = NULL;
+    impl->offset = 0;
+    impl->size   = 0;
+    impl->initd  = false;
 }
 
 

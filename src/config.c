@@ -23,6 +23,7 @@ DICE_MODULE_INIT({
     char *var = getenv("COLDTRACE_PATH");
     if (var == NULL) {
         log_fatal("Set COLDTRACE_PATH to a valid directory\n");
+        return 0;
     }
     coldtrace_set_path(var);
 
@@ -31,6 +32,7 @@ DICE_MODULE_INIT({
             "COLDTRACE_PATH '%s' already exists, choose a non-existing "
             "directory",
             var);
+        return 0;
     }
 
     if (getenv("COLDTRACE_DISABLE_CLEANUP") == NULL)
@@ -38,6 +40,7 @@ DICE_MODULE_INIT({
             log_fatal(
                 "COLDTRACE_PATH '%s' is not empty, the directory must be empty",
                 var);
+            return 0;
         }
 
     var = getenv("COLDTRACE_MAX_FILES");
@@ -59,8 +62,13 @@ DICE_MODULE_INIT({
 DICE_HIDE void
 coldtrace_set_path(const char *path)
 {
+    if (path == NULL) {
+        log_fatal("error: invalid path\n");
+        return;
+    }
     if (strlen(path) >= (sizeof(pattern_) - sizeof(COLDTRACE_FILE_SUFFIX))) {
         log_fatal("error: path too long\n");
+        return;
     }
     strcpy(path_, path);
     strcpy(pattern_, path);

@@ -13,6 +13,13 @@
 // per-thread writer
 void coldtrace_thread_init(struct metadata *md);
 void coldtrace_thread_fini(struct metadata *md);
+
+/* Appends an entry to the current thread trace.
+ *
+ * Returns a pointer to transient writer-owned storage, or NULL on failure.
+ * Callers must write fields immediately and must not retain this pointer
+ * beyond the current event handling scope.
+ */
 void *coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
                               const void *ptr);
 void coldtrace_thread_set_create_idx(struct metadata *md, uint64_t idx);
