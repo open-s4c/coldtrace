@@ -19,12 +19,12 @@ jobs:
           cxx: clang++
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
       - name: Checkout Dice
         if: ${{ github.event_name == 'repository_dispatch' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: open-s4c/dice
           ref: ${{ github.event.client_payload.commit }}
@@ -46,7 +46,7 @@ jobs:
   check-format:
     runs-on: ubuntu-24.04
     steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v6
           with:
             submodules: recursive
         - name: Check clang-format version
@@ -60,7 +60,7 @@ jobs:
   check-linter:
     runs-on: ubuntu-24.04
     steps:
-        - uses: actions/checkout@v4
+        - uses: actions/checkout@v6
           with:
             submodules: recursive
         - name: Check clang-tidy version
@@ -77,7 +77,7 @@ jobs:
     needs: test-linux
     steps:
       - name: Checkout Dice
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: open-s4c/dice
           ref: ${{ github.event.client_payload.commit }}
