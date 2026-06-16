@@ -24,7 +24,7 @@ LDFLAGS!=	if [ "$(CXX)" = "clang++" ]; then echo '-shared-libsan'; fi
 
 # For testing we use hyperfine if available, otherwise simply call command
 TESTER!=	if which hyperfine > /dev/null; \
-		then echo "hyperfine"; \
+		then echo "hyperfine --warmup 1"; \
 		else echo "sh -c"; fi
 
 # If hyperfine is used, we can parse the results with the following command
