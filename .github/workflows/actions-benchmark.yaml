@@ -9,6 +9,7 @@ on:
 jobs:
   benchmark:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-24.04, ubuntu-22.04]
         cfg:
@@ -16,6 +17,7 @@ jobs:
             cxx: g++
           - cc: clang
             cxx: clang++
+        benchmark: [leveldb, raytracing, scratchapixel]
     runs-on: ${{ matrix.os }}
 
     permissions:
@@ -52,7 +54,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.cfg.cxx }}
           cmake --build build
           chmod +x scripts/benchmark.sh
-          ./scripts/benchmark.sh --config --build --force-run --force-sum
+          ./scripts/benchmark.sh --config --build --force-run --force-sum ${{ matrix.benchmark }}
 
       - name: Build and Benchmark Current Code
         working-directory: ./current
@@ -63,7 +65,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.cfg.cxx }}
           cmake --build build
           chmod +x scripts/benchmark.sh
-          ./scripts/benchmark.sh --config --build --force-run --force-sum
+          ./scripts/benchmark.sh --config --build --force-run --force-sum ${{ matrix.benchmark }}
 
       - name: Print summary to GitHub Actions
         working-directory: ./current
