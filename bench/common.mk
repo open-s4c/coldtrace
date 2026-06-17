@@ -28,12 +28,13 @@ TESTER!=	if which hyperfine > /dev/null; \
 		else echo "sh -c"; fi
 
 # If hyperfine is used, we can parse the results with the following command
-PARSE=		cat $(WORKDIR)/$*.run.log \
-		| grep Time | tr -s ' ' \
-		| cut -d' ' -f6,9 \
-		| tr ' ' '\;' \
-		| xargs -n1 echo "$*"';' \
-		| tee -a $(WORKDIR)/results.csv
+PARSE=      awk -v tgt=$* '/Time/ && /mean/ { \
+                m = \$$\$$5; \
+                if (\$$\$$6 ~ /^s\$$\$$/) m = m * 1000; \
+                s = \$$\$$8; \
+                if (\$$\$$9 ~ /^s\$$\$$/) s = s * 1000; \
+                print tgt, m, s \
+            }' $(WORKDIR)/$*.run.log | sed 's/ /;/g' | tee -a $(WORKDIR)/results.csv
 
 # Add TARGET+=header to initialize the results.csv file
 PRO.header=	echo 'variant; time_ms; stddev' > $(WORKDIR)/results.csv
