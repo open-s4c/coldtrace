@@ -37,4 +37,4 @@ PARSE=      awk -v tgt=$* '/Time/ && /mean/ { \
             }' $(WORKDIR)/$*.run.log | sed 's/ /;/g' | tee -a $(WORKDIR)/results.csv
 
 # Add TARGET+=header to initialize the results.csv file
-PRO.header=	echo 'variant; time_ms; stddev' > $(WORKDIR)/results.csv
+PRO.header=	echo 'variant; time_ms; stddev_ms' > $(WORKDIR)/results.csv
