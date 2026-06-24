@@ -1,0 +1,18 @@
+group("all") {
+  deps = [
+    "//src:coldtrace",
+    "//deps/dice:all",
+  ]
+
+  if (coldtrace_tests) {
+    deps += [ "//test:tests" ]
+  }
+}
+
+group("tests") {
+  deps = [ "//test:tests" ]
+}
+
+group("run_tests") {
+  deps = [ "//test:run_tests" ]
+}

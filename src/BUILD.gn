@@ -1,0 +1,121 @@
+config("coldtrace_common") {
+  include_dirs = [
+    "//include",
+    "//deps/dice/include",
+    "//deps/dice/deps/libvsync/include",
+  ]
+  defines = [
+    "LOG_PREFIX=\"coldtrace: \"",
+    "DEFAULT_SMR_EBR",
+    "DICE_MAIN_START_DISABLE",
+    "MAX_TYPES=${dice_max_types}",
+    "MAX_CHAINS=${dice_max_chains}",
+    "MAX_BUILTIN_SLOTS=${dice_max_builtin_slots}",
+    "MEMPOOL_SIZE=${dice_mempool_size}",
+  ]
+  if (target_os == "netbsd") {
+    defines += [ "_XOPEN_SOURCE=700" ]
+  } else {
+    defines += [ "_GNU_SOURCE" ]
+  }
+  if (dice_log_level != "") {
+    defines += [ "LOG_LEVEL=${dice_log_level}" ]
+  }
+  cflags = [
+    "-fPIC",
+    "-g3",
+    "-Wall",
+    "-Werror",
+    "-Wextra",
+    "-Wno-uninitialized",
+    "-Wno-unused-variable",
+    "-Wno-unused-parameter",
+    "-Wno-unused-function",
+    "-Wno-ignored-qualifiers",
+    "-Wno-frame-address",
+    "-Wno-unused-command-line-argument",
+  ]
+  if (enable_lto) {
+    cflags += [ "-flto" ]
+    ldflags = [ "-flto" ]
+  }
+}
+
+source_set("coldtrace_core") {
+  configs = [ ":coldtrace_common" ]
+  sources = [
+    "thread.cpp",
+    "counters.c",
+    "utils.c",
+    "writer.c",
+    "entries.c",
+  ]
+}
+
+source_set("entries_obj") {
+  configs = [ ":coldtrace_common" ]
+  sources = [ "entries.c" ]
+}
+
+slot_sources = [
+  [ "config", "config.c", 1 ],
+  [ "procmaps", "procmaps.c", 2 ],
+  [ "subs_sem", "subs_sem.c", 3 ],
+  [ "subs_tsan", "subs_tsan.c", 4 ],
+  [ "subs_pthread", "subs_pthread.c", 5 ],
+  [ "subs_malloc", "subs_malloc.c", 6 ],
+  [ "subs_cxa", "subs_cxa.c", 7 ],
+  [ "subs_mman", "subs_mman.c", 8 ],
+  [ "subs_annotate_rwlock", "subs_annotate_rwlock.c", 9 ],
+  [ "subs_memcpy", "subs_memcpy.c", 10 ],
+]
+
+slot_targets = []
+foreach(entry, slot_sources) {
+  target = "slot_${entry[0]}"
+  source_name = entry[1]
+  offset = entry[2]
+  slot_value = coldtrace_base_slot + offset
+  slot_targets += [ ":${target}" ]
+
+  source_set(target) {
+    configs = [ ":coldtrace_common" ]
+    sources = [ source_name ]
+    defines = [
+      "COLDTRACE_BASE_SLOT=${coldtrace_base_slot}",
+      "DICE_MODULE_SLOT=${slot_value}",
+      "DICE_BUILTIN",
+    ]
+  }
+}
+
+static_library("coldtrace") {
+  deps = [
+    ":coldtrace_core",
+  ] + slot_targets + [
+    "//deps/dice:dice_obj",
+    "//deps/dice:dice_annotate_rwlock_obj",
+    "//deps/dice:dice_cxa_obj",
+    "//deps/dice:dice_malloc_obj",
+    "//deps/dice:dice_memcpy_obj",
+    "//deps/dice:dice_mman_obj",
+    "//deps/dice:dice_pthread_cond_obj",
+    "//deps/dice:dice_pthread_create_obj",
+    "//deps/dice:dice_pthread_mutex_obj",
+    "//deps/dice:dice_pthread_rwlock_obj",
+    "//deps/dice:dice_sem_obj",
+    "//deps/dice:dice_stacktrace_obj",
+    "//deps/dice:dice_tsan_obj",
+    "//deps/dice:dice_self_obj",
+  ]
+
+  if (!is_apple) {
+    deps += [ "//deps/dice:dice_pthread_spinlock_obj" ]
+  }
+}
+
+shared_library("coldtrace_shared") {
+  output_name = "libcoldtrace"
+  output_dir = "$root_out_dir/src"
+  deps = [ ":coldtrace" ]
+}
