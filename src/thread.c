@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-extern "C" {
 #include <coldtrace/config.h>
 #include <coldtrace/thread.h>
 #include <coldtrace/writer.h>
@@ -11,19 +10,21 @@ extern "C" {
 #include <dice/module.h>
 #include <dice/pubsub.h>
 #include <dice/self.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <vsync/atomic.h>
-}
 
-#include <cassert>
-#include <cstring>
-#include <vector>
+#define INITIAL_STACK_CAPACITY 16
 
 struct coldtrace_thread {
     struct coldtrace_writer writer;
     bool initd;
     uint32_t stack_bottom;
-    std::vector<void *> stack;
+    uint64_t *stack;
+    uint32_t stack_size;
+    uint32_t stack_capacity;
     uint64_t created_thread_idx;
 };
 
@@ -56,6 +57,42 @@ with_stack_(coldtrace_entry_type type)
     }
 }
 
+static void
+grow_stack_(struct coldtrace_thread *th)
+{
+    uint32_t new_capacity;
+    uint64_t *stack;
+    size_t bytes;
+
+    if (th->stack_capacity == 0) {
+        new_capacity = INITIAL_STACK_CAPACITY;
+    } else {
+        if (th->stack_capacity > UINT32_MAX / 2) {
+            log_fatal("error: Thread stack capacity overflow");
+        }
+        new_capacity = th->stack_capacity * 2;
+    }
+
+    bytes = (size_t)new_capacity * sizeof(*stack);
+    if (bytes / sizeof(*stack) != new_capacity) {
+        log_fatal("error: Thread stack size overflow");
+    }
+
+    stack = malloc(bytes);
+    if (stack == NULL) {
+        log_fatal("error: Could not allocate thread stack");
+    }
+    if (th->stack_size > 0) {
+        memcpy(stack, th->stack, (size_t)th->stack_size * sizeof(*stack));
+    }
+    if (th->stack != NULL) {
+        free(th->stack);
+    }
+
+    th->stack          = stack;
+    th->stack_capacity = new_capacity;
+}
+
 DICE_HIDE void *
 coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
                         const void *ptr)
@@ -64,34 +101,33 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
     uint64_t len                = coldtrace_entry_fixed_size(type);
     if (!with_stack_(type)) {
         struct coldtrace_entry_header *entry =
-            static_cast<struct coldtrace_entry_header *>(
-                coldtrace_writer_reserve(&th->writer, len));
+            (struct coldtrace_entry_header *)coldtrace_writer_reserve(
+                &th->writer, len);
         *entry = coldtrace_entry_init(type, ptr);
         return entry;
     }
 
-    std::vector<void *> &stack = th->stack;
-    uint32_t &stack_bot        = th->stack_bottom;
-    uint32_t stack_top         = (uint32_t)th->stack.size();
-    uint64_t *stack_base       = (uint64_t *)stack.data();
-    size_t stack_size          = (stack_top - stack_bot) * sizeof(uint64_t);
+    uint32_t stack_bot   = th->stack_bottom;
+    uint32_t stack_top   = th->stack_size;
+    uint64_t *stack_base = th->stack;
+    size_t stack_size    = (stack_top - stack_bot) * sizeof(uint64_t);
     void *e = coldtrace_writer_reserve(&th->writer, len + stack_size);
     if (e == NULL) {
         log_fatal("error: Could not reserve entry in writer");
     }
 
-    struct coldtrace_entry_header *entry =
-        static_cast<struct coldtrace_entry_header *>(e);
-    *entry = coldtrace_entry_init(type, ptr);
+    struct coldtrace_entry_header *entry = (struct coldtrace_entry_header *)e;
+    *entry                               = coldtrace_entry_init(type, ptr);
 
-    char *buf =
-        static_cast<char *>(e) + len - sizeof(struct coldtrace_stack_diff);
+    char *buf = (char *)e + len - sizeof(struct coldtrace_stack_diff);
     struct coldtrace_stack_diff *s = (struct coldtrace_stack_diff *)buf;
     s->depth                       = stack_top;
     s->popped                      = stack_bot;
-    memcpy(s->diff, stack_base + stack_bot, stack_size);
+    if (stack_size > 0) {
+        memcpy(s->diff, stack_base + stack_bot, stack_size);
+    }
 
-    stack_bot = stack_top;
+    th->stack_bottom = stack_top;
     return e;
 }
 
@@ -107,6 +143,13 @@ coldtrace_thread_fini(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
     coldtrace_writer_fini(&th->writer);
+    if (th->stack != NULL) {
+        free(th->stack);
+    }
+    th->stack          = NULL;
+    th->stack_size     = 0;
+    th->stack_capacity = 0;
+    th->stack_bottom   = 0;
 }
 
 DICE_HIDE void
@@ -127,17 +170,21 @@ DICE_HIDE void
 coldtrace_thread_stack_push(struct metadata *md, void *caller)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
-    th->stack.push_back(caller);
+    if (th->stack_size == th->stack_capacity) {
+        grow_stack_(th);
+    }
+    th->stack[th->stack_size++] = (uint64_t)(uintptr_t)caller;
 }
 
 DICE_HIDE void
 coldtrace_thread_stack_pop(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
-    if (!th->stack.empty()) {
-        th->stack.pop_back();
-        th->stack_bottom =
-            std::min(th->stack_bottom, (uint32_t)th->stack.size());
+    if (th->stack_size > 0) {
+        th->stack_size--;
+        if (th->stack_bottom > th->stack_size) {
+            th->stack_bottom = th->stack_size;
+        }
     }
 }
 

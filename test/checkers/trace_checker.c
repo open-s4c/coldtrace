@@ -297,6 +297,12 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     // 2. POINTER CHECK
     enum pointer_match p = _check_ptr(ptr_value, exp_it);
     if (p == MISMATCH_PTR) {
+        if (exp_it->atleast == 0) {
+            next_expected_entry_and_reset(exp_it);
+            log_warn("%lu optional pointer mismatch (go to next)", tid);
+            _check_entry(it, exp_it, tid, entry);
+            return;
+        }
         log_fatal(
             "thread=%lu entry=%d pointer mismatch found=%lu "
             "expected=%lu",
@@ -306,6 +312,12 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     // 3. SIZE CHECK
     enum size_match s = _check_size(size, exp_it);
     if (s == MISMATCH_SIZE) {
+        if (exp_it->atleast == 0) {
+            next_expected_entry_and_reset(exp_it);
+            log_warn("%lu optional size mismatch (go to next)", tid);
+            _check_entry(it, exp_it, tid, entry);
+            return;
+        }
         log_fatal("thread=%lu entry=%d size mismatch found=%lu expected=%d",
                   tid, entry, size, (exp_it->e)->size);
     }

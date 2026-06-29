@@ -83,6 +83,11 @@ copy_mapped_files_(const char *path)
             continue;
         }
 
+        // skip coldtrace's own trace files
+        if (strstr(src, "/freezer_log_")) {
+            continue;
+        }
+
         // Create the destination path.
         snprintf(dst, sizeof(dst), "%s%s", path, src);
         last_slash = strrchr(dst, '/');
@@ -206,14 +211,14 @@ cp_(const char *src, const char *dst)
 {
     FILE *fsrc = fopen(src, "rb");
     if (!fsrc) {
-        log_info("fopen: %s", strerror(errno));
+        log_info("fopen '%s': %s", src, strerror(errno));
         return -1;
     }
 
     FILE *fdst = fopen(dst, "wb");
     if (!fdst) {
         fclose(fsrc);
-        log_info("fopen: %s", strerror(errno));
+        log_info("fopen '%s': %s", dst, strerror(errno));
         return -1;
     }
 
