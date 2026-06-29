@@ -96,6 +96,12 @@ coldtrace_entry_parse_atomic_index(const void *buf)
     if (type >= COLDTRACE_MMAP || type < COLDTRACE_ATOMIC_READ) {
         return INVALID_ATOMIC_INDEX;
     }
+
+    if (type == COLDTRACE_ATOMIC_READ || type == COLDTRACE_ATOMIC_WRITE) {
+        uint64_t atomic_index = ((uint64_t *)buf)[2];
+        return atomic_index;
+    }
+
     uint64_t atomic_index = ((uint64_t *)buf)[1];
     return atomic_index;
 }
@@ -107,6 +113,7 @@ coldtrace_entry_parse_size(const void *buf)
     int type = coldtrace_entry_parse_type(buf);
     if (type == COLDTRACE_ALLOC || type == COLDTRACE_READ ||
         type == COLDTRACE_WRITE || type == COLDTRACE_MMAP ||
+        type == COLDTRACE_ATOMIC_READ || type == COLDTRACE_ATOMIC_WRITE ||
         type == COLDTRACE_MUNMAP) {
         uint64_t size = ((uint64_t *)buf)[1];
         return size;
@@ -146,6 +153,9 @@ coldtrace_entry_get_size(const void *buf)
 
         case COLDTRACE_ATOMIC_READ:
         case COLDTRACE_ATOMIC_WRITE:
+            next += sizeof(struct coldtrace_atomic_access_entry);
+            break;
+
         case COLDTRACE_LOCK_ACQUIRE:
         case COLDTRACE_LOCK_RELEASE:
         case COLDTRACE_RW_LOCK_CREATE:
@@ -174,23 +184,23 @@ coldtrace_entry_get_size(const void *buf)
 
 
 static const size_t space_map_[] = {
-    [COLDTRACE_FREE]              = sizeof(struct coldtrace_free_entry),
-    [COLDTRACE_ALLOC]             = sizeof(struct coldtrace_alloc_entry),
-    [COLDTRACE_MMAP]              = sizeof(struct coldtrace_alloc_entry),
-    [COLDTRACE_MUNMAP]            = sizeof(struct coldtrace_alloc_entry),
-    [COLDTRACE_READ]              = sizeof(struct coldtrace_access_entry),
-    [COLDTRACE_WRITE]             = sizeof(struct coldtrace_access_entry),
-    [COLDTRACE_ATOMIC_READ]       = sizeof(struct coldtrace_atomic_entry),
-    [COLDTRACE_ATOMIC_WRITE]      = sizeof(struct coldtrace_atomic_entry),
-    [COLDTRACE_LOCK_ACQUIRE]      = sizeof(struct coldtrace_atomic_entry),
-    [COLDTRACE_LOCK_RELEASE]      = sizeof(struct coldtrace_atomic_entry),
-    [COLDTRACE_RW_LOCK_CREATE]    = sizeof(struct coldtrace_atomic_entry),
-    [COLDTRACE_RW_LOCK_DESTROY]   = sizeof(struct coldtrace_atomic_entry),
-    [COLDTRACE_RW_LOCK_ACQ_SHR]   = sizeof(struct coldtrace_atomic_entry),
-    [COLDTRACE_RW_LOCK_ACQ_EXC]   = sizeof(struct coldtrace_atomic_entry),
-    [COLDTRACE_RW_LOCK_REL_SHR]   = sizeof(struct coldtrace_atomic_entry),
-    [COLDTRACE_RW_LOCK_REL_EXC]   = sizeof(struct coldtrace_atomic_entry),
-    [COLDTRACE_RW_LOCK_REL]       = sizeof(struct coldtrace_atomic_entry),
+    [COLDTRACE_FREE]            = sizeof(struct coldtrace_free_entry),
+    [COLDTRACE_ALLOC]           = sizeof(struct coldtrace_alloc_entry),
+    [COLDTRACE_MMAP]            = sizeof(struct coldtrace_alloc_entry),
+    [COLDTRACE_MUNMAP]          = sizeof(struct coldtrace_alloc_entry),
+    [COLDTRACE_READ]            = sizeof(struct coldtrace_access_entry),
+    [COLDTRACE_WRITE]           = sizeof(struct coldtrace_access_entry),
+    [COLDTRACE_ATOMIC_READ]     = sizeof(struct coldtrace_atomic_access_entry),
+    [COLDTRACE_ATOMIC_WRITE]    = sizeof(struct coldtrace_atomic_access_entry),
+    [COLDTRACE_LOCK_ACQUIRE]    = sizeof(struct coldtrace_atomic_entry),
+    [COLDTRACE_LOCK_RELEASE]    = sizeof(struct coldtrace_atomic_entry),
+    [COLDTRACE_RW_LOCK_CREATE]  = sizeof(struct coldtrace_atomic_entry),
+    [COLDTRACE_RW_LOCK_DESTROY] = sizeof(struct coldtrace_atomic_entry),
+    [COLDTRACE_RW_LOCK_ACQ_SHR] = sizeof(struct coldtrace_atomic_entry),
+    [COLDTRACE_RW_LOCK_ACQ_EXC] = sizeof(struct coldtrace_atomic_entry),
+    [COLDTRACE_RW_LOCK_REL_SHR] = sizeof(struct coldtrace_atomic_entry),
+    [COLDTRACE_RW_LOCK_REL_EXC] = sizeof(struct coldtrace_atomic_entry),
+    [COLDTRACE_RW_LOCK_REL]     = sizeof(struct coldtrace_atomic_entry),
     [COLDTRACE_CXA_GUARD_ACQUIRE] = sizeof(struct coldtrace_atomic_entry),
     [COLDTRACE_CXA_GUARD_RELEASE] = sizeof(struct coldtrace_atomic_entry),
     [COLDTRACE_THREAD_JOIN]       = sizeof(struct coldtrace_atomic_entry),
