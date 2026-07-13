@@ -4,6 +4,7 @@
  */
 #include <cstdio>
 #include <iostream>
+#include <marker.h>
 #include <mutex>
 #include <pthread.h>
 #include <stdint.h>
@@ -49,6 +50,7 @@ once_plus_one(void *ptr)
 #define NUM_THREADS 1
 
 struct expected_entry expected_1[] = {
+    EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
     EXPECT_SOME(COLDTRACE_ALLOC, 0, 1),
     EXPECT_SOME(COLDTRACE_FREE, 0, 1),
     EXPECT_VALUE(COLDTRACE_WRITE, 1),
@@ -84,6 +86,7 @@ main()
 {
     register_expected_trace(1, expected_1);
     register_expected_trace(2, expected_2);
+    coldtrace_test_marker();
     uint8_t at = NotStarted;
     pthread_t threads[NUM_THREADS];
     for (int i = 0; i < NUM_THREADS; i++) {

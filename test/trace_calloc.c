@@ -1,4 +1,5 @@
 #include <coldtrace/log.h>
+#include <marker.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <trace_checker.h>
@@ -6,8 +7,7 @@
 #define N 5
 
 struct expected_entry expected_1[] = {
-
-    EXPECT_ENTRY(COLDTRACE_ALLOC),
+    EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
     EXPECT_VALUE_SIZE(COLDTRACE_ALLOC, 1, N * sizeof(int)),
     EXPECT_VALUE(COLDTRACE_FREE, 1),
     EXPECT_ENTRY(COLDTRACE_THREAD_EXIT),
@@ -18,6 +18,7 @@ int
 main()
 {
     register_expected_trace(1, expected_1);
+    coldtrace_test_marker();
 
     int *array;
     array = (int *)calloc(N, sizeof(int));

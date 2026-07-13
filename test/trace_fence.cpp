@@ -1,5 +1,6 @@
 #include <atomic>
 #include <iostream>
+#include <marker.h>
 #include <pthread.h>
 #include <string>
 #include <trace_checker.h>
@@ -28,6 +29,7 @@ computation(int value)
 }
 
 struct expected_entry expected_1[] = {
+    EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
     EXPECT_SOME(COLDTRACE_ALLOC, 0, 1),
     EXPECT_SOME(COLDTRACE_FREE, 0, 1),
     EXPECT_SOME(COLDTRACE_WRITE, 0, 0),
@@ -126,6 +128,7 @@ main()
     register_expected_trace(1, expected_1);
     register_expected_trace(2, expected_2);
     register_expected_trace(3, expected_3);
+    coldtrace_test_marker();
     arr[0].store(-1);
     arr[1].store(-1);
     arr[2].store(-1);

@@ -39,7 +39,8 @@
 #define COLDTRACE_FENCE             21
 #define COLDTRACE_MMAP              22
 #define COLDTRACE_MUNMAP            23
-#define COLDTRACE_END_              24
+#define COLDTRACE_TEST_MARKER       24
+#define COLDTRACE_END_              25
 
 typedef uint8_t coldtrace_entry_type;
 
@@ -80,6 +81,10 @@ struct coldtrace_stack_diff {
     uint32_t popped;
     uint32_t depth;
     uint64_t diff[];
+};
+
+struct coldtrace_marker_entry {
+    struct coldtrace_entry_header _;
 };
 
 struct coldtrace_access_entry {

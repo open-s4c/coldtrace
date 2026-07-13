@@ -1,9 +1,10 @@
 #include <coldtrace/log.h>
+#include <marker.h>
 #include <pthread.h>
 #include <trace_checker.h>
 
 struct expected_entry expected_1[] = {
-    EXPECT_ENTRY(COLDTRACE_ALLOC),
+    EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
     EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 0),
     EXPECT_ENTRY(COLDTRACE_READ),
     EXPECT_VALUE(COLDTRACE_THREAD_JOIN, 0),
@@ -67,6 +68,7 @@ main()
     register_expected_trace(1, expected_1);
     register_expected_trace(2, expected_2);
     register_expected_trace(3, expected_3);
+    coldtrace_test_marker();
 
     pthread_t t1;
     pthread_t t2;

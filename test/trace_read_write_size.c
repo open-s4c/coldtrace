@@ -1,8 +1,9 @@
 #include <coldtrace/log.h>
+#include <marker.h>
 #include <trace_checker.h>
 
 struct expected_entry expected_1[] = {
-    EXPECT_SOME(COLDTRACE_ALLOC, 0, 1),
+    EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
     EXPECT_VALUE_SIZE(COLDTRACE_ALLOC, 0, 10 * sizeof(int)),
     EXPECT_VALUE_SIZE(COLDTRACE_WRITE, 0, sizeof(int)),
     EXPECT_SOME_SIZE(COLDTRACE_WRITE, 9, 9, sizeof(int)),
@@ -19,6 +20,7 @@ int
 main(void)
 {
     register_expected_trace(1, expected_1);
+    coldtrace_test_marker();
 
     // alloc
     int *arr = (int *)malloc(MAX_ENTRIES * sizeof(int));

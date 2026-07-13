@@ -8,6 +8,8 @@ target_link_libraries(trace_checker PUBLIC vsync dice.h ${COLDTRACE_OBJS})
 add_library(mock_checker SHARED checkers/mock_checker.c)
 target_link_libraries(mock_checker PUBLIC vsync dice.h)
 
+add_library(marker SHARED checkers/marker.c)
+
 set(OPTIONS_atomic_test -ensure-traces)
 set(OPTIONS_spinlock -ensure-traces)
 
@@ -20,7 +22,7 @@ foreach(SRC ${SRCS})
   set(TRACES_DIR "${CMAKE_CURRENT_BINARY_DIR}/${TARGET}__traces")
 
   add_executable(${TARGET} ${SRC})
-  target_link_libraries(${TARGET} PRIVATE dice.h vsync pthread)
+  target_link_libraries(${TARGET} PRIVATE dice.h vsync pthread marker)
 
   # handle instrumentation and linking of target against TSAN
   target_compile_options(${TARGET} PRIVATE -fsanitize=thread)

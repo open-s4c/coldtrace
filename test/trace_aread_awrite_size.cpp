@@ -1,11 +1,12 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <marker.h>
 #include <trace_checker.h>
 
 struct expected_entry expected_1[] = {
 
-    EXPECT_SUFFIX(COLDTRACE_FENCE),
+    EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
 
     EXPECT_VALUE_SIZE(COLDTRACE_ATOMIC_WRITE, 0, sizeof(uint8_t)),
     EXPECT_VALUE_SIZE(COLDTRACE_ATOMIC_READ, 0, sizeof(uint8_t)),
@@ -48,6 +49,7 @@ int
 main(void)
 {
     register_expected_trace(1, expected_1);
+    coldtrace_test_marker();
 
     std::atomic<uint8_t> at_8;
     std::atomic<uint16_t> at_16;
@@ -55,8 +57,6 @@ main(void)
     std::atomic<uint64_t> at_64;
     std::atomic<float> at_float;
     std::atomic<double> at_double;
-
-    std::atomic_thread_fence(std::memory_order_release); // fence
 
     at_8.store(VALUE, std::memory_order_release);         // write
     uint8_t val_8 = at_8.load(std::memory_order_acquire); // read

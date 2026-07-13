@@ -1,10 +1,12 @@
 #include <coldtrace/log.h>
 #include <errno.h>
+#include <marker.h>
 #include <pthread.h>
 #include <time.h>
 #include <trace_checker.h>
 
 struct expected_entry expected_1[] = {
+    EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
     EXPECT_ENTRY(COLDTRACE_ALLOC),
     EXPECT_VALUE(COLDTRACE_READ, 0),         // from gettime
     EXPECT_VALUE(COLDTRACE_WRITE, 0),        // from +=2
@@ -23,6 +25,7 @@ int
 main(void)
 {
     register_expected_trace(1, expected_1);
+    coldtrace_test_marker();
 
     pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
     pthread_cond_t c  = PTHREAD_COND_INITIALIZER;
