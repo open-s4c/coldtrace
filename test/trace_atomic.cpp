@@ -1,6 +1,7 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <marker.h>
 #include <pthread.h>
 #include <trace_checker.h>
 
@@ -14,6 +15,7 @@
         EXPECT_SOME_SIZE(COLDTRACE_WRITE, 0, 1, sizeof(uint8_t))
 
 struct expected_entry expected_1[] = {
+    EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
     EXPECT_SOME_VALUE(COLDTRACE_ALLOC, 0, 1, 0),
     EXPECT_SOME_VALUE(COLDTRACE_WRITE, 0, 1, 0),
     EXPECT_SOME_VALUE(COLDTRACE_FREE, 0, 1, 0),
@@ -108,6 +110,7 @@ main()
     register_expected_trace(2, expected_2);
     register_expected_trace(3, expected_3);
     register_expected_trace(4, expected_4);
+    coldtrace_test_marker();
 
     pthread_t threads[NUM_THREADS];
     pthread_t free_thread;

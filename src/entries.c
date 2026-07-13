@@ -33,6 +33,7 @@ static const char *type_map_[] = {
     TYPE_MAP(COLDTRACE_FENCE),
     TYPE_MAP(COLDTRACE_MMAP),
     TYPE_MAP(COLDTRACE_MUNMAP),
+    TYPE_MAP(COLDTRACE_TEST_MARKER),
 };
 
 static inline bool
@@ -175,6 +176,11 @@ coldtrace_entry_get_size(const void *buf)
             next += sizeof(struct coldtrace_atomic_entry);
         } break;
 
+        case COLDTRACE_TEST_MARKER: {
+            const struct coldtrace_marker_entry *e = buf;
+            next += sizeof(struct coldtrace_marker_entry);
+        } break;
+
         default:
             log_fatal("Unknown entry size");
             break;
@@ -208,6 +214,7 @@ static const size_t space_map_[] = {
     [COLDTRACE_FENCE]             = sizeof(struct coldtrace_atomic_entry),
     [COLDTRACE_THREAD_CREATE]     = sizeof(struct coldtrace_atomic_entry),
     [COLDTRACE_THREAD_START]      = sizeof(struct coldtrace_thread_init_entry),
+    [COLDTRACE_TEST_MARKER]       = sizeof(struct coldtrace_marker_entry),
 };
 
 size_t

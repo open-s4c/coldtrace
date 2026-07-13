@@ -175,6 +175,7 @@ def transfer_core_libs(device):
         ("deps/dice/deps/tsano/libtsano.so", "libtsano.so"),
         ("test/libtrace_checker.so", "libtrace_checker.so"),
         ("test/libmock_checker.so", "libmock_checker.so"),
+        ("test/libmarker.so", "libmarker.so")
     ]
     
     for local_path, remote_name in libs:

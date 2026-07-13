@@ -1,3 +1,4 @@
+#include <marker.h>
 #include <sys/time.h>
 #include <thread>
 #include <trace_checker.h>
@@ -6,6 +7,7 @@
 #define NUM_THREADS 2
 
 struct expected_entry expected_1[] = {
+    EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
     EXPECT_SUFFIX_VALUE(COLDTRACE_THREAD_CREATE, 0),
     EXPECT_SUFFIX_VALUE(COLDTRACE_THREAD_JOIN, 0),
     EXPECT_SUFFIX_VALUE(COLDTRACE_THREAD_CREATE, 1),
@@ -51,6 +53,7 @@ main()
     register_expected_trace(1, expected_1);
     register_expected_trace(2, expected_2);
     register_expected_trace(3, expected_3);
+    coldtrace_test_marker();
     std::thread threads[NUM_THREADS];
 
 

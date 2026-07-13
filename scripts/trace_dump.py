@@ -74,6 +74,7 @@ class EntryType(Enum):
     FENCE   = 21
     MMAP    = 22
     MUNMAP  = 23
+    TEST_MARKER = 24
 
 ZERO_FLAG = 0b10000000
 PTR_MASK = 0x0000_FFFF_FFFF_FFFF
@@ -181,6 +182,9 @@ for f in file_list:
             elif (entry_type.value == 4 or entry_type.value == 5): # ATOMIC_READ & ATOMIC_WRITE
                 raw_ext = file.read(COLD_ATOMIC_ACCESS_ENTRY_SZ - COLD_BASE_ENTRY_SZ)
                 size, atomic_timestamp = struct.unpack('<QQ', raw_ext)
+            elif (entry_type.value == 24):
+                # TEST_MARKER entry has no additional data
+                pass
             else:
                 atomic_timestamp, = struct.unpack('<Q', file.read(COLD_ATOMIC_ENTRY_SZ - COLD_BASE_ENTRY_SZ))
 
@@ -228,6 +232,8 @@ for f in file_list:
                     print(f"{nentries}) {tid}: rw_lock rel @{ptr:x} [{atomic_timestamp}]\n")
                 case EntryType.FENCE:
                     print(f"{nentries}) {tid}: fence [{atomic_timestamp}]\n")
+                case EntryType.TEST_MARKER:
+                    print(f"{nentries}) {tid}: test marker\n")
                 case EntryType.CXA_GUARD_ACQUIRE:
                     print(f"{nentries}) {tid}: acquire cxa_guard @{ptr:x} [{atomic_timestamp}]\n")
                 case EntryType.CXA_GUARD_RELEASE:

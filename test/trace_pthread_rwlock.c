@@ -1,8 +1,10 @@
 #include <coldtrace/log.h>
+#include <marker.h>
 #include <pthread.h>
 #include <trace_checker.h>
 
 struct expected_entry expected_1[] = {
+    EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
     EXPECT_SOME(COLDTRACE_ALLOC, 0, 1),
     EXPECT_SOME(COLDTRACE_FREE, 0, 1),
     EXPECT_VALUE(COLDTRACE_RW_LOCK_ACQ_SHR, 0),
@@ -17,6 +19,7 @@ int
 main()
 {
     register_expected_trace(1, expected_1);
+    coldtrace_test_marker();
     pthread_rwlock_t lock;
     int p = pthread_rwlock_init(&lock, NULL);
 
