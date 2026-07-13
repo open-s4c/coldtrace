@@ -1,0 +1,61 @@
+# ==============================================================================
+# Makefile.ohos - OpenHarmony Cross-Compilation for Scratchapixel
+# ==============================================================================
+
+PROJECT!=   readlink -f ../..
+
+RASTERIZATION=  rasterization-practical-implementation
+
+ifndef OHOS_TOOLCHAIN
+$(error FATAL ERROR: The 'OHOS_TOOLCHAIN' environment variable is not set. Please set it to the path of your OpenHarmony toolchain before running this script)
+endif
+
+TOOLCHAIN = $(OHOS_TOOLCHAIN)
+ifeq ($(wildcard $(TOOLCHAIN)),)
+$(error FATAL ERROR: OHOS Toolchain not found at '$(TOOLCHAIN)'. Please ensure the path is correct)
+endif
+
+BUILD_TYPE?= Release
+PROFILE_FLAGS?=
+OHOS_WARN_FIX=  -Qunused-arguments
+LDFLAGS=        -shared-libsan
+CFLAGS_EXTRA=   -fsanitize=thread $(LDFLAGS) $(OHOS_WARN_FIX)
+CXXFLAGS_EXTRA= -fsanitize=thread $(LDFLAGS) $(OHOS_WARN_FIX)
+
+# ------------------------------------------------------------------------------
+# clone level, apply patches, build
+# ------------------------------------------------------------------------------
+
+URL=        https://github.com/scratchapixel/scratchapixel-code.git
+
+TARGET+=    clone
+DIR.clone=  source
+CFG.clone=  git clone $(URL) . && \
+        git checkout 47dd2e8 && \
+        git apply $(ROOTDIR)/patches/benchmarking.patch
+
+TARGET+=    vanilla
+DEP.vanilla=    .clone.bld
+DIR.vanilla=    vanilla
+CFG.vanilla=    cmake ../$(DIR.clone)/$(RASTERIZATION) \
+            -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+            -DCMAKE_TOOLCHAIN_FILE=$(TOOLCHAIN) \
+            -DCMAKE_C_FLAGS='$(OHOS_WARN_FIX) $(PROFILE_FLAGS)' \
+            -DCMAKE_CXX_FLAGS='$(OHOS_WARN_FIX) $(PROFILE_FLAGS)'
+BLD.vanilla=    $(MAKE) -j 8
+
+TARGET+=    sanitized
+DEP.sanitized=  .clone.bld
+DIR.sanitized=  sanitized
+CFG.sanitized=  cmake ../$(DIR.clone)/$(RASTERIZATION) \
+            -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+            -DCMAKE_TOOLCHAIN_FILE=$(TOOLCHAIN) \
+            -DCMAKE_C_FLAGS='$(CFLAGS_EXTRA) $(PROFILE_FLAGS)' \
+            -DCMAKE_CXX_FLAGS='$(CXXFLAGS_EXTRA) $(PROFILE_FLAGS)'
+BLD.sanitized=  $(MAKE) -j 8
+
+# ------------------------------------------------------------------------------
+BENCHMK= ../bench.mk
+include $(BENCHMK)
+
+MAKEFILE= $(ROOTDIR)/Makefile.ohos

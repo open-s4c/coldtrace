@@ -1,0 +1,65 @@
+# ==============================================================================
+# Makefile.ohos - OpenHarmony Cross-Compilation for LevelDB
+# ==============================================================================
+
+PROJECT!=   readlink -f ../..
+
+ifndef OHOS_TOOLCHAIN
+$(error FATAL ERROR: The 'OHOS_TOOLCHAIN' environment variable is not set. Please set it to the path of your OpenHarmony toolchain before running this script)
+endif
+
+TOOLCHAIN = $(OHOS_TOOLCHAIN)
+ifeq ($(wildcard $(TOOLCHAIN)),)
+$(error FATAL ERROR: OHOS Toolchain not found at '$(TOOLCHAIN)'. Please ensure the path is correct)
+endif
+
+BUILD_TYPE?= Release
+PROFILE_FLAGS?=
+OHOS_WARN_FIX=  -Qunused-arguments
+LDFLAGS=        -shared-libsan
+CFLAGS_EXTRA=   -fsanitize=thread $(LDFLAGS) $(OHOS_WARN_FIX)
+CXXFLAGS_EXTRA= -fsanitize=thread $(LDFLAGS) $(OHOS_WARN_FIX)
+
+# ------------------------------------------------------------------------------
+# clone level, apply patches, build
+# ------------------------------------------------------------------------------
+
+URL=        https://github.com/google/leveldb.git
+SHA=        068d5ee1a3ac40dabd00d211d5013af44be55bea
+
+TARGET+=    clone
+DIR.clone=  leveldb
+CFG.clone=  git clone --recurse-submodules $(URL) . && \
+            git checkout $(SHA) && \
+            git submodule update --init --recursive && \
+            git apply $(ROOTDIR)/patches/01-leveldb
+
+TARGET+=    vanilla
+DEP.vanilla=    .clone.cfg
+DIR.vanilla=    vanilla
+CFG.vanilla=    cmake -S ../$(DIR.clone) \
+            -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+            -DCMAKE_TOOLCHAIN_FILE=$(TOOLCHAIN) \
+            -DCMAKE_C_FLAGS='$(OHOS_WARN_FIX) $(PROFILE_FLAGS)' \
+            -DCMAKE_CXX_FLAGS='$(OHOS_WARN_FIX) $(PROFILE_FLAGS)' \
+            -DHAVE_STD_REGEX=ON \
+            -DRUN_HAVE_STD_REGEX=1
+BLD.vanilla=    $(MAKE) -j 8
+
+TARGET+=    sanitized
+DEP.sanitized=  .clone.cfg
+DIR.sanitized=  sanitized
+CFG.sanitized=  cmake -S ../$(DIR.clone) \
+            -DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+            -DCMAKE_TOOLCHAIN_FILE=$(TOOLCHAIN) \
+            -DCMAKE_CXX_FLAGS='$(CXXFLAGS_EXTRA) $(PROFILE_FLAGS)' \
+            -DCMAKE_C_FLAGS='$(CFLAGS_EXTRA) $(PROFILE_FLAGS)' \
+            -DHAVE_STD_REGEX=ON \
+            -DRUN_HAVE_STD_REGEX=1
+BLD.sanitized=  $(MAKE) -j 8
+
+# ------------------------------------------------------------------------------
+BENCHMK= ../bench.mk
+include $(BENCHMK)
+
+MAKEFILE= $(ROOTDIR)/Makefile.ohos
