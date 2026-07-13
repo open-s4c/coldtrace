@@ -2,7 +2,7 @@
  * Copyright (C) 2026 Huawei Technologies Co., Ltd.
  * SPDX-License-Identifier: MIT
  */
-#include <dice/log.h>
+#include <coldtrace/log.h>
 #include <dice/mempool.h>
 #include <indexes_checker.h>
 #include <string.h>

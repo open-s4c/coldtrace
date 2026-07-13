@@ -1,8 +1,8 @@
 #include <coldtrace/config.h>
+#include <coldtrace/log.h>
 #include <coldtrace/version.h>
 #include <coldtrace/writer.h>
 #include <dice/compiler.h>
-#include <dice/log.h>
 #include <dice/mempool.h>
 #include <dice/self.h>
 #include <dice/types.h>

@@ -1,4 +1,4 @@
-#include <dice/log.h>
+#include <coldtrace/log.h>
 #include <errno.h>
 #include <pthread.h>
 #include <time.h>

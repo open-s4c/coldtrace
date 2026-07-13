@@ -1,4 +1,4 @@
-#include <dice/log.h>
+#include <coldtrace/log.h>
 #include <sys/mman.h>
 #include <trace_checker.h>
 
