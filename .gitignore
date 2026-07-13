@@ -1,4 +1,6 @@
 build
+ohos-build
+hyperfine
 results
 .cache
 .kakrc
