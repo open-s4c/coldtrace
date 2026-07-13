@@ -1,6 +1,6 @@
 #include "trace_checker.h"
 
-#include <dice/log.h>
+#include <coldtrace/log.h>
 #include <pthread.h>
 #include <stdbool.h>
 #include <stddef.h>

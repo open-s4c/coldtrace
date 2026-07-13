@@ -1,4 +1,4 @@
-#include <dice/log.h>
+#include <coldtrace/log.h>
 #include <trace_checker.h>
 
 struct expected_entry expected_1[] = {

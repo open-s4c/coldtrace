@@ -5,6 +5,7 @@
 
 #include <coldtrace/aliases.h>
 #include <coldtrace/config.h>
+#include <coldtrace/log.h>
 #include <coldtrace/utils.h>
 #include <dice/chains/capture.h>
 #include <dice/events/thread.h>

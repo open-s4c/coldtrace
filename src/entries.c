@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: MIT
  */
 #include <coldtrace/entries.h>
-#include <dice/log.h>
+#include <coldtrace/log.h>
 #include <stdbool.h>
 #include <stddef.h>
 

@@ -4,8 +4,8 @@
  */
 
 #include <coldtrace/config.h>
+#include <coldtrace/log.h>
 #include <coldtrace/utils.h>
-#include <dice/log.h>
 #include <dice/module.h>
 #include <string.h>
 
