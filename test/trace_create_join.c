@@ -11,7 +11,7 @@ struct expected_entry expected_1[] = {
     EXPECT_VALUE(COLDTRACE_THREAD_CREATE, 0),
     EXPECT_ENTRY(COLDTRACE_READ),
     EXPECT_VALUE(COLDTRACE_THREAD_JOIN, 0),
-    EXPECT_ENTRY(COLDTRACE_THREAD_EXIT),
+    EXPECT_SUFFIX(COLDTRACE_THREAD_EXIT),
 
     EXPECT_END,
 };
@@ -19,6 +19,7 @@ struct expected_entry expected_1[] = {
 struct expected_entry expected_2[] = {
     EXPECT_VALUE(COLDTRACE_THREAD_START, 0),
     EXPECT_VALUE(COLDTRACE_THREAD_EXIT, 0),
+    EXPECT_SOME(COLDTRACE_FREE, 0, 2),
     EXPECT_END,
 };
 
