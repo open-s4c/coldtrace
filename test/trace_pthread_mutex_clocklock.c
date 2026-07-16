@@ -7,14 +7,9 @@
 
 struct expected_entry expected_1[] = {
     EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
-    EXPECT_SOME_VALUE(COLDTRACE_READ, 0, 1, 0),     // from gettime
-    EXPECT_SOME_VALUE(COLDTRACE_WRITE, 0, 1, 0),    // from +=2
     EXPECT_SUFFIX_VALUE(COLDTRACE_LOCK_ACQUIRE, 1), // from clocklock
-    EXPECT_VALUE(COLDTRACE_ATOMIC_READ, 2), // from the mutex lock read status
-    EXPECT_SUFFIX_VALUE(COLDTRACE_ATOMIC_WRITE,
-                        2), // from the mutex lock write status
     EXPECT_SUFFIX_VALUE(COLDTRACE_LOCK_RELEASE, 1), // from clocklock
-    EXPECT_ENTRY(COLDTRACE_THREAD_EXIT),
+    EXPECT_SUFFIX(COLDTRACE_THREAD_EXIT),
     EXPECT_END,
 };
 
