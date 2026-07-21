@@ -15,7 +15,7 @@
 
 void coldtrace_set_trace_size(size_t size);
 size_t coldtrace_get_trace_size(void);
-void coldtrace_set_path(const char *path);
+bool coldtrace_set_path(const char *path);
 const char *coldtrace_get_path(void);
 const char *coldtrace_get_file_pattern(void);
 void coldtrace_set_max(uint32_t max_file_count);

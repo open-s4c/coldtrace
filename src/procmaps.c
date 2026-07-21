@@ -132,19 +132,25 @@ copy_maps_and_mapped_files_(void)
 {
     maps_copied_ = true;
 
+    const char *path = coldtrace_get_path();
+    if (path[0] == '\0') {
+        log_warn("no valid COLDTRACE_PATH, skipping procmaps copy");
+        return;
+    }
+
     log_info("copy procmaps");
 
-    if (copy_proc_maps_(coldtrace_get_path()) != 0) {
-        log_fatal(
-            "Failed to copy /proc/self/maps to '%s', cannot generate coldtrace "
-            "dump",
-            coldtrace_get_path());
+    if (copy_proc_maps_(path) != 0) {
+        log_warn(
+            "Failed to copy /proc/self/maps to '%s', coldtrace dump will be "
+            "incomplete",
+            path);
     }
-    if (copy_mapped_files_(coldtrace_get_path()) != 0) {
-        log_fatal(
+    if (copy_mapped_files_(path) != 0) {
+        log_warn(
             "Failed to copy mapped files to '%s', coldtrace dump will be "
             "incomplete",
-            coldtrace_get_path());
+            path);
     }
 }
 
