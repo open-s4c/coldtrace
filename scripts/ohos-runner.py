@@ -51,7 +51,8 @@ BENCHMARKS = {
 
 VARIANTS = ["baseline", "tsan", "tsano", "coldtrace", "nowrites"]
 RUNS_RAYTRACING = 3
-
+VERDICT_PASS = "TRACE_CHECKER: TEST PASSED"
+VERDICT_FAIL = "TRACE_CHECKER: TEST FAILED"
 
 @contextmanager
 def suppress_output():
@@ -215,6 +216,27 @@ def get_variant_env(variant: str, trace_subdir=""):
         return f"COLDTRACE_DISABLE_COPY=true COLDTRACE_DISABLE_WRITES=true LD_LIBRARY_PATH={TSANO_DIR} COLDTRACE_PATH={trace_path} LD_PRELOAD={REMOTE_BIN}/libcoldtrace.so"
     else:
         raise ValueError(f"Unknown variant requested: '{variant}'. Valid variants are: {', '.join(VARIANTS)}")
+
+def evaluate_run(result, expect_verdict: bool, expect_fail: bool = False):
+    output = (result.stdout or "") + (result.stderr or "")
+
+    if expect_verdict:
+        if VERDICT_FAIL in output:
+            return (True, "") if expect_fail else (False, "trace checker reported failure")
+        if VERDICT_PASS in output:
+            if expect_fail:
+                return False, "expected failure but checker passed"
+            if result.returncode != 0:
+                return False, f"verdict PASSED but process exited {result.returncode}"
+            return True, ""
+        if result.returncode != 0:
+            return False, f"process exited with status {result.returncode} before verdict"
+        return False, "no verdict from trace checker"
+
+    if result.returncode != 0:
+        return False, f"process exited with status {result.returncode}"
+
+    return True, ""
 
 def cmd_bench(args):
     """Main routine to execute benchmarks using Hyperfine on the remote device."""
@@ -392,6 +414,7 @@ def cmd_test(args):
             name = test.name
             expect_failure = (name == "trace_fail")
             env_str = f"LD_LIBRARY_PATH={TSANO_DIR}:{REMOTE_BIN} COLDTRACE_PATH={REMOTE_TRACES}/{name}_traces "
+            uses_checker = name.startswith("trace_")
             
             if name.startswith("trace_"):
                 env_str += f"COLDTRACE_MAX_FILES=3 COLDTRACE_TRACE_SIZE=4096 COLDTRACE_DISABLE_COPY=true LD_PRELOAD={REMOTE_BIN}/libtrace_checker.so"
@@ -405,8 +428,9 @@ def cmd_test(args):
                 result = device.cmd(f"cd {REMOTE_BASE} && env {env_str} {REMOTE_BIN}/{name}", capture_output=True, text=True, check=False)
             elapsed = time.time() - start
             
-            # Evaluate success/failure criteria
-            if (result.returncode == 0) != expect_failure:
+            status, reason = evaluate_run(result, uses_checker, expect_failure)
+
+            if status:
                 print(f"  Passed   {elapsed:>5.2f} sec")
                 passed += 1
             else:
@@ -414,7 +438,10 @@ def cmd_test(args):
                 failed_tests.append(name)
                 
                 with open(log_file, "a") as f:
-                    f.write(f"\n{'='*50}\nTEST: {name}\nEXIT: {result.returncode}\n{'-'*20}\nSTDOUT:\n{result.stdout}\n{'='*50}\n")
+                    f.write(f"\n{'='*50}\nTEST: {name}\n"
+                            f"EXIT: {result.returncode}\nREASON: {reason}\n"
+                            f"{'-'*20}\nOUTPUT:\n"
+                            f"{(result.stdout or '') + (result.stderr or '')}\n{'='*50}\n")
     finally:
         cleanup_remote(device)
     
@@ -456,9 +483,11 @@ def cmd_run(args):
         with suppress_output():
             result = device.cmd(f"cd {REMOTE_BASE} && env {env_str} ./{binary_path.name}", capture_output=True, text=True, check=False)
         
-        print("\n--- Output ---\n" + (result.stdout.strip() if result.stdout else "") + "\n--------------")
-        if result.returncode != 0:
-            print(f"\n*** Failed with exit code: {result.returncode} ***")
+        status, reason = evaluate_run(result, args.test_mode)
+
+        print("\n--- Output ---\n" + ((result.stdout or "") + (result.stderr or "")).strip() + "\n--------------")
+        if not status:
+            print(f"\n*** Failed: {reason} ***")
         
         # Retrieve tracing output locally
         print("\n=== Pulling Traces ===")

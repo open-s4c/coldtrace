@@ -101,11 +101,11 @@ struct expected_entry {
         .wild = false, .size = -1                                              \
     }
 
-typedef void (*entry_callback)(const void *entry, metadata_t *md);
+typedef bool (*entry_callback)(const void *entry, metadata_t *md);
 void register_expected_trace(uint64_t tid, struct expected_entry *trace);
 void register_entry_callback(entry_callback callback);
 void register_close_callback(void (*callback)(const void *page, size_t size));
-void register_final_callback(void (*callback)(void));
+void register_final_callback(bool (*callback)(void));
 
 /* Returns the Dice-assigned thread identifier for the current handler
  * invocation. IDs start at 1; `NO_THREAD` is reserved for representing no

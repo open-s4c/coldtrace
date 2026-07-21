@@ -9,4 +9,34 @@ export COLDTRACE_PATH=/tmp/traces
 export COLDTRACE_MAX_FILES=3
 export COLDTRACE_TRACE_SIZE=4096
 export COLDTRACE_DISABLE_COPY=true
-exec $TSANO env LD_PRELOAD="$PRELOAD" "$@"
+output=$("$TSANO" env LD_PRELOAD="$PRELOAD" "$@" 2>&1)
+rc=$?
+printf '%s\n' "$output"
+
+expect_fail="${COLDTRACE_EXPECT_FAIL:-0}"
+
+case "$output" in
+    *"TRACE_CHECKER: TEST FAILED"*)
+        if [ "$expect_fail" = "1" ]; then
+            exit 0
+        fi
+        echo "coldtrace-check: trace checker reported failure" >&2
+        exit 1 ;;
+    *"TRACE_CHECKER: TEST PASSED"*)
+        if [ "$expect_fail" = "1" ]; then
+            echo "coldtrace-check: expected failure but checker passed" >&2
+            exit 1
+        fi
+        if [ "$rc" -ne 0 ]; then
+            echo "coldtrace-check: verdict PASSED but process exited $rc" >&2
+            exit 1
+        fi
+        exit 0 ;;
+esac
+
+if [ "$rc" -ne 0 ]; then
+    echo "coldtrace-check: no verdict; process exited with status $rc" >&2
+else
+    echo "coldtrace-check: no verdict from trace checker" >&2
+fi
+exit 1

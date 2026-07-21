@@ -19,11 +19,11 @@
 #include <coldtrace/version.h>
 #include <coldtrace/wait.h>
 #include <dice/chains/capture.h>
-#include <dice/ensure.h>
 #include <dice/interpose.h>
 #include <dice/module.h>
 #include <dice/self.h>
 #include <dice/types.h>
+#include <vsync/atomic.h>
 #include <vsync/spinlock/caslock.h>
 
 #define MAX_NTHREADS        128
@@ -37,6 +37,7 @@
 static size_t _entry_callback_count = 0;
 static entry_callback _entry_callbacks[MAX_ENTRY_CALLBACKS];
 static uint64_t _entry_ptr_values[MAX_ENTRY_VALUES];
+static vatomic32_t failed_writer_close = VATOMIC_INIT(0);
 
 INTERPOSE(void, register_entry_callback, entry_callback callback)
 {
@@ -85,8 +86,8 @@ INTERPOSE(void, register_close_callback,
     _close_callback = callback;
 }
 
-static void (*_final_callback)(void);
-INTERPOSE(void, register_final_callback, void (*callback)(void))
+static bool (*_final_callback)(void);
+INTERPOSE(void, register_final_callback, bool (*callback)(void))
 {
     _final_callback = callback;
 }
@@ -210,7 +211,7 @@ version_header_str(char *buf, size_t buf_size, struct version_header header)
              header.major, header.minor, header.patch);
 }
 
-static void
+static bool
 validate_coldtrace_version_header(void *page)
 {
     struct version_header *file_header = coldtrace_version_header(page);
@@ -220,9 +221,11 @@ validate_coldtrace_version_header(void *page)
         char expected[BUFFER_SIZE];
         version_header_str(found, sizeof(found), *file_header);
         version_header_str(expected, sizeof(expected), current_version_header);
-        log_fatal(" Coldtrace version mismatch found=%s excpected=%s", found,
-                  expected);
+        log_warn(" Coldtrace version mismatch found=%s excpected=%s", found,
+                 expected);
+        return false;
     }
+    return true;
 }
 // -----------------------------------------------------------------------------
 // matching functions
@@ -270,10 +273,10 @@ _check_size(uint64_t size, struct expected_entry_iterator *iter)
     return MATCH_SIZE;
 }
 
-static void _check_entry(struct entry_it it,
+static bool _check_entry(struct entry_it it,
                          struct expected_entry_iterator *iter, uint64_t tid,
                          int entry);
-static void
+static bool
 _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
                     uint64_t tid, int entry)
 {
@@ -285,31 +288,33 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     bool t = _check_type(type, exp_it);
     if (!t && exp_it->atleast > 0) {
         // required entry
-        log_fatal("thread=%lu entry=%d found=%s expected=%s", tid, entry,
-                  coldtrace_entry_type_str(type),
-                  coldtrace_entry_type_str((exp_it->e)->type));
+        log_warn("thread=%lu entry=%d found=%s expected=%s", tid, entry,
+                 coldtrace_entry_type_str(type),
+                 coldtrace_entry_type_str((exp_it->e)->type));
+        return false;
     }
     if (!t) {
         next_expected_entry_and_reset(exp_it);
         log_warn("%lu event mismatch (go to next)", tid);
-        _check_entry(it, exp_it, tid, entry);
-        return;
+        return _check_entry(it, exp_it, tid, entry);
     }
 
     // 2. POINTER CHECK
     enum pointer_match p = _check_ptr(ptr_value, exp_it);
     if (p == MISMATCH_PTR) {
-        log_fatal(
+        log_warn(
             "thread=%lu entry=%d pointer mismatch found=%lu "
             "expected=%lu",
             tid, entry, ptr_value, _entry_ptr_values[exp_it->e->check]);
+        return false;
     }
 
     // 3. SIZE CHECK
     enum size_match s = _check_size(size, exp_it);
     if (s == MISMATCH_SIZE) {
-        log_fatal("thread=%lu entry=%d size mismatch found=%lu expected=%d",
-                  tid, entry, size, (exp_it->e)->size);
+        log_warn("thread=%lu entry=%d size mismatch found=%lu expected=%d", tid,
+                 entry, size, (exp_it->e)->size);
+        return false;
     }
 
     // 4. MATCH
@@ -331,15 +336,16 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     }
     // if atmost 0 make infinity
     if (exp_it->atmost == 0) {
-        return;
+        return true;
     }
     // if it has more ocuurencies left next
     if ((exp_it->atmost)-- == 1) {
         next_expected_entry_and_reset(exp_it);
     }
+    return true;
 }
 
-static void
+static bool
 _check_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
                 uint64_t tid, int entry)
 {
@@ -351,16 +357,17 @@ _check_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     if (!t) {
         log_info("thread=%lu entry=%d mismatch: looking for wildcard=%s", tid,
                  entry, coldtrace_entry_type_str(exp_it->e->type));
-        return;
+        return true;
     }
 
     // 2. POINTER CHECK
     enum pointer_match p = _check_ptr(ptr_value, exp_it);
     if (p == MISMATCH_PTR) {
-        log_fatal(
+        log_warn(
             "thread=%lu entry=%d pointer mismatch found=%lu "
             "expected=%lu",
             tid, entry, ptr_value, _entry_ptr_values[exp_it->e->check]);
+        return false;
     }
 
     // 3. MATCH
@@ -373,19 +380,20 @@ _check_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
              coldtrace_entry_type_str(exp_it->e->type), ptr_buf);
 
     next_expected_entry_and_reset(exp_it);
+    return true;
 }
 
-static void
+static bool
 _check_entry(struct entry_it it, struct expected_entry_iterator *iter,
              uint64_t tid, int entry)
 {
     if (!(iter->e)->wild) {
         // wild false
-        _check_non_wildcard(it, iter, tid, entry);
-    } else {
-        // wild true
-        _check_wildcard(it, iter, tid, entry);
+        return _check_non_wildcard(it, iter, tid, entry);
     }
+
+    // wild true
+    return _check_wildcard(it, iter, tid, entry);
 }
 // -----------------------------------------------------------------------------
 // trace checker
@@ -397,14 +405,14 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
 {
     uint64_t tid               = self_id(md);
     static caslock_t loop_lock = CASLOCK_INIT();
+    bool failed                = false;
 
     if (page == NULL || size == 0) {
         return;
     }
 
-    validate_coldtrace_version_header(page);
+    failed |= !validate_coldtrace_version_header(page);
 
-    log_info("checking thread=%lu", tid);
     struct entry_it it                          = iter_init(page, size);
     struct expected_entry *exp                  = _expected[tid];
     struct expected_entry_iterator *expected_it = &_expected_iterators[tid];
@@ -425,15 +433,15 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
 
     for (int entry = 0; iter_next(it); iter_advance(&it), entry++) {
         uint64_t alloc_index = iter_alloc_index_value(it);
-        check_ascending_alloc_index(&previous_alloc_index, alloc_index, tid,
-                                    entry);
+        failed |= !check_ascending_alloc_index(&previous_alloc_index,
+                                               alloc_index, tid, entry);
 
         uint64_t atomic_index = iter_atomic_index_value(it);
-        check_ascending_atomic_index(&previous_atomic_index, atomic_index, tid,
-                                     entry);
+        failed |= !check_ascending_atomic_index(&previous_atomic_index,
+                                                atomic_index, tid, entry);
 
         for (size_t j = 0; j < _entry_callback_count; j++) {
-            _entry_callbacks[j](it.buf, md);
+            failed |= !_entry_callbacks[j](it.buf, md);
         }
 
         if (expected_it->e == NULL) {
@@ -447,49 +455,61 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
             continue;
         }
 
-        _check_entry(it, expected_it, tid, entry);
+        failed |= !_check_entry(it, expected_it, tid, entry);
     }
 
-    for (uint64_t t = 0; t < MAX_NTHREADS; t++) {
-        struct expected_entry_iterator *it = &_expected_iterators[t];
-        if (it->e && it->e->set) {
-            log_info("thread=%lu expected trace not fully matched", t);
-        }
-    }
     caslock_release(&loop_lock);
+
+    if (failed) {
+        log_warn("trace check failed for thread=%lu", tid);
+        vatomic32_write_rlx(&failed_writer_close, 1);
+    }
 }
 
-void
+bool
 check_empty_expected_trace()
 {
+    bool ret = true;
     for (size_t tid = 1; tid < MAX_NTHREADS && _expected[tid]; tid++) {
         struct expected_entry_iterator *expected_it = _expected_iterators + tid;
 
         if (expected_it->e == NULL) {
-            log_fatal("thread=%lu trace was never checked", tid);
+            log_warn("thread=%lu trace was never checked", tid);
+            ret = false;
+            continue;
         }
 
         while (expected_it->e->set && expected_it->atleast == 0) {
-            log_info("thread=%lu skipping trailing optional event", tid);
+            log_info("thread=%lu skipping optional trailing entry=%s", tid,
+                     coldtrace_entry_type_str(expected_it->e->type));
             next_expected_entry_and_reset(expected_it);
         }
 
         if ((expected_it->e)->set) {
-            log_fatal("thread=%lu expected trace not empty", tid);
+            log_warn("thread=%lu expected trace not empty", tid);
+            ret = false;
         }
     }
+    return ret;
 }
 
 // Overwrite main_thread_fini function to do final callback
 void
 coldtrace_main_thread_fini()
 {
-    check_empty_expected_trace();
-    check_not_seen_alloc_indexes();
-    check_not_seen_atomic_indexes();
+    bool failed = !check_empty_expected_trace();
+    failed |= !check_not_seen_alloc_indexes();
+    failed |= !check_not_seen_atomic_indexes();
 
     if (_final_callback) {
-        _final_callback();
-        log_info("final check OK");
+        bool status = _final_callback();
+        failed |= !status;
+        log_info("final check %s", status ? "OK" : "FAILED");
+    }
+
+    if (failed || vatomic32_read_rlx(&failed_writer_close) == 1) {
+        log_warn("TEST FAILED");
+    } else {
+        log_info("TEST PASSED");
     }
 }
