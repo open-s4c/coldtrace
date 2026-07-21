@@ -17,6 +17,7 @@
 #include <coldtrace/entries.h>
 #include <coldtrace/log.h>
 #include <coldtrace/version.h>
+#include <coldtrace/wait.h>
 #include <dice/chains/capture.h>
 #include <dice/ensure.h>
 #include <dice/interpose.h>
@@ -67,6 +68,7 @@ enum size_match { MATCH_SIZE, MISMATCH_SIZE, NOCHECK_SIZE };
 INTERPOSE(void, register_expected_trace, uint64_t tid,
           struct expected_entry *trace)
 {
+    coldtrace_enable_test_wait();
     assert(tid > 0 && tid < MAX_NTHREADS);
     log_info("register expected trace thread=%lu", tid);
     _expected[tid] = trace;
@@ -125,7 +127,7 @@ iter_next(struct entry_it it)
     if (it.size < sizeof(uint64_t)) {
         return false;
     }
-    return coldtrace_entry_parse_size(it.buf) > 0;
+    return coldtrace_entry_get_size(it.buf) > 0;
 }
 
 struct entry_it
@@ -462,6 +464,16 @@ check_empty_expected_trace()
 {
     for (size_t tid = 1; tid < MAX_NTHREADS && _expected[tid]; tid++) {
         struct expected_entry_iterator *expected_it = _expected_iterators + tid;
+
+        if (expected_it->e == NULL) {
+            log_fatal("thread=%lu trace was never checked", tid);
+        }
+
+        while (expected_it->e->set && expected_it->atleast == 0) {
+            log_info("thread=%lu skipping trailing optional event", tid);
+            next_expected_entry_and_reset(expected_it);
+        }
+
         if ((expected_it->e)->set) {
             log_fatal("thread=%lu expected trace not empty", tid);
         }
