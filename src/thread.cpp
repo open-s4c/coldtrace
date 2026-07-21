@@ -62,10 +62,17 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
     uint64_t len                = coldtrace_entry_fixed_size(type);
+    if (len == 0) {
+        log_warn("error: Unknown entry type %u, dropping entry", type);
+        return NULL;
+    }
     if (!with_stack_(type)) {
         struct coldtrace_entry_header *entry =
             static_cast<struct coldtrace_entry_header *>(
                 coldtrace_writer_reserve(&th->writer, len));
+        if (entry == NULL) {
+            return NULL;
+        }
         *entry = coldtrace_entry_init(type, ptr);
         return entry;
     }
@@ -77,7 +84,8 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
     size_t stack_size          = (stack_top - stack_bot) * sizeof(uint64_t);
     void *e = coldtrace_writer_reserve(&th->writer, len + stack_size);
     if (e == NULL) {
-        log_fatal("error: Could not reserve entry in writer");
+        log_warn("error: Could not reserve entry in writer, dropping entry");
+        return NULL;
     }
 
     struct coldtrace_entry_header *entry =

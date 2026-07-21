@@ -61,7 +61,8 @@ coldtrace_entry_parse_type(const void *buf)
     coldtrace_entry_type type =
         (coldtrace_entry_type)(ptr & TYPE_MASK & ~ZERO_FLAG);
     if (!is_type_valid(type)) {
-        log_fatal("Invalid entry type (at %s:%d)", __FILE__, __LINE__);
+        log_warn("Invalid entry type (at %s:%d)", __FILE__, __LINE__);
+        return COLDTRACE_END_;
     }
     return type;
 }
@@ -182,7 +183,7 @@ coldtrace_entry_get_size(const void *buf)
         } break;
 
         default:
-            log_fatal("Unknown entry size");
+            log_warn("Unknown entry size");
             break;
     }
     return next;
@@ -221,7 +222,8 @@ size_t
 coldtrace_entry_fixed_size(coldtrace_entry_type type)
 {
     if (!is_type_valid(type)) {
-        log_fatal("Invalid entry type (at %s:%d)", __FILE__, __LINE__);
+        log_warn("Invalid entry type (at %s:%d)", __FILE__, __LINE__);
+        return 0;
     }
     return space_map_[type & ~ZERO_FLAG];
 }
