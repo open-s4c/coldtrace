@@ -16,7 +16,8 @@ math(EXPR SLOT_subs_mman "${COLDTRACE_BASE_SLOT} + 8")
 math(EXPR SLOT_subs_annotate_rwlock "${COLDTRACE_BASE_SLOT} + 9")
 math(EXPR SLOT_subs_memcpy "${COLDTRACE_BASE_SLOT} + 10")
 math(EXPR SLOT_subs_marker "${COLDTRACE_BASE_SLOT} + 11")
-math(EXPR SLOT_marker "${COLDTRACE_BASE_SLOT} + 12")
+math(EXPR SLOT_subs_wait "${COLDTRACE_BASE_SLOT} + 12")
+math(EXPR SLOT_marker "${COLDTRACE_BASE_SLOT} + 13")
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
 
@@ -43,7 +44,8 @@ set(SRCS
     subs_mman.c
     subs_memcpy.c
     subs_cxa.c
-    subs_annotate_rwlock.c)
+    subs_annotate_rwlock.c
+    subs_wait.c)
 
 set(MODS)
 foreach(SRC ${SRCS})

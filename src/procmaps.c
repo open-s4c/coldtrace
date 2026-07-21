@@ -55,6 +55,7 @@ copy_mapped_files_(const char *path)
     char dst[MAX_PATH_LENGTH];
     char *last_slash;
     char unique[MAX_PATH_LENGTH * MAX_UNIQUE_PATHS] = {0};
+    int ret                                         = 0;
 
     // Open proc maps file in path.
     snprintf(proc_maps, sizeof(proc_maps), "%s/maps", path);
@@ -98,7 +99,10 @@ copy_mapped_files_(const char *path)
         }
 
         if (cp_(src, dst) != 0) {
-            return -1;
+            log_warn("Failed to copy mapped file '%s': %s", src,
+                     strerror(errno));
+            ret = -1;
+            continue;
         }
 
         // Mark this file as copied.
@@ -107,7 +111,7 @@ copy_mapped_files_(const char *path)
     }
 
     fclose(file);
-    return 0;
+    return ret;
 }
 
 /* -----------------------------------------------------------------------------
