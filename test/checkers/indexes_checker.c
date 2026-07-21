@@ -41,7 +41,7 @@ contains(struct index_set *set, uint64_t idx)
     return set->content[idx];
 }
 
-void
+bool
 insert(struct index_set *set, uint64_t idx)
 {
     if (idx >= set->capacity) {
@@ -53,8 +53,8 @@ insert(struct index_set *set, uint64_t idx)
         // allocate new block
         bool *new_block = mempool_alloc(new_capacity * sizeof(bool));
         if (!new_block) {
-            log_fatal("alloc failed for indexes");
-            return;
+            log_warn("alloc failed for indexes");
+            return false;
         }
 
         // copy old contents using set->capacity
@@ -73,9 +73,10 @@ insert(struct index_set *set, uint64_t idx)
 
     set->content[idx] = true;
     set_max_idx(set, idx);
+    return true;
 }
 
-void
+bool
 check_ascending_generic(uint64_t *prev, uint64_t idx, struct index_set *set,
                         char *index_name, uint64_t tid, int entry)
 {
@@ -83,55 +84,62 @@ check_ascending_generic(uint64_t *prev, uint64_t idx, struct index_set *set,
         // Ascending order check
         if (*prev != UINT64_MAX) {
             if (idx <= *prev) {
-                log_fatal(
+                log_warn(
                     "Ascending order violation for %s indexes: prev=%lu "
                     "current=%lu "
                     "(thread=%lu entry=%d)",
                     index_name, *prev, idx, tid, entry);
+                return false;
             }
         }
         *prev = idx;
 
-        insert(set, idx);
+        return insert(set, idx);
     }
+    return true;
 }
-void
+bool
 check_ascending_alloc_index(uint64_t *prev, uint64_t idx, uint64_t tid,
                             int entry)
 {
-    check_ascending_generic(prev, idx, &alloc_indexes, "alloc", tid, entry);
+    return check_ascending_generic(prev, idx, &alloc_indexes, "alloc", tid,
+                                   entry);
 }
 
-void
+bool
 check_ascending_atomic_index(uint64_t *prev, uint64_t idx, uint64_t tid,
                              int entry)
 {
-    check_ascending_generic(prev, idx, &atomic_indexes, "atomic", tid, entry);
+    return check_ascending_generic(prev, idx, &atomic_indexes, "atomic", tid,
+                                   entry);
 }
 
-void
+bool
 check_not_seen_generic_indexes(struct index_set *set, char *index_name)
 {
     uint64_t cap_snapshot = set->max_idx;
+    bool ret              = true;
     log_info(" %s indexes %lu", index_name, cap_snapshot + 1);
     log_info("Missing %s indexes (up to %s_max_idx):", index_name, index_name);
     for (uint64_t idx = 0; idx < cap_snapshot; idx++) {
         if (!contains(set, idx)) {
-            log_fatal("%zu", idx);
+            log_warn("missing %s index: %zu", index_name, idx);
+            ret = false;
         }
     }
 
     destroy(set);
+    return ret;
 }
 
-void
+bool
 check_not_seen_alloc_indexes()
 {
-    check_not_seen_generic_indexes(&alloc_indexes, "alloc");
+    return check_not_seen_generic_indexes(&alloc_indexes, "alloc");
 }
 
-void
+bool
 check_not_seen_atomic_indexes()
 {
-    check_not_seen_generic_indexes(&atomic_indexes, "atomic");
+    return check_not_seen_generic_indexes(&atomic_indexes, "atomic");
 }

@@ -25,7 +25,7 @@ x_times_plus_one(void *ptr)
     return NULL;
 }
 
-void
+bool
 check_conforming(const void *entry, metadata_t *md)
 {
     struct storage *tls       = SELF_TLS(md, &thread_local_storage);
@@ -36,11 +36,12 @@ check_conforming(const void *entry, metadata_t *md)
     } else if (type == COLDTRACE_ATOMIC_WRITE) {
         uint64_t write_idx = coldtrace_entry_parse_atomic_index(entry);
         if (write_idx < (2 * X_TIMES) && last_atomic_idx + 1 != write_idx) {
-            log_fatal(
-                "atomic fetch_add was split: read_idx: %ld write_idx: %ld",
-                last_atomic_idx, write_idx);
+            log_warn("atomic fetch_add was split: read_idx: %ld write_idx: %ld",
+                     last_atomic_idx, write_idx);
+            return false;
         }
     }
+    return true;
 }
 
 int

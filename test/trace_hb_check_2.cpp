@@ -38,7 +38,7 @@ x_times_plus_one(void *ptr)
 
 #define OFFSET_UNINITIALIZED (uint64_t) - 1
 
-void
+bool
 check_conforming(const void *entry, metadata_t *md)
 {
     struct storage *tls               = SELF_TLS(md, &thread_local_storage);
@@ -49,7 +49,7 @@ check_conforming(const void *entry, metadata_t *md)
     coldtrace_entry_type type         = coldtrace_entry_parse_type(entry);
     if (coldtrace_entry_parse_ptr(entry) != (uint64_t)&at) {
         // only check operations that are on at
-        return;
+        return true;
     }
     if (type == COLDTRACE_ATOMIC_READ) {
         last_atomic_idx = coldtrace_entry_parse_atomic_index(entry);
@@ -62,31 +62,36 @@ check_conforming(const void *entry, metadata_t *md)
         uint64_t write_idx = coldtrace_entry_parse_atomic_index(entry);
         if (write_idx > (2 * X_TIMES)) {
             // do not check after one thread can have finished the atomics
-            return;
+            return true;
         }
         if (count > 0 && fetch_add_return_values[count] == 0) {
             // it can happen that the return value was not yet written, because
             // that write is instrumented and triggers the creation of a new
             // file
             count++;
-            return;
+            return true;
         }
         // check that the r/w operations for return value x have idx 2x/ 2x + 1
         // (modulo offset)
+        bool ret = true;
         if (last_atomic_idx - offset != fetch_add_return_values[count] * 2) {
-            log_fatal(
+            log_warn(
                 "wrong atomic idx on read of fetch_add\n%ld: %d %u %ld %ld",
                 self_id(md), count, fetch_add_return_values[count],
                 last_atomic_idx, write_idx);
+            ret = false;
         }
         if (write_idx - offset != fetch_add_return_values[count] * 2 + 1) {
-            log_fatal(
+            log_warn(
                 "wrong atomic idx on write of fetch_add\n%ld: %d %u %ld %ld",
                 self_id(md), count, fetch_add_return_values[count],
                 last_atomic_idx, write_idx);
+            ret = false;
         }
         count++;
+        return ret;
     }
+    return true;
 }
 
 int
