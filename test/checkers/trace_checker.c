@@ -15,11 +15,11 @@
 #include <assert.h>
 #include <coldtrace/config.h>
 #include <coldtrace/entries.h>
-#include <coldtrace/log.h>
 #include <coldtrace/version.h>
 #include <coldtrace/wait.h>
 #include <dice/chains/capture.h>
 #include <dice/interpose.h>
+#include <dice/log.h>
 #include <dice/module.h>
 #include <dice/self.h>
 #include <dice/types.h>

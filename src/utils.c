@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: MIT
  */
 
-#include <coldtrace/log.h>
 #include <coldtrace/utils.h>
 #include <dice/compiler.h>
+#include <dice/log.h>
 #include <dirent.h>
 #include <errno.h>
 #include <ftw.h>
