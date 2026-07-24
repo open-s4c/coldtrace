@@ -1,5 +1,5 @@
 #include <assert.h>
-#include <coldtrace/log.h>
+#include <dice/log.h>
 #include <marker.h>
 #include <pthread.h>
 #include <stdbool.h>
