@@ -7,6 +7,7 @@ import io
 import shutil
 import argparse
 import time
+import tempfile
 from datetime import datetime
 from pathlib import Path
 from contextlib import redirect_stdout, redirect_stderr, contextmanager
@@ -23,6 +24,7 @@ RESULTS_DIR = PROJECT_ROOT / "results"
 REMOTE_BASE = "/data/local/tmp/coldtrace_env"
 REMOTE_BIN = f"{REMOTE_BASE}/bin"
 REMOTE_TRACES = f"{REMOTE_BASE}/traces"
+REMOTE_PERF = f"{REMOTE_BASE}/perf"
 TSANO_DIR = "/data/local/tmp/tsano"
 
 BENCHMARKS = {
@@ -53,6 +55,11 @@ VARIANTS = ["baseline", "tsan", "tsano", "coldtrace", "nowrites"]
 RUNS_RAYTRACING = 3
 VERDICT_PASS = "TRACE_CHECKER: TEST PASSED"
 VERDICT_FAIL = "TRACE_CHECKER: TEST FAILED"
+HIPERF_RECORD_ARGS = (
+    "-f {freq} -a --exclude-hiperf --cpu-limit 100 "
+    "-e hw-cpu-cycles --call-stack {call_stack}"
+)
+
 
 @contextmanager
 def suppress_output():
@@ -238,6 +245,82 @@ def evaluate_run(result, expect_verdict: bool, expect_fail: bool = False):
 
     return True, ""
 
+def push_text_file(device, content, remote_path, executable=False):
+    """Write text to a local temp file, push it to the device, optionally chmod +x."""
+    with tempfile.NamedTemporaryFile("w", delete=False) as tf:
+        tf.write(content)
+        local_tmp = tf.name
+    with suppress_output():
+        device.send_file(local_tmp, remote_path)
+        if executable:
+            device.cmd(f"chmod +x {remote_path}")
+    os.remove(local_tmp)
+
+def capture_with_hiperf(device, name, variant, variant_env, bin_suffix, run_cmd, opts):
+    """Capture a perf.data for one (benchmark, variant) run by using hiperf.
+       Two modes are supported:
+      * fixed window   -> hiperf records for exactly N seconds
+      * benchmark-gated -> hiperf runs with a duration ceiling and is stopped with
+                           SIGINT as soon as the benchmark exits
+    """
+    perf   = f"{REMOTE_PERF}/{name}_{variant}.data"
+    runner = f"{REMOTE_PERF}/run_{name}_{variant}.sh"
+    prefix = (variant_env + " ") if variant_env else ""
+    target = f"{name}_{bin_suffix}"
+
+    record_args = HIPERF_RECORD_ARGS.format(freq=opts["freq"], call_stack=opts["call_stack"])
+
+    fixed = opts.get("window")
+    if fixed:
+        window = int(fixed)
+        body = (
+            "#!/system/bin/sh\n"
+            f"cd {REMOTE_BASE}\n"
+            f"rm -f {perf}\n"
+            f"hiperf record {record_args} -d {window} -o {perf} >/dev/null 2>&1 &\n"
+            "HPERF=$!\n"
+            "sleep 2\n"
+            f"{prefix}./{target} {run_cmd} >/dev/null 2>&1\n"
+            "wait $HPERF 2>/dev/null\n"
+        )
+    else:
+        ceiling = int(opts.get("ceiling") or 300)
+        body = (
+            "#!/system/bin/sh\n"
+            f"cd {REMOTE_BASE}\n"
+            f"rm -f {perf}\n"
+            f"hiperf record {record_args} -d {ceiling} -o {perf} >/dev/null 2>&1 &\n"
+            "HPERF=$!\n"
+            "sleep 2\n"
+            f"{prefix}./{target} {run_cmd} >/dev/null 2>&1\n"
+            "sleep 1\n"
+            "kill -INT $HPERF 2>/dev/null\n"
+            "wait $HPERF 2>/dev/null\n"
+        )
+    push_text_file(device, body, runner, executable=True)
+
+    with suppress_output():
+        device.cmd(f"sh {runner}", check=False)
+        pd = device.cmd(f"[ -s {perf} ] && wc -c < {perf}",
+                        capture_output=True, text=True, check=False)
+
+    perf_sz = (pd.stdout or "").strip()
+    if perf_sz:
+        print(f"-> {name}_{variant}.data ({perf_sz} B)")
+    else:
+        print(f"-> {name}_{variant}.data (no data captured)")
+
+def pull_perf_results(device, local_dir, exts=(".data",)):
+    """Pull the result files (.data) from REMOTE_PERF back to the host."""
+    local_dir.mkdir(parents=True, exist_ok=True)
+    listing = device.cmd(f"ls {REMOTE_PERF}", capture_output=True, text=True, check=False).stdout or ""
+    files = [f for f in listing.splitlines() if f.strip().endswith(exts)]
+    if files:
+        for fname in files:
+            fname = fname.strip()
+            subprocess.run(["hdc", "-t", device.target, "file", "recv",
+                            f"{REMOTE_PERF}/{fname}", str(local_dir / fname)])
+
 def cmd_bench(args):
     """Main routine to execute benchmarks using Hyperfine on the remote device."""
     # Build Phase
@@ -334,7 +417,7 @@ def cmd_bench(args):
         cleanup_remote(device)
 
 def cmd_profile(args):
-    """Main routine for profiling benchmarks on the device."""
+    """Profile benchmarks on the device with hiperf and retrieve the .data files."""
     # Build Phase
     build_coldtrace(args.clean, "RelWithDebInfo")
     build_benchmarks(args.clean, args.benchmarks, "RelWithDebInfo")
@@ -344,6 +427,8 @@ def cmd_profile(args):
 
     try:
         setup_remote(device)
+        with suppress_output():
+            device.cmd(f"mkdir -p {REMOTE_PERF} && chmod 777 {REMOTE_PERF}")
         transfer_core_libs(device)
         
         print("--> Transferring Benchmarks...")
@@ -359,7 +444,14 @@ def cmd_profile(args):
         with suppress_output():
             device.cmd('power-shell wakeup')
             device.cmd('hidumper -s PowerManagerService -a "-t"')
-            
+
+        hiperf_opts = {
+            "freq": args.freq,
+            "call_stack": args.call_stack,
+            "ceiling": args.ceiling,
+            "window": args.window,
+        }
+
         for name in args.benchmarks:
             config = BENCHMARKS[name]
             print(f"\n--- Profiling Target: {name} ---")
@@ -372,9 +464,21 @@ def cmd_profile(args):
                 bin_suffix = "vanilla" if variant == "baseline" else "sanitized"
                 variant_env = get_variant_env(variant)
                 print(f"  [{variant}]:")
-                
-                with suppress_output():
-                    device.cmd(f"cd {REMOTE_BASE} && {variant_env} ./{name}_{bin_suffix} {config['run_cmd']}")
+
+                if args.no_capture:
+                    with suppress_output():
+                        device.cmd(f"cd {REMOTE_BASE} && {variant_env} ./{name}_{bin_suffix} {config['run_cmd']}")
+                else:
+                    capture_with_hiperf(device, name, variant, variant_env,
+                                        bin_suffix, config["run_cmd"], hiperf_opts)
+
+        if not args.no_capture:
+            print("\n=== Pulling hiperf perf.data ===")
+            out = RESULTS_DIR / f"profile-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}"
+            pull_perf_results(device, out)
+            print(f"\n.data files saved to: {out}")
+            print("\nRun 'hiperf report -i <file>.data' for a text profile, or use the "
+                  ".data with make_report.py for an HTML flame graph.")
     finally:
         cleanup_remote(device)
 
@@ -516,12 +620,24 @@ def main():
                               help="List of variants to execute (e.g., 'baseline tsan'). Pass 'all' to run everything. Default is all.")
 
     # --- Profile Command ---
-    profile_parser = subparsers.add_parser("profile", help="Run benchmarks in profiling mode")
+    profile_parser = subparsers.add_parser("profile", help="Run benchmarks under hiperf and pull .data files")
     profile_parser.add_argument("--clean", action="store_true", help="Force a clean rebuild with debug symbols (RelWithDebInfo)")
     profile_parser.add_argument("-b", "--benchmarks", nargs="+", default=list(BENCHMARKS.keys()), choices=list(BENCHMARKS.keys()) + ["all"],
                                 help="List of benchmarks to profile. Pass 'all' to profile everything. Default is all.")
     profile_parser.add_argument("-v", "--variants", nargs="+", default=VARIANTS, choices=VARIANTS + ["all"],
                                 help="List of variants to profile. Pass 'all' to run everything. Default is all.")
+    profile_parser.add_argument("--freq", type=int, default=1000,
+                                help="hiperf sampling frequency in Hz (default 1000)")
+    profile_parser.add_argument("--call-stack", dest="call_stack", default="dwarf", choices=["dwarf", "fp"],
+                                help="Stack unwind method for hiperf (default dwarf)")
+    profile_parser.add_argument("--ceiling", type=float, default=600,
+                                help="Ceiling (sec) for the benchmark-gated capture, hiperf is stopped as soon "
+                                     "as the benchmark exits, this only bounds a hung run (default 600)")
+    profile_parser.add_argument("--window", type=float, default=None,
+                                help="Use a fixed capture window of N seconds instead of gating on the benchmark, "
+                                     "the benchmark is launched inside the window and hiperf records the full N sec")
+    profile_parser.add_argument("--no-capture", action="store_true",
+                                help="Just run the benchmarks without hiperf")
 
     # --- Test Command ---
     test_parser = subparsers.add_parser("test", help="Run the Coldtrace test suite")
