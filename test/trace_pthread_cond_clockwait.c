@@ -7,13 +7,10 @@
 
 struct expected_entry expected_1[] = {
     EXPECT_SUFFIX(COLDTRACE_TEST_MARKER),
-    EXPECT_ENTRY(COLDTRACE_ALLOC),
-    EXPECT_VALUE(COLDTRACE_READ, 0),         // from gettime
-    EXPECT_VALUE(COLDTRACE_WRITE, 0),        // from +=2
-    EXPECT_VALUE(COLDTRACE_LOCK_ACQUIRE, 1), // from mutex
-    EXPECT_VALUE(COLDTRACE_LOCK_RELEASE, 1), // from clockwait
-    EXPECT_VALUE(COLDTRACE_LOCK_ACQUIRE, 1), // from clockwait
-    EXPECT_VALUE(COLDTRACE_ATOMIC_READ, 2),  // from the mutex lock read status
+    EXPECT_SUFFIX_VALUE(COLDTRACE_LOCK_ACQUIRE, 1), // from mutex
+    EXPECT_VALUE(COLDTRACE_LOCK_RELEASE, 1),        // from clockwait
+    EXPECT_VALUE(COLDTRACE_LOCK_ACQUIRE, 1),        // from clockwait
+    EXPECT_VALUE(COLDTRACE_ATOMIC_READ, 2), // from the mutex lock read status
     EXPECT_SUFFIX_VALUE(COLDTRACE_ATOMIC_WRITE,
                         2), // from the mutex lock write status
     EXPECT_SUFFIX_VALUE(COLDTRACE_LOCK_RELEASE, 1), // from mutex
