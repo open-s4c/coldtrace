@@ -1,55 +1,37 @@
 #!/usr/bin/env python3
-"""
-Python script to unpack L3 logging file into human-readable trace messages.
-L3: Lightweight Logging Library, Version 0.1
-Date 2023-12-24
-Copyright (c) 2023-2024
-"""
-import sys
-import struct
-import subprocess
-import os
+"""Display Coldtrace binary trace files in a human-readable form."""
+
+import argparse
+import mmap
 import re
-from collections import defaultdict
+import struct
+import sys
+from dataclasses import dataclass
+from enum import IntEnum
+from pathlib import Path
+from typing import Iterator, TextIO
 
-def get_multiple_file_log(s):
-    absolute_path = os.path.abspath(s)
-    print(absolute_path)
-    folder = os.path.dirname(absolute_path)
-    filename = os.path.basename(absolute_path)
-    print(folder)
-    print(filename)
-    pattern = r'freezer_log_(?P<tid>\d+)_(?P<nr>\d+)\.bin'
-    match = re.match(pattern, filename)
-    print(match)
-    if match and match["tid"] and match["nr"]:
-        tid = int(match["tid"])
-        files = [f for f in os.listdir(folder) if os.path.isfile(os.path.join(folder, f))]
-        files = [f for f in files if f.startswith(f"freezer_log_{tid}_")]
-        return (tid, [folder + '/' + f for f in sorted(files, key= lambda filename: int((filename.split("_")[-1]).split(".")[0]))])
-    else:
-        return list(s)
 
-# ##############################################################################
-# Constants that tie the unpacking logic to L3's core structure's layout
-# ##############################################################################
-COLD_VER_HEADER_SZ = 8     # bytes; sizeof(struct version_header)
-COLD_LOG_HEADER_SZ = 8  # bytes; offsetof(L3_LOG, slots)
-COLD_BASE_ENTRY_SZ = 8       # bytes; sizeof(L3_ENTRY)
-COLD_ACCESS_ENTRY_SZ = 4 * 8       # bytes; sizeof(L3_ENTRY)
-COLD_ALLOC_ENTRY_SZ = 5 * 8       # bytes; sizeof(L3_ENTRY)
-COLD_FREE_ENTRY_SZ = 4 * 8       # bytes; sizeof(L3_ENTRY)
-COLD_ATOMIC_ENTRY_SZ = 2 * 8       # bytes; sizeof(L3_ENTRY)
-COLD_ATOMIC_ACCESS_ENTRY_SZ = 3 * 8  # bytes; sizeof(L3_ENTRY)
-COLD_THREAD_ENTRY_SZ = 4 * 8       # bytes; sizeof(L3_ENTRY)
+TRACE_FILE_PATTERN = re.compile(
+    r"freezer_log_(?P<tid>\d+)_(?P<fragment>\d+)\.bin"
+)
 
-if len(sys.argv) != 2 and not (len(sys.argv) == 3 and sys.argv[2] == "-d"):
-    print(f"Usage: {sys.argv[0]} <logfile> [-d]")
-    sys.exit(0)
+VERSION_HEADER = struct.Struct("<IBBBB")
+ENTRY_HEADER = struct.Struct("<Q")
+FREE_FIELDS = struct.Struct("<QQII")
+ALLOC_FIELDS = struct.Struct("<QQQII")
+ACCESS_FIELDS = struct.Struct("<QQII")
+ATOMIC_ACCESS_FIELDS = struct.Struct("<QQ")
+ATOMIC_FIELDS = struct.Struct("<Q")
+THREAD_START_FIELDS = struct.Struct("<QQQ")
+ADDRESS = struct.Struct("<Q")
 
-from enum import Enum
+ZERO_FLAG = 0x80
+TYPE_MASK = 0xFF
+POINTER_MASK = 0x0000_FFFF_FFFF_FFFF
 
-class EntryType(Enum):
+
+class EntryType(IntEnum):
     FREE = 0
     ALLOC = 1
     READ = 2
@@ -66,184 +48,573 @@ class EntryType(Enum):
     RW_LOCK_ACQ_EXC = 13
     RW_LOCK_REL_SHR = 14
     RW_LOCK_REL_EXC = 15
-    RW_LOCK_REL     = 16
+    RW_LOCK_REL = 16
     CXA_GUARD_ACQUIRE = 17
     CXA_GUARD_RELEASE = 18
     THREAD_JOIN = 19
     THREAD_EXIT = 20
-    FENCE   = 21
-    MMAP    = 22
-    MUNMAP  = 23
+    FENCE = 21
+    MMAP = 22
+    MUNMAP = 23
     TEST_MARKER = 24
 
-ZERO_FLAG = 0b10000000
-PTR_MASK = 0x0000_FFFF_FFFF_FFFF
-BYTE_MASK = 0x0000_0000_0000_00FF
 
-debug = len(sys.argv) == 3 and sys.argv[2] == "-d"
-tid, file_list = get_multiple_file_log(sys.argv[1])
-# print(file_list)
-# Unpack the 1st n-bytes as an L3_LOG{} struct to get a hold
-# of the fbase-address stashed by the l3_init() call.
-# data = file.read(COLD_LOG_HEADER_SZ)
-# idx, = struct.unpack('<Q', data)
-# print(f"number of 8 byte chunks: {idx}")
-
-stacks = defaultdict(list)
-
-# pid_data = file.read(4088)
-# pylint: disable=invalid-name
-loc_prev = 0
-nentries = 0
-for f in file_list:
-    print(f"opening {f}")
-    with open(f, 'rb') as file:
-        header = file.read(COLD_VER_HEADER_SZ)
-        git_hash, padding, major, minor, patch = struct.unpack('<I B B B B', header) 
-        print(f"Coldtrace Version Header fields: git-commit-hash={git_hash:08x} version={major}.{minor}.{patch}")
-
-    # Keep reading chunks of log-entries from file ...
-        while True:
-            row = file.read(COLD_BASE_ENTRY_SZ)
-            len_row = len(row)
-            # Deal with eof
-            if not row or len_row == 0 or len_row < COLD_BASE_ENTRY_SZ:
-                break
-
-            ptr, = struct.unpack('<Q', row)
-            entry_type_raw = ptr & BYTE_MASK
-            ptr = (ptr >> 16) & PTR_MASK
-            
-            if debug:
-                print(f"entry_type_raw: {entry_type_raw} tid: {tid} ptr: {ptr:x}")
-            zero_flag = ZERO_FLAG & entry_type_raw > 0
-            entry_type = EntryType(entry_type_raw & ~ZERO_FLAG)
-            if (entry_type.value == 0): # free
-                raw_ext = file.read(COLD_FREE_ENTRY_SZ - COLD_BASE_ENTRY_SZ)
-                len_raw_ext = len(raw_ext)
-                if not raw_ext or raw_ext == 0 or len_raw_ext < (COLD_FREE_ENTRY_SZ - COLD_BASE_ENTRY_SZ) or (row == b'\x00'*COLD_BASE_ENTRY_SZ and raw_ext == b'\x00'*(COLD_FREE_ENTRY_SZ - COLD_BASE_ENTRY_SZ)):
-                    break
-                alloc_index, caller_0, popped_stack, stack_depth = struct.unpack('<QQII', raw_ext)
-                if debug:
-                    print(f"alloc_index: {alloc_index} caller_0: {caller_0:x} popped_stack: {popped_stack} stack_depth: {stack_depth}")
-                stacks[tid] = stacks[tid][:popped_stack]
-                if debug:
-                    print(stacks)
-                    print(f"reading {stack_depth - popped_stack} stack pointers")
-                for i in range(popped_stack, stack_depth):
-                    address, = struct.unpack('<Q', file.read(8))
-                    stacks[tid].append(address)
-                if debug:
-                    print(stacks)
-                caller_1 = stacks[tid][stack_depth - 1] if stack_depth - 1 >= 0 else 0
-                caller_2 = stacks[tid][stack_depth - 2] if stack_depth - 2 >= 0 else 0
-                if debug:
-                    print(stacks)
-            elif (entry_type.value == 1 or entry_type.value == 22 or entry_type.value == 23 ): # alloc
-                raw_ext = file.read(COLD_ALLOC_ENTRY_SZ - COLD_BASE_ENTRY_SZ)
-
-                size, alloc_index, caller_0, popped_stack, stack_depth = struct.unpack('<QQQII', raw_ext)
-                if debug:
-                    print(f"size: {size} caller_0: {caller_0:x} alloc_index: {alloc_index} popped_stack: {popped_stack} stack_depth: {stack_depth}")
-                stacks[tid] = stacks[tid][:popped_stack]
-                if debug:
-                    print(stacks)
-                    print(f"reading {stack_depth - popped_stack} stack pointers")
-                for i in range(popped_stack, stack_depth):
-                    address, = struct.unpack('<Q', file.read(8))
-                    stacks[tid].append(address)
-                if debug:
-                    print(stacks)
-                caller_1 = stacks[tid][stack_depth - 1] if stack_depth - 1 >= 0 else 0
-                caller_2 = stacks[tid][stack_depth - 2] if stack_depth - 2 >= 0 else 0
-                if debug:
-                    print(stacks)
-            elif (entry_type.value < 4):
-                raw_ext = file.read(COLD_ACCESS_ENTRY_SZ - COLD_BASE_ENTRY_SZ)
-
-                size, caller_0, popped_stack, stack_depth = struct.unpack('<QQII', raw_ext)
-                if debug:
-                    print(f"size: {size} caller_0: {caller_0:x} popped_stack: {popped_stack} stack_depth: {stack_depth}")
-                stacks[tid] = stacks[tid][:popped_stack]
-                if debug:
-                    print(stacks)
-                    print(f"reading {stack_depth - popped_stack} stack pointers")
-                for i in range(popped_stack, stack_depth):
-                    address, = struct.unpack('<Q', file.read(8))
-                    stacks[tid].append(address)
-                if debug:
-                    print(stacks)
-                caller_1 = stacks[tid][stack_depth - 1] if stack_depth - 1 >= 0 else 0
-                caller_2 = stacks[tid][stack_depth - 2] if stack_depth - 2 >= 0 else 0
-                if debug:
-                    print(stacks)
-            elif (entry_type.value == 9):
-                atomic_timestamp, thread_stack_ptr, thread_stack_size = struct.unpack('<QQQ', file.read(COLD_THREAD_ENTRY_SZ - COLD_BASE_ENTRY_SZ))
-            elif (entry_type.value == 4 or entry_type.value == 5): # ATOMIC_READ & ATOMIC_WRITE
-                raw_ext = file.read(COLD_ATOMIC_ACCESS_ENTRY_SZ - COLD_BASE_ENTRY_SZ)
-                size, atomic_timestamp = struct.unpack('<QQ', raw_ext)
-            elif (entry_type.value == 24):
-                # TEST_MARKER entry has no additional data
-                pass
-            else:
-                atomic_timestamp, = struct.unpack('<Q', file.read(COLD_ATOMIC_ENTRY_SZ - COLD_BASE_ENTRY_SZ))
-
-            match entry_type:
-                case EntryType.FREE:
-                    print(f"{nentries}) {tid}: Freed memory @{ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x} [{alloc_index}]\n")
-                case EntryType.ALLOC:
-                    print(f"{nentries}) {tid}: Allocated {size}B of memory @{ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x} [{alloc_index}]\n")
-                case EntryType.READ:
-                    if zero_flag:
-                        print(f"{nentries}) {tid}: ZeroRead access {size}B @{ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x}\n")
-                    else:
-                        print(f"{nentries}) {tid}: Read access {size}B @{ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x}\n")
-                case EntryType.WRITE:
-                    print(f"{nentries}) {tid}: write access {size}B @{ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x}\n")
-                case EntryType.ATOMIC_READ:
-                    print(f"{nentries}) {tid}: atomic read {size}B @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.ATOMIC_WRITE:
-                    print(f"{nentries}) {tid}: atomic write {size}B @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.LOCK_ACQUIRE:
-                    print(f"{nentries}) {tid}: acquire lock @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.LOCK_RELEASE:
-                    print(f"{nentries}) {tid}: release lock @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.THREAD_CREATE:
-                    print(f"{nentries}) {tid}: thread create @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.THREAD_START:
-                    print(f"{nentries}) {tid}: thread start @{ptr:x} {thread_stack_ptr:x} {thread_stack_size} [{atomic_timestamp}]\n")
-                case EntryType.THREAD_JOIN:
-                    print(f"{nentries}) {tid}: thread join @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.THREAD_EXIT:
-                    print(f"{nentries}) {tid}: thread exit @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.RW_LOCK_CREATE:
-                    print(f"{nentries}) {tid}: rw_lock create @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.RW_LOCK_DESTROY:
-                    print(f"{nentries}) {tid}: rw_lock destroy @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.RW_LOCK_ACQ_SHR:
-                    print(f"{nentries}) {tid}: rw_lock acq_shr @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.RW_LOCK_ACQ_EXC:
-                    print(f"{nentries}) {tid}: rw_lock acq_exc @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.RW_LOCK_REL_SHR:
-                    print(f"{nentries}) {tid}: rw_lock rel_shr @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.RW_LOCK_REL_EXC:
-                    print(f"{nentries}) {tid}: rw_lock rel_exc @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.RW_LOCK_REL:
-                    print(f"{nentries}) {tid}: rw_lock rel @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.FENCE:
-                    print(f"{nentries}) {tid}: fence [{atomic_timestamp}]\n")
-                case EntryType.TEST_MARKER:
-                    print(f"{nentries}) {tid}: test marker\n")
-                case EntryType.CXA_GUARD_ACQUIRE:
-                    print(f"{nentries}) {tid}: acquire cxa_guard @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.CXA_GUARD_RELEASE:
-                    print(f"{nentries}) {tid}: release cxa_guard @{ptr:x} [{atomic_timestamp}]\n")
-                case EntryType.MMAP:
-                    print(f"{nentries}) {tid}: mmap-ed region of {size} from {ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x} [{alloc_index}]\n")
-                case EntryType.MUNMAP:
-                    print(f"{nentries}) {tid}: munmap-ed region of {size} from {ptr:x} {stack_depth + 1}: {caller_0:x}, {caller_1:x}, {caller_2:x} [{alloc_index}]\n")
+STACK_ALLOC_TYPES = {
+    EntryType.ALLOC,
+    EntryType.MMAP,
+    EntryType.MUNMAP,
+}
+STACK_ACCESS_TYPES = {EntryType.READ, EntryType.WRITE}
+ATOMIC_ACCESS_TYPES = {EntryType.ATOMIC_READ, EntryType.ATOMIC_WRITE}
+STACK_TYPES = {EntryType.FREE} | STACK_ALLOC_TYPES | STACK_ACCESS_TYPES
+ENTRY_TYPES = tuple(EntryType(value) for value in range(len(EntryType)))
 
 
-            nentries += 1
+class TraceDumpError(Exception):
+    """An input or trace-format error suitable for displaying to the user."""
 
-print(f"Unpacked {nentries=} log-entries.")
+
+@dataclass(slots=True)
+class TraceEntry:
+    tid: int
+    type: EntryType
+    pointer: int
+    zero_flag: bool = False
+    size: int | None = None
+    alloc_index: int | None = None
+    atomic_index: int | None = None
+    caller: int | None = None
+    stack_depth: int = 0
+    caller_1: int = 0
+    caller_2: int = 0
+    thread_stack_ptr: int | None = None
+    thread_stack_size: int | None = None
+
+
+def discover_trace_files(logfile: str | Path) -> tuple[int, list[Path]]:
+    """Return the thread ID and all of its trace fragments in numeric order."""
+    requested = Path(logfile).absolute()
+    match = TRACE_FILE_PATTERN.fullmatch(requested.name)
+    if match is None:
+        raise TraceDumpError(
+            f"invalid trace filename '{requested.name}'; expected "
+            "freezer_log_<tid>_<fragment>.bin"
+        )
+    if not requested.is_file():
+        raise TraceDumpError(f"trace file does not exist: {requested}")
+
+    tid = int(match.group("tid"))
+    fragments: list[tuple[int, Path]] = []
+    for candidate in requested.parent.iterdir():
+        candidate_match = TRACE_FILE_PATTERN.fullmatch(candidate.name)
+        if candidate_match is None or not candidate.is_file():
+            continue
+        if int(candidate_match.group("tid")) != tid:
+            continue
+        fragments.append((int(candidate_match.group("fragment")), candidate))
+
+    fragments.sort(key=lambda item: (item[0], item[1].name))
+    return tid, [path for _, path in fragments]
+
+
+class TraceReader:
+    """Decode a sequence of trace fragments belonging to one thread."""
+
+    def __init__(
+        self, tid: int, debug: bool = False, diagnostics: TextIO | None = None
+    ) -> None:
+        self.tid = tid
+        self.stack: list[int] = []
+        self.debug = debug
+        self.diagnostics = diagnostics if diagnostics is not None else sys.stderr
+
+    def entries(self, files: list[Path]) -> Iterator[TraceEntry]:
+        for path in files:
+            yield from self._read_file(path)
+
+    def _read_file(self, path: Path) -> Iterator[TraceEntry]:
+        if self.debug:
+            self._debug(f"opening {path}")
+        try:
+            with path.open("rb") as trace_file:
+                file_size = trace_file.seek(0, 2)
+                if file_size < VERSION_HEADER.size:
+                    raise self._format_error(
+                        path,
+                        0,
+                        f"truncated version header: expected {VERSION_HEADER.size} "
+                        f"bytes, found {file_size}",
+                    )
+
+                with mmap.mmap(
+                    trace_file.fileno(), length=0, access=mmap.ACCESS_READ
+                ) as buffer:
+                    git_hash, padding, major, minor, patch = (
+                        VERSION_HEADER.unpack_from(buffer)
+                    )
+                    # Headers are informational here so traces from another build
+                    # remain inspectable, matching the original dumper behavior.
+                    if self.debug:
+                        self._debug(
+                            "Coldtrace Version Header fields: "
+                            f"git-commit-hash={git_hash:08x} "
+                            f"padding={padding} version={major}.{minor}.{patch}"
+                        )
+
+                    offset = VERSION_HEADER.size
+                    while offset < file_size:
+                        entry_offset = offset
+                        header_end = offset + ENTRY_HEADER.size
+                        if header_end > file_size:
+                            if not any(buffer[offset:file_size]):
+                                if self.debug:
+                                    self._debug(
+                                        f"{path}:{offset}: reached short "
+                                        "zero-filled tail"
+                                    )
+                                break
+                            raise self._format_error(
+                                path,
+                                offset,
+                                "truncated entry header: expected "
+                                f"{ENTRY_HEADER.size} bytes, found "
+                                f"{file_size - offset}",
+                            )
+
+                        (typed_pointer,) = ENTRY_HEADER.unpack_from(buffer, offset)
+                        offset = header_end
+                        raw_type = typed_pointer & TYPE_MASK
+                        type_value = raw_type & ~ZERO_FLAG
+                        if type_value >= len(ENTRY_TYPES):
+                            raise self._format_error(
+                                path,
+                                entry_offset,
+                                f"unknown entry type {raw_type:#x}",
+                            )
+                        entry_type = ENTRY_TYPES[type_value]
+                        pointer = (typed_pointer >> 16) & POINTER_MASK
+                        zero_flag = bool(raw_type & ZERO_FLAG)
+
+                        if self.debug:
+                            self._debug(
+                                f"{path}:{entry_offset}: raw_type={raw_type} "
+                                f"type={entry_type.name} tid={self.tid} "
+                                f"ptr={pointer:x}"
+                            )
+
+                        # Memory accesses dominate real traces, so keep their
+                        # successful decode path free of generic helper calls.
+                        if entry_type in STACK_ACCESS_TYPES:
+                            fields_end = offset + ACCESS_FIELDS.size
+                            if fields_end > file_size:
+                                raise self._format_error(
+                                    path,
+                                    offset,
+                                    "truncated access entry fields: expected "
+                                    f"{ACCESS_FIELDS.size} bytes, found "
+                                    f"{file_size - offset}",
+                                )
+                            size, caller, popped, depth = ACCESS_FIELDS.unpack_from(
+                                buffer, offset
+                            )
+                            stack_depth, caller_1, caller_2, offset = (
+                                self._read_stack(
+                                    buffer,
+                                    file_size,
+                                    path,
+                                    entry_offset,
+                                    fields_end,
+                                    popped,
+                                    depth,
+                                )
+                            )
+                            entry = TraceEntry(
+                                self.tid,
+                                entry_type,
+                                pointer,
+                                zero_flag=zero_flag,
+                                size=size,
+                                caller=caller,
+                                stack_depth=stack_depth,
+                                caller_1=caller_1,
+                                caller_2=caller_2,
+                            )
+                        else:
+                            entry, offset = self._read_entry(
+                                buffer,
+                                file_size,
+                                path,
+                                entry_offset,
+                                offset,
+                                typed_pointer,
+                                entry_type,
+                                pointer,
+                                zero_flag,
+                            )
+                        if entry is None:
+                            if self.debug:
+                                self._debug(
+                                    f"{path}:{entry_offset}: reached "
+                                    "zero-filled tail"
+                                )
+                            break
+                        if self.debug:
+                            self._debug(
+                                f"{path}:{entry_offset}: decoded {entry}"
+                            )
+                        yield entry
+        except OSError as error:
+            raise TraceDumpError(f"cannot read trace file '{path}': {error}") from error
+
+    def _read_entry(
+        self,
+        buffer: mmap.mmap,
+        file_size: int,
+        path: Path,
+        entry_offset: int,
+        offset: int,
+        typed_pointer: int,
+        entry_type: EntryType,
+        pointer: int,
+        zero_flag: bool,
+    ) -> tuple[TraceEntry | None, int]:
+        if entry_type is EntryType.TEST_MARKER:
+            return TraceEntry(self.tid, entry_type, pointer), offset
+
+        if entry_type is EntryType.FREE:
+            fields_end = offset + FREE_FIELDS.size
+            available_end = min(fields_end, file_size)
+            if typed_pointer == 0 and not any(buffer[offset:available_end]):
+                return None, file_size
+            if fields_end > file_size:
+                raise self._format_error(
+                    path,
+                    offset,
+                    "truncated free entry fields: "
+                    f"expected {FREE_FIELDS.size} bytes, found {file_size - offset}",
+                )
+            alloc_index, caller, popped, depth = FREE_FIELDS.unpack_from(
+                buffer, offset
+            )
+            stack_depth, caller_1, caller_2, offset = self._read_stack(
+                buffer, file_size, path, entry_offset, fields_end, popped, depth
+            )
+            return TraceEntry(
+                self.tid,
+                entry_type,
+                pointer,
+                zero_flag=zero_flag,
+                alloc_index=alloc_index,
+                caller=caller,
+                stack_depth=stack_depth,
+                caller_1=caller_1,
+                caller_2=caller_2,
+            ), offset
+
+        if entry_type in STACK_ALLOC_TYPES:
+            fields, offset = self._unpack_from(
+                buffer,
+                file_size,
+                ALLOC_FIELDS,
+                path,
+                offset,
+                "allocation entry fields",
+            )
+            size, alloc_index, caller, popped, depth = fields
+            stack_depth, caller_1, caller_2, offset = self._read_stack(
+                buffer, file_size, path, entry_offset, offset, popped, depth
+            )
+            return TraceEntry(
+                self.tid,
+                entry_type,
+                pointer,
+                zero_flag=zero_flag,
+                size=size,
+                alloc_index=alloc_index,
+                caller=caller,
+                stack_depth=stack_depth,
+                caller_1=caller_1,
+                caller_2=caller_2,
+            ), offset
+
+        if entry_type is EntryType.THREAD_START:
+            fields, offset = self._unpack_from(
+                buffer,
+                file_size,
+                THREAD_START_FIELDS,
+                path,
+                offset,
+                "thread-start entry fields",
+            )
+            atomic_index, thread_stack_ptr, thread_stack_size = fields
+            return TraceEntry(
+                self.tid,
+                entry_type,
+                pointer,
+                zero_flag=zero_flag,
+                atomic_index=atomic_index,
+                thread_stack_ptr=thread_stack_ptr,
+                thread_stack_size=thread_stack_size,
+            ), offset
+
+        if entry_type in ATOMIC_ACCESS_TYPES:
+            fields, offset = self._unpack_from(
+                buffer,
+                file_size,
+                ATOMIC_ACCESS_FIELDS,
+                path,
+                offset,
+                "atomic-access entry fields",
+            )
+            size, atomic_index = fields
+            return TraceEntry(
+                self.tid,
+                entry_type,
+                pointer,
+                zero_flag=zero_flag,
+                size=size,
+                atomic_index=atomic_index,
+            ), offset
+
+        fields, offset = self._unpack_from(
+            buffer,
+            file_size,
+            ATOMIC_FIELDS,
+            path,
+            offset,
+            "atomic entry fields",
+        )
+        (atomic_index,) = fields
+        return TraceEntry(
+            self.tid,
+            entry_type,
+            pointer,
+            zero_flag=zero_flag,
+            atomic_index=atomic_index,
+        ), offset
+
+    def _read_stack(
+        self,
+        buffer: mmap.mmap,
+        file_size: int,
+        path: Path,
+        entry_offset: int,
+        offset: int,
+        popped: int,
+        depth: int,
+    ) -> tuple[int, int, int, int]:
+        if popped > depth:
+            raise self._format_error(
+                path,
+                entry_offset,
+                f"invalid stack diff: popped {popped} exceeds depth {depth}",
+            )
+        if popped > len(self.stack):
+            raise self._format_error(
+                path,
+                entry_offset,
+                f"invalid stack diff: cannot retain {popped} frames from "
+                f"a {len(self.stack)}-frame stack",
+            )
+
+        del self.stack[popped:]
+        added = depth - popped
+        stack_end = offset + added * ADDRESS.size
+        if stack_end > file_size:
+            available = max(0, file_size - offset)
+            raise self._format_error(
+                path,
+                offset,
+                f"truncated stack addresses: expected {added * ADDRESS.size} "
+                f"bytes, found {available}",
+            )
+        if self.debug:
+            self._debug(
+                f"{path}:{entry_offset}: retaining {popped} stack frames and "
+                f"reading {added}"
+            )
+        while offset < stack_end:
+            (address,) = ADDRESS.unpack_from(buffer, offset)
+            self.stack.append(address)
+            offset += ADDRESS.size
+        caller_1 = self.stack[-1] if self.stack else 0
+        caller_2 = self.stack[-2] if depth >= 2 else 0
+        return depth, caller_1, caller_2, offset
+
+    @staticmethod
+    def _unpack_from(
+        buffer: mmap.mmap,
+        file_size: int,
+        layout: struct.Struct,
+        path: Path,
+        offset: int,
+        description: str,
+    ) -> tuple[tuple[int, ...], int]:
+        end = offset + layout.size
+        if end > file_size:
+            raise TraceReader._format_error(
+                path,
+                offset,
+                f"truncated {description}: expected {layout.size} bytes, "
+                f"found {max(0, file_size - offset)}",
+            )
+        return layout.unpack_from(buffer, offset), end
+
+    @staticmethod
+    def _format_error(path: Path, offset: int, message: str) -> TraceDumpError:
+        return TraceDumpError(f"{path}:{offset}: {message}")
+
+    def _debug(self, message: str) -> None:
+        if self.debug:
+            print(message, file=self.diagnostics)
+
+
+def format_entry(ordinal: int, entry: TraceEntry) -> str:
+    """Format one decoded entry using the established trace-dump vocabulary."""
+    if entry.type is EntryType.READ:
+        operation = "ZeroRead" if entry.zero_flag else "Read"
+        return (
+            f"{ordinal}) {entry.tid}: {operation} access {entry.size}B "
+            f"@{entry.pointer:x} {entry.stack_depth + 1}: {entry.caller:x}, "
+            f"{entry.caller_1:x}, {entry.caller_2:x}"
+        )
+    if entry.type is EntryType.WRITE:
+        return (
+            f"{ordinal}) {entry.tid}: write access {entry.size}B "
+            f"@{entry.pointer:x} {entry.stack_depth + 1}: {entry.caller:x}, "
+            f"{entry.caller_1:x}, {entry.caller_2:x}"
+        )
+
+    prefix = f"{ordinal}) {entry.tid}:"
+    pointer = f"{entry.pointer:x}"
+
+    if entry.type in STACK_TYPES:
+        if entry.caller is None:
+            raise ValueError(f"missing caller for {entry.type.name}")
+        callers = (
+            f"{entry.stack_depth + 1}: {entry.caller:x}, "
+            f"{entry.caller_1:x}, {entry.caller_2:x}"
+        )
+
+    match entry.type:
+        case EntryType.FREE:
+            return (
+                f"{prefix} Freed memory @{pointer} {callers} "
+                f"[{entry.alloc_index}]"
+            )
+        case EntryType.ALLOC:
+            return (
+                f"{prefix} Allocated {entry.size}B of memory @{pointer} "
+                f"{callers} [{entry.alloc_index}]"
+            )
+        case EntryType.ATOMIC_READ:
+            return (
+                f"{prefix} atomic read {entry.size}B @{pointer} "
+                f"[{entry.atomic_index}]"
+            )
+        case EntryType.ATOMIC_WRITE:
+            return (
+                f"{prefix} atomic write {entry.size}B @{pointer} "
+                f"[{entry.atomic_index}]"
+            )
+        case EntryType.LOCK_ACQUIRE:
+            return f"{prefix} acquire lock @{pointer} [{entry.atomic_index}]"
+        case EntryType.LOCK_RELEASE:
+            return f"{prefix} release lock @{pointer} [{entry.atomic_index}]"
+        case EntryType.THREAD_CREATE:
+            return f"{prefix} thread create @{pointer} [{entry.atomic_index}]"
+        case EntryType.THREAD_START:
+            return (
+                f"{prefix} thread start @{pointer} "
+                f"{entry.thread_stack_ptr:x} {entry.thread_stack_size} "
+                f"[{entry.atomic_index}]"
+            )
+        case EntryType.THREAD_JOIN:
+            return f"{prefix} thread join @{pointer} [{entry.atomic_index}]"
+        case EntryType.THREAD_EXIT:
+            return f"{prefix} thread exit @{pointer} [{entry.atomic_index}]"
+        case EntryType.RW_LOCK_CREATE:
+            return f"{prefix} rw_lock create @{pointer} [{entry.atomic_index}]"
+        case EntryType.RW_LOCK_DESTROY:
+            return f"{prefix} rw_lock destroy @{pointer} [{entry.atomic_index}]"
+        case EntryType.RW_LOCK_ACQ_SHR:
+            return f"{prefix} rw_lock acq_shr @{pointer} [{entry.atomic_index}]"
+        case EntryType.RW_LOCK_ACQ_EXC:
+            return f"{prefix} rw_lock acq_exc @{pointer} [{entry.atomic_index}]"
+        case EntryType.RW_LOCK_REL_SHR:
+            return f"{prefix} rw_lock rel_shr @{pointer} [{entry.atomic_index}]"
+        case EntryType.RW_LOCK_REL_EXC:
+            return f"{prefix} rw_lock rel_exc @{pointer} [{entry.atomic_index}]"
+        case EntryType.RW_LOCK_REL:
+            return f"{prefix} rw_lock rel @{pointer} [{entry.atomic_index}]"
+        case EntryType.FENCE:
+            return f"{prefix} fence [{entry.atomic_index}]"
+        case EntryType.TEST_MARKER:
+            return f"{prefix} test marker"
+        case EntryType.CXA_GUARD_ACQUIRE:
+            return f"{prefix} acquire cxa_guard @{pointer} [{entry.atomic_index}]"
+        case EntryType.CXA_GUARD_RELEASE:
+            return f"{prefix} release cxa_guard @{pointer} [{entry.atomic_index}]"
+        case EntryType.MMAP:
+            return (
+                f"{prefix} mmap-ed region of {entry.size} from {pointer} "
+                f"{callers} [{entry.alloc_index}]"
+            )
+        case EntryType.MUNMAP:
+            return (
+                f"{prefix} munmap-ed region of {entry.size} from {pointer} "
+                f"{callers} [{entry.alloc_index}]"
+            )
+
+    raise ValueError(f"cannot format entry type {entry.type}")
+
+
+def dump_trace(
+    logfile: str | Path,
+    debug: bool = False,
+    output: TextIO | None = None,
+    diagnostics: TextIO | None = None,
+) -> int:
+    """Decode and display all fragments associated with a trace file."""
+    output = output if output is not None else sys.stdout
+    diagnostics = diagnostics if diagnostics is not None else sys.stderr
+
+    tid, files = discover_trace_files(logfile)
+    reader = TraceReader(tid, debug=debug, diagnostics=diagnostics)
+    write = output.write
+    format_line = format_entry
+    nentries = 0
+    for nentries, entry in enumerate(reader.entries(files), start=1):
+        write(f"{format_line(nentries - 1, entry)}\n")
+    write(f"Unpacked nentries={nentries} log-entries.\n")
+    return nentries
+
+
+def create_argument_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Display all Coldtrace fragments for the thread identified by LOGFILE."
+        )
+    )
+    parser.add_argument("logfile", help="a freezer_log_<tid>_<fragment>.bin file")
+    parser.add_argument(
+        "-d",
+        "--debug",
+        action="store_true",
+        help="show file and decoder diagnostics on stderr",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = create_argument_parser().parse_args(argv)
+    try:
+        dump_trace(args.logfile, debug=args.debug)
+    except (OSError, TraceDumpError) as error:
+        print(f"trace_dump.py: error: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

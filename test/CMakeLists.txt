@@ -2,6 +2,14 @@ include_directories(../src)
 include_directories(checkers)
 include_directories(../deps/dice/test/include)
 
+find_package(Python3 3.10 COMPONENTS Interpreter)
+if(Python3_Interpreter_FOUND)
+  add_test(NAME trace_dump-test
+           COMMAND ${Python3_EXECUTABLE} -m unittest test.test_trace_dump)
+  set_tests_properties(trace_dump-test PROPERTIES
+                       WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+endif()
+
 add_library(trace_checker SHARED checkers/trace_checker.c checkers/indexes_checker.c)
 target_link_libraries(trace_checker PUBLIC vsync dice.h ${COLDTRACE_OBJS})
 

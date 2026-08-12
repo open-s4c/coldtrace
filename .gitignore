@@ -6,3 +6,4 @@ results
 .kakrc
 deps/bingo-installer/
 deps/libvsync-installer/
+__pycache__/
