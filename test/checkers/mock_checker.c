@@ -1,5 +1,11 @@
 #include "trace_checker.h"
 
+void *
+dice___memset(void *ptr, int value, size_t num)
+{
+    abort();
+}
+
 void
 register_expected_trace(uint64_t tid, struct expected_entry *trace)
 {
