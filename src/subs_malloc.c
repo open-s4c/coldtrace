@@ -59,11 +59,13 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_FREE, {
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_POSIX_MEMALIGN, {
     struct posix_memalign_event *ev = EVENT_PAYLOAD(ev);
-    struct coldtrace_alloc_entry *e;
-    COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_ALLOC, ev->ptr);
-    e->size        = (uint64_t)ev->size;
-    e->alloc_index = coldtrace_next_alloc_idx();
-    e->caller      = (uint64_t)ev->pc;
+    if (ev->ret == 0) {
+        struct coldtrace_alloc_entry *e;
+        COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_ALLOC, *ev->ptr);
+        e->size        = (uint64_t)ev->size;
+        e->alloc_index = coldtrace_next_alloc_idx();
+        e->caller      = (uint64_t)ev->pc;
+    }
 })
 
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_ALIGNED_ALLOC, {
