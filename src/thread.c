@@ -3,7 +3,6 @@
  * SPDX-License-Identifier: MIT
  */
 
-extern "C" {
 #include <coldtrace/config.h>
 #include <coldtrace/thread.h>
 #include <coldtrace/writer.h>
@@ -11,19 +10,22 @@ extern "C" {
 #include <dice/module.h>
 #include <dice/pubsub.h>
 #include <dice/self.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
+#include <string.h>
 #include <vsync/atomic.h>
-}
 
-#include <cassert>
-#include <cstring>
-#include <vector>
+#define INITIAL_STACK_CAPACITY 16
 
 struct coldtrace_thread {
     struct coldtrace_writer writer;
     bool initd;
+    bool failed;
     uint32_t stack_bottom;
-    std::vector<void *> stack;
+    uint64_t *stack;
+    uint32_t stack_size;
+    uint32_t stack_capacity;
     uint64_t created_thread_idx;
 };
 
@@ -56,20 +58,51 @@ with_stack_(coldtrace_entry_type type)
     }
 }
 
+static bool
+grow_stack_(struct coldtrace_thread *th)
+{
+    uint32_t new_capacity;
+    size_t bytes;
+
+    if (th->stack_capacity == 0) {
+        new_capacity = INITIAL_STACK_CAPACITY;
+    } else {
+        // we'd get a SEGV from stack overflow before this exceeds legal sizes
+        new_capacity = th->stack_capacity * 2;
+    }
+    bytes = (size_t)new_capacity * sizeof(*th->stack);
+
+    uint64_t *stack = realloc(th->stack, bytes);
+    if (stack == NULL) {
+        log_warn(
+            "error: Could not increase thread stack size, disabling tracing");
+        th->failed = true;
+        return false;
+    }
+
+    th->stack          = stack;
+    th->stack_capacity = new_capacity;
+    return true;
+}
+
 DICE_HIDE void *
 coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
                         const void *ptr)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
-    uint64_t len                = coldtrace_entry_fixed_size(type);
+    if (th->failed) {
+        return NULL;
+    }
+
+    uint64_t len = coldtrace_entry_fixed_size(type);
     if (len == 0) {
         log_warn("error: Unknown entry type %u, dropping entry", type);
         return NULL;
     }
     if (!with_stack_(type)) {
         struct coldtrace_entry_header *entry =
-            static_cast<struct coldtrace_entry_header *>(
-                coldtrace_writer_reserve(&th->writer, len));
+            (struct coldtrace_entry_header *)coldtrace_writer_reserve(
+                &th->writer, len);
         if (entry == NULL) {
             return NULL;
         }
@@ -77,29 +110,28 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
         return entry;
     }
 
-    std::vector<void *> &stack = th->stack;
-    uint32_t &stack_bot        = th->stack_bottom;
-    uint32_t stack_top         = (uint32_t)th->stack.size();
-    uint64_t *stack_base       = (uint64_t *)stack.data();
-    size_t stack_size          = (stack_top - stack_bot) * sizeof(uint64_t);
+    uint32_t stack_bot   = th->stack_bottom;
+    uint32_t stack_top   = th->stack_size;
+    uint64_t *stack_base = th->stack;
+    size_t stack_size    = (size_t)(stack_top - stack_bot) * sizeof(uint64_t);
     void *e = coldtrace_writer_reserve(&th->writer, len + stack_size);
     if (e == NULL) {
         log_warn("error: Could not reserve entry in writer, dropping entry");
         return NULL;
     }
 
-    struct coldtrace_entry_header *entry =
-        static_cast<struct coldtrace_entry_header *>(e);
-    *entry = coldtrace_entry_init(type, ptr);
+    struct coldtrace_entry_header *entry = (struct coldtrace_entry_header *)e;
+    *entry                               = coldtrace_entry_init(type, ptr);
 
-    char *buf =
-        static_cast<char *>(e) + len - sizeof(struct coldtrace_stack_diff);
+    char *buf = (char *)e + len - sizeof(struct coldtrace_stack_diff);
     struct coldtrace_stack_diff *s = (struct coldtrace_stack_diff *)buf;
     s->depth                       = stack_top;
     s->popped                      = stack_bot;
-    memcpy(s->diff, stack_base + stack_bot, stack_size);
+    if (stack_size > 0) {
+        memcpy(s->diff, stack_base + stack_bot, stack_size);
+    }
 
-    stack_bot = stack_top;
+    th->stack_bottom = stack_top;
     return e;
 }
 
@@ -115,6 +147,11 @@ coldtrace_thread_fini(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
     coldtrace_writer_fini(&th->writer);
+    free(th->stack);
+    th->stack          = NULL;
+    th->stack_size     = 0;
+    th->stack_capacity = 0;
+    th->stack_bottom   = 0;
 }
 
 DICE_HIDE void
@@ -135,17 +172,27 @@ DICE_HIDE void
 coldtrace_thread_stack_push(struct metadata *md, void *caller)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
-    th->stack.push_back(caller);
+    if (th->failed) {
+        return;
+    }
+    if (th->stack_size == th->stack_capacity && !grow_stack_(th)) {
+        return;
+    }
+    th->stack[th->stack_size++] = (uint64_t)(uintptr_t)caller;
 }
 
 DICE_HIDE void
 coldtrace_thread_stack_pop(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
-    if (!th->stack.empty()) {
-        th->stack.pop_back();
-        th->stack_bottom =
-            std::min(th->stack_bottom, (uint32_t)th->stack.size());
+    if (th->failed) {
+        return;
+    }
+    if (th->stack_size > 0) {
+        th->stack_size--;
+        if (th->stack_bottom > th->stack_size) {
+            th->stack_bottom = th->stack_size;
+        }
     }
 }
 

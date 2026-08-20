@@ -61,8 +61,10 @@ endforeach()
 
 target_link_libraries(trace_hb_check PRIVATE entries.o)
 target_link_libraries(trace_hb_check_2 PRIVATE entries.o)
+target_link_libraries(trace_stack_growth PRIVATE entries.o)
+target_compile_options(trace_stack_growth PRIVATE -fno-optimize-sibling-calls)
 target_compile_options(trace_fence PRIVATE -fsanitize=thread -Wno-error=tsan
-                                           -Wno-unknown-warning-option)
+                                            -Wno-unknown-warning-option)
 # force a call to memcpy or __tsan_memcpy
 target_compile_options(trace_memcpy PRIVATE -fno-builtin)
 set_tests_properties(trace_fail-test PROPERTIES ENVIRONMENT "COLDTRACE_EXPECT_FAIL=1")
