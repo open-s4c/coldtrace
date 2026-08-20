@@ -41,6 +41,7 @@ static vatomic32_t failed_writer_close = VATOMIC_INIT(0);
 
 INTERPOSE(void, register_entry_callback, entry_callback callback)
 {
+    coldtrace_enable_test_wait();
     if (_entry_callback_count < MAX_ENTRY_CALLBACKS) {
         _entry_callbacks[_entry_callback_count++] = callback;
     }
@@ -83,12 +84,14 @@ static void (*_close_callback)(const void *page, size_t size);
 INTERPOSE(void, register_close_callback,
           void (*callback)(const void *page, size_t size))
 {
+    coldtrace_enable_test_wait();
     _close_callback = callback;
 }
 
 static bool (*_final_callback)(void);
 INTERPOSE(void, register_final_callback, bool (*callback)(void))
 {
+    coldtrace_enable_test_wait();
     _final_callback = callback;
 }
 
@@ -277,6 +280,20 @@ static bool _check_entry(struct entry_it it,
                          struct expected_entry_iterator *iter, uint64_t tid,
                          int entry);
 static bool
+_check_next_expected(struct entry_it it, struct expected_entry_iterator *exp_it,
+                     uint64_t tid, int entry, const char *reason)
+{
+    next_expected_entry_and_reset(exp_it);
+    log_warn("%lu %s (go to next)", tid, reason);
+    if (!exp_it->e->set) {
+        log_warn("thread=%lu entry=%d unexpected trailing entry=%s", tid, entry,
+                 coldtrace_entry_type_str(iter_type(it)));
+        return false;
+    }
+    return _check_entry(it, exp_it, tid, entry);
+}
+
+static bool
 _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
                     uint64_t tid, int entry)
 {
@@ -294,26 +311,32 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
         return false;
     }
     if (!t) {
-        next_expected_entry_and_reset(exp_it);
-        log_warn("%lu event mismatch (go to next)", tid);
-        return _check_entry(it, exp_it, tid, entry);
+        return _check_next_expected(it, exp_it, tid, entry, "event mismatch");
     }
 
-    // 2. POINTER CHECK
+    // 2. SIZE CHECK
+    enum size_match s = _check_size(size, exp_it);
+    if (s == MISMATCH_SIZE) {
+        if (exp_it->atleast == 0) {
+            return _check_next_expected(it, exp_it, tid, entry,
+                                        "optional size mismatch");
+        }
+        log_warn("thread=%lu entry=%d size mismatch found=%lu expected=%d", tid,
+                 entry, size, (exp_it->e)->size);
+        return false;
+    }
+
+    // 3. POINTER CHECK
     enum pointer_match p = _check_ptr(ptr_value, exp_it);
     if (p == MISMATCH_PTR) {
+        if (exp_it->atleast == 0) {
+            return _check_next_expected(it, exp_it, tid, entry,
+                                        "optional pointer mismatch");
+        }
         log_warn(
             "thread=%lu entry=%d pointer mismatch found=%lu "
             "expected=%lu",
             tid, entry, ptr_value, _entry_ptr_values[exp_it->e->check]);
-        return false;
-    }
-
-    // 3. SIZE CHECK
-    enum size_match s = _check_size(size, exp_it);
-    if (s == MISMATCH_SIZE) {
-        log_warn("thread=%lu entry=%d size mismatch found=%lu expected=%d", tid,
-                 entry, size, (exp_it->e)->size);
         return false;
     }
 
