@@ -4,6 +4,7 @@
  */
 
 #include <coldtrace/config.h>
+#include <coldtrace/libc.h>
 #include <coldtrace/thread.h>
 #include <coldtrace/writer.h>
 #include <dice/log.h>
@@ -128,7 +129,7 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
     s->depth                       = stack_top;
     s->popped                      = stack_bot;
     if (stack_size > 0) {
-        memcpy(s->diff, stack_base + stack_bot, stack_size);
+        coldtrace_memcpy(s->diff, stack_base + stack_bot, stack_size);
     }
 
     th->stack_bottom = stack_top;
