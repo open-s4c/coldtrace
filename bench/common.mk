@@ -22,13 +22,17 @@ CXXFLAGS_EXTRA=	-fsanitize=thread
 # Force clang++ to link libtsan as shared library. (Yes, the flag is libsan)
 LDFLAGS!=	if [ "$(CXX)" = "clang++" ]; then echo '-shared-libsan'; fi
 
-# For testing we use hyperfine if available, otherwise simply call command
-TESTER!=	if which hyperfine > /dev/null; \
-		then echo "hyperfine --warmup 1"; \
-		else echo "sh -c"; fi
+# For testing we use hyperfine if available, otherwise simply call command.
+# With NO_HYPERFINE we use a wall-clock timer.
+TESTER!=	if [ -n "$(NO_HYPERFINE)" ]; then \
+			echo "$(PROJECT)/scripts/bench-time.sh"; \
+		elif which hyperfine > /dev/null 2>&1; then \
+			echo "hyperfine --warmup 1"; \
+		else \
+			echo "sh -c"; fi
 
-# If hyperfine is used, we can parse the results with the following command
-PARSE=      awk -v tgt=$* '/Time/ && /mean/ { \
+# Parser for hyperfine output: mean (+ stddev), converted to milliseconds.
+PARSE_HF=   awk -v tgt=$* '/Time/ && /mean/ { \
                 m = \$$\$$5; \
                 if (\$$\$$6 ~ /^s\$$\$$/) m = m * 1000; \
                 s = \$$\$$8; \
@@ -36,5 +40,15 @@ PARSE=      awk -v tgt=$* '/Time/ && /mean/ { \
                 print tgt, m, s \
             }' $(WORKDIR)/$*.run.log | sed 's/ /;/g' | tee -a $(WORKDIR)/results.csv
 
-# Add TARGET+=header to initialize the results.csv file
-PRO.header=	echo 'variant; time_ms; stddev_ms' > $(WORKDIR)/results.csv
+# Parser for the standalone timer output: "time_ms <ms>".
+PARSE_NOHF= awk -v tgt=$* '/^time_ms/ { print tgt, \$$\$$2 }' \
+            $(WORKDIR)/$*.run.log | sed 's/ /;/g' | tee -a $(WORKDIR)/results.csv
+
+# Select the parser at run time based on NO_HYPERFINE.
+PARSE=      if [ -n '$(NO_HYPERFINE)' ]; then $(PARSE_NOHF); else $(PARSE_HF); fi
+
+# Add TARGET+=header to initialize the results.csv file.
+PRO.header= if [ -n '$(NO_HYPERFINE)' ]; then \
+                echo 'variant; time_ms' > $(WORKDIR)/results.csv; \
+            else \
+                echo 'variant; time_ms; stddev_ms' > $(WORKDIR)/results.csv; fi
