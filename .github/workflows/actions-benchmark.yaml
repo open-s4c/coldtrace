@@ -54,7 +54,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.cfg.cxx }}
           cmake --build build
           chmod +x scripts/benchmark.sh
-          ./scripts/benchmark.sh --config --build --force-run --force-sum ${{ matrix.benchmark }}
+          ./scripts/benchmark.sh --clean -b ${{ matrix.benchmark }}
 
       - name: Build and Benchmark Current Code
         working-directory: ./current
@@ -65,7 +65,7 @@ jobs:
             -DCMAKE_CXX_COMPILER=${{ matrix.cfg.cxx }}
           cmake --build build
           chmod +x scripts/benchmark.sh
-          ./scripts/benchmark.sh --config --build --force-run --force-sum ${{ matrix.benchmark }}
+          ./scripts/benchmark.sh --clean -b ${{ matrix.benchmark }}
 
       - name: Print summary to GitHub Actions
         working-directory: ./current
