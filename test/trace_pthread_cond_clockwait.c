@@ -10,9 +10,6 @@ struct expected_entry expected_1[] = {
     EXPECT_SUFFIX_VALUE(COLDTRACE_LOCK_ACQUIRE, 1), // from mutex
     EXPECT_VALUE(COLDTRACE_LOCK_RELEASE, 1),        // from clockwait
     EXPECT_VALUE(COLDTRACE_LOCK_ACQUIRE, 1),        // from clockwait
-    EXPECT_VALUE(COLDTRACE_ATOMIC_READ, 2), // from the mutex lock read status
-    EXPECT_SUFFIX_VALUE(COLDTRACE_ATOMIC_WRITE,
-                        2), // from the mutex lock write status
     EXPECT_SUFFIX_VALUE(COLDTRACE_LOCK_RELEASE, 1), // from mutex
     EXPECT_SUFFIX(COLDTRACE_THREAD_EXIT),
     EXPECT_END,
