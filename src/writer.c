@@ -169,6 +169,19 @@ new_trace_(struct writer_impl *impl)
     create_coldtrace_version_header(impl);
 }
 
+DICE_HIDE bool
+coldtrace_writer_new_trace(struct coldtrace_writer *ct, size_t size)
+{
+    struct writer_impl *impl = (struct writer_impl *)ct;
+    size_t sz                = coldtrace_get_trace_size();
+    size_t trace_size        = impl->size;
+    if (unlikely(sz < trace_size)) {
+        trace_size = sz;
+    }
+
+    return (impl->offset + size) > trace_size;
+}
+
 
 DICE_HIDE void *
 coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
@@ -179,14 +192,7 @@ coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
         return NULL;
     }
 
-    // check if size of trace was reduced
-    size_t sz         = coldtrace_get_trace_size();
-    size_t trace_size = impl->size;
-    if (unlikely(sz < trace_size)) {
-        trace_size = sz;
-    }
-
-    if ((impl->offset + size) > trace_size) {
+    if (coldtrace_writer_new_trace(ct, size)) {
         new_trace_(impl);
         if (impl->buffer == NULL) {
             return NULL;
@@ -212,6 +218,7 @@ coldtrace_writer_init(struct coldtrace_writer *ct, metadata_t *md)
     impl->failed     = false;
     impl->tid        = self_id(md);
     impl->buffer     = NULL;
+    impl->offset     = 0;
     impl->enumerator = 0;
     impl->size       = 0;
     impl->md         = md;

@@ -100,6 +100,9 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
         return NULL;
     }
     if (!with_stack_(type)) {
+        if (coldtrace_writer_new_trace(&th->writer, len)) {
+            th->stack_bottom = 0;
+        }
         struct coldtrace_entry_header *entry =
             (struct coldtrace_entry_header *)coldtrace_writer_reserve(
                 &th->writer, len);
@@ -114,6 +117,10 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
     uint32_t stack_top   = th->stack_size;
     uint64_t *stack_base = th->stack;
     size_t stack_size    = (size_t)(stack_top - stack_bot) * sizeof(uint64_t);
+    if (coldtrace_writer_new_trace(&th->writer, len + stack_size)) {
+        stack_bot  = 0;
+        stack_size = (stack_top) * sizeof(uint64_t);
+    }
     void *e = coldtrace_writer_reserve(&th->writer, len + stack_size);
     if (e == NULL) {
         log_warn("error: Could not reserve entry in writer, dropping entry");
