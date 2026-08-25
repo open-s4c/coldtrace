@@ -91,8 +91,15 @@ class TraceEntry:
     thread_stack_size: int | None = None
 
 
-def discover_trace_files(logfile: str | Path) -> tuple[int, list[Path]]:
-    """Return the thread ID and all of its trace fragments in numeric order."""
+def discover_trace_files(
+    logfile: str | Path, standalone: bool = False
+) -> tuple[int, list[Path]]:
+    """Return the thread ID and the trace fragments to decode.
+
+    With ``standalone`` set, only the fragment named by ``logfile`` is returned:
+    each fragment now opens with a full stack (its first stack diff has
+    ``popped == 0``), so it decodes without its predecessors.
+    """
     requested = Path(logfile).absolute()
     match = TRACE_FILE_PATTERN.fullmatch(requested.name)
     if match is None:
@@ -104,6 +111,10 @@ def discover_trace_files(logfile: str | Path) -> tuple[int, list[Path]]:
         raise TraceDumpError(f"trace file does not exist: {requested}")
 
     tid = int(match.group("tid"))
+
+    if standalone:
+        return tid, [requested]
+
     fragments: list[tuple[int, Path]] = []
     for candidate in requested.parent.iterdir():
         candidate_match = TRACE_FILE_PATTERN.fullmatch(candidate.name)
@@ -574,12 +585,12 @@ def dump_trace(
     debug: bool = False,
     output: TextIO | None = None,
     diagnostics: TextIO | None = None,
+    standalone: bool = False,
 ) -> int:
-    """Decode and display all fragments associated with a trace file."""
     output = output if output is not None else sys.stdout
     diagnostics = diagnostics if diagnostics is not None else sys.stderr
 
-    tid, files = discover_trace_files(logfile)
+    tid, files = discover_trace_files(logfile, standalone=standalone)
     reader = TraceReader(tid, debug=debug, diagnostics=diagnostics)
     write = output.write
     format_line = format_entry
@@ -598,6 +609,12 @@ def create_argument_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("logfile", help="a freezer_log_<tid>_<fragment>.bin file")
     parser.add_argument(
+        "-s",
+        "--standalone",
+        action="store_true",
+        help="decode only the named fragment",
+    )
+    parser.add_argument(
         "-d",
         "--debug",
         action="store_true",
@@ -609,7 +626,7 @@ def create_argument_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = create_argument_parser().parse_args(argv)
     try:
-        dump_trace(args.logfile, debug=args.debug)
+        dump_trace(args.logfile, debug=args.debug, standalone=args.standalone)
     except (OSError, TraceDumpError) as error:
         print(f"trace_dump.py: error: {error}", file=sys.stderr)
         return 1

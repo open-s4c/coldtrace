@@ -17,6 +17,7 @@ struct coldtrace_writer {
     char _[COLDTRACE_DESCRIPTOR_SIZE];
 };
 
+bool coldtrace_writer_new_trace(struct coldtrace_writer *ct, size_t size);
 void coldtrace_writer_init(struct coldtrace_writer *ct, metadata_t *md);
 void coldtrace_writer_fini(struct coldtrace_writer *ct);
 void *coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size);
