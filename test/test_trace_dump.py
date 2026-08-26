@@ -359,6 +359,74 @@ class TraceDumpTest(unittest.TestCase):
         self.assertIn("trace_dump.py: error:", result.stderr)
         self.assertNotIn("Traceback", result.stderr)
 
+    def test_standalone_decodes_only_the_named_fragment(self):
+
+        predecessor = self.write_trace(
+            "freezer_log_7_2.bin",
+            VERSION_HEADER
+            + entry_header(trace_dump.EntryType.FREE, 0x10)
+            + FREE_STRUCT.pack(100, 0x2000, 0, 2)
+            + stack_addresses(0xAA, 0xBB)
+            + bytes(64),
+        )
+
+        requested = self.write_trace(
+            "freezer_log_7_10.bin",
+            VERSION_HEADER
+            + entry_header(trace_dump.EntryType.ALLOC, 0x1001)
+            + ALLOC_STRUCT.pack(9, 101, 0x2001, 0, 2)
+            + stack_addresses(0xCC, 0xDD)
+            + entry_header(trace_dump.EntryType.WRITE, 0x1003)
+            + ACCESS_STRUCT.pack(11, 0x2003, 2, 2)
+            + bytes(64),
+        )
+
+        tid, fragments = trace_dump.discover_trace_files(requested, standalone=True)
+        self.assertEqual(7, tid)
+        self.assertEqual([requested], fragments)
+        _, all_fragments = trace_dump.discover_trace_files(requested)
+        self.assertEqual([predecessor, requested], all_fragments)
+
+        standalone_out = io.StringIO()
+        standalone_count = trace_dump.dump_trace(
+            requested, output=standalone_out, standalone=True
+        )
+        standalone_lines = standalone_out.getvalue().splitlines()
+
+        self.assertEqual(2, standalone_count)
+        self.assertEqual(
+            "0) 7: Allocated 9B of memory @1001 3: 2001, dd, cc [101]",
+            standalone_lines[0],
+        )
+        self.assertEqual(
+            "1) 7: write access 11B @1003 3: 2003, dd, cc", standalone_lines[1]
+        )
+        self.assertEqual("Unpacked nentries=2 log-entries.", standalone_lines[2])
+
+        full_out = io.StringIO()
+        full_count = trace_dump.dump_trace(requested, output=full_out)
+        full_lines = full_out.getvalue().splitlines()
+
+        self.assertEqual(3, full_count)
+
+        def without_ordinal(line):
+            return line.split(") ", 1)[1]
+
+        self.assertEqual(
+            [without_ordinal(line) for line in standalone_lines[0:2]],
+            [without_ordinal(line) for line in full_lines[1:3]],
+        )
+
+    def test_standalone_rejects_incomplete_stack_fragment(self):
+
+        _, requested_fragment = self.make_complete_trace()
+
+        with self.assertRaisesRegex(
+            trace_dump.TraceDumpError, "cannot retain 1 frames"
+        ):
+            trace_dump.dump_trace(
+                requested_fragment, output=io.StringIO(), standalone=True
+            )
 
 if __name__ == "__main__":
     unittest.main()
