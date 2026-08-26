@@ -13,6 +13,12 @@ endif()
 add_library(trace_checker SHARED checkers/trace_checker.c checkers/indexes_checker.c)
 target_link_libraries(trace_checker PUBLIC vsync dice.h ${COLDTRACE_OBJS})
 
+# force libc++ to be loaded before trace_checker to ensure availability of
+# cxa_guard
+if(CMAKE_SYSTEM_NAME MATCHES "OHOS")
+  set_target_properties(trace_checker PROPERTIES LINKER_LANGUAGE CXX)
+endif()
+
 add_library(mock_checker SHARED checkers/mock_checker.c)
 target_link_libraries(mock_checker PUBLIC vsync dice.h)
 
