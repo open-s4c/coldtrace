@@ -1,4 +1,5 @@
 #include <coldtrace/config.h>
+#include <coldtrace/libc.h>
 #include <coldtrace/version.h>
 #include <coldtrace/writer.h>
 #include <dice/compiler.h>
@@ -100,8 +101,8 @@ get_trace_(struct writer_impl *impl)
         impl->failed = true;
         return;
     }
-    impl->buffer =
-        mmap(NULL, impl->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    impl->buffer = coldtrace_mmap(NULL, impl->size, PROT_READ | PROT_WRITE,
+                                  MAP_SHARED, fd, 0);
     if (impl->buffer == MAP_FAILED) {
         log_warn("mmap get_trace: %s", strerror(errno));
         unlink(file_name);
@@ -130,7 +131,7 @@ new_trace_(struct writer_impl *impl)
         create_coldtrace_version_header(impl);
         return;
     }
-    munmap(impl->buffer, impl->size);
+    coldtrace_munmap(impl->buffer, impl->size);
 
     impl->enumerator = (impl->enumerator + 1) % coldtrace_get_max();
     impl->size       = coldtrace_get_trace_size();
@@ -155,8 +156,8 @@ new_trace_(struct writer_impl *impl)
         return;
     }
 
-    impl->buffer =
-        mmap(NULL, impl->size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    impl->buffer = coldtrace_mmap(NULL, impl->size, PROT_READ | PROT_WRITE,
+                                  MAP_SHARED, fd, 0);
     if (impl->buffer == MAP_FAILED) {
         log_warn("mmap new_trace: %s", strerror(errno));
         unlink(file_name);
