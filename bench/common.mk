@@ -22,14 +22,27 @@ CXXFLAGS_EXTRA=	-fsanitize=thread
 # Force clang++ to link libtsan as shared library. (Yes, the flag is libsan)
 LDFLAGS!=	if [ "$(CXX)" = "clang++" ]; then echo '-shared-libsan'; fi
 
-# For testing we use hyperfine if available, otherwise simply call command.
-# With NO_HYPERFINE we use a wall-clock timer.
-TESTER!=	if [ -n "$(NO_HYPERFINE)" ]; then \
-			echo "$(PROJECT)/scripts/bench-time.sh"; \
-		elif which hyperfine > /dev/null 2>&1; then \
-			echo "hyperfine --warmup 1"; \
-		else \
-			echo "sh -c"; fi
+# ------------------------------------------------------------------------------
+# Run-time wrapper (TESTER) selection
+#
+#   PROFILE=1       -> wrap each run in `perf record`
+#   NO_HYPERFINE=1  -> standalone wall-clock timer ($(PROJECT)/scripts/bench-time.sh)
+#   otherwise       -> hyperfine if available, else plain `sh -c`
+# ------------------------------------------------------------------------------
+
+FREQ?=		    999
+CALL_GRAPH?=	dwarf
+PERF?=		    perf
+PERF_EVENT?=
+
+TESTER!=	if [ -n "$(PROFILE)" ]; then \
+				echo "$(PERF) record -g --call-graph $(CALL_GRAPH) -F $(FREQ) $(PERF_EVENT) -o $(WORKDIR)/\$$*.perf.data -- sh -c"; \
+			elif [ -n "$(NO_HYPERFINE)" ]; then \
+				echo "$(PROJECT)/scripts/bench-time.sh"; \
+			elif which hyperfine > /dev/null 2>&1; then \
+				echo "hyperfine --warmup 1"; \
+			else \
+				echo "sh -c"; fi
 
 # Parser for hyperfine output: mean (+ stddev), converted to milliseconds.
 PARSE_HF=   awk -v tgt=$* '/Time/ && /mean/ { \

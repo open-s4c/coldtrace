@@ -12,6 +12,7 @@ mkdir -p "$RESULTS_DIR"
 
 OPTION_CLEAN="no"
 OPTION_NO_HYPERFINE="no"
+BUILD_TYPE="Release"
 
 SELECTED_BENCHMARKS=""
 SELECTED_VARIANTS=""
@@ -113,8 +114,18 @@ for bench in $ALL_BENCHMARKS; do
 
     if process_benchmark "$name"; then
 
+        _have=""
+        [ -f "$BENCH_DIR/$name/work/.build-type" ] && \
+            _have=$(cat "$BENCH_DIR/$name/work/.build-type" 2>/dev/null || echo "")
+        if [ -n "$_have" ] && [ "$_have" != "$BUILD_TYPE" ]; then
+            echo "--> Previous build was $_have; cleaning for $BUILD_TYPE: $name"
+            $MAKE -sC "$BENCH_DIR/$name" clean
+        fi
+
         echo "--> Building benchmark: $name"
         $MAKE -sC "$BENCH_DIR/$name" build $NO_HF_FLAG
+        mkdir -p "$BENCH_DIR/$name/work"
+        echo "$BUILD_TYPE" > "$BENCH_DIR/$name/work/.build-type"
 
         echo "--> Running benchmark: $name${VARIANTS:+ (variants: $VARIANTS)}"
         bench_make "$BENCH_DIR/$name" run "$VARIANTS" FORCE=1 $NO_HF_FLAG
