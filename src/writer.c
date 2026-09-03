@@ -9,6 +9,7 @@
 #include <dice/types.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lz4.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,6 +18,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#define FRAG_HDR_SIZE          (sizeof(struct version_header) + sizeof(uint32_t))
+#define LZ4_ACCELERATION       1
 #define FORMAT_EXPANSION_SPACE 20
 #define FILE_PERMISSIONS                                                       \
     (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
@@ -25,6 +28,7 @@ struct writer_impl {
     bool initd;
     bool failed;
     uint64_t *buffer;
+    char *comp_buf;
     uint64_t size;
     uint64_t offset;
     uint64_t tid;
@@ -76,12 +80,34 @@ write_all_(int fd, const void *buf, size_t count)
     return true;
 }
 
+// Write the fragment file as [version_header][uint32_t raw_size][lz4(entries)], 
+// where raw_size is the size of the uncompressed entries.
 static void
 flush_(struct writer_impl *impl)
 {
     coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
 
     if (coldtrace_writes_disabled()) {
+        return;
+    }
+
+    const size_t hdr = sizeof(struct version_header);
+    const char *src  = (const char *)impl->buffer + hdr;
+    size_t raw       = impl->offset - hdr;
+
+    struct version_header *file_hdr = (struct version_header *)impl->comp_buf;
+    *file_hdr                       = current_version_header;
+
+    uint32_t *file_raw = (uint32_t *)(impl->comp_buf + sizeof(*file_hdr));
+    *file_raw          = (uint32_t)raw;
+
+    int comp =
+        LZ4_compress_fast(src, impl->comp_buf + FRAG_HDR_SIZE, (int)raw,
+                          LZ4_compressBound((int)impl->size), LZ4_ACCELERATION);
+    if (comp <= 0) {
+        log_warn("flush: LZ4 compression failed");
+        impl->buffer = NULL;
+        impl->failed = true;
         return;
     }
 
@@ -97,10 +123,12 @@ flush_(struct writer_impl *impl)
         return;
     }
 
-    if(!write_all_(fd, impl->buffer, impl->offset)) {
+    if (!write_all_(fd, impl->comp_buf, FRAG_HDR_SIZE + (size_t)comp)) {
         log_warn("write flush: %s", strerror(errno));
+        close(fd);
         impl->buffer = NULL;
         impl->failed = true;
+        return;
     }
 
     close(fd);
@@ -151,6 +179,15 @@ ensure_buffer_(struct writer_impl *impl)
                        MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
     if (impl->buffer == MAP_FAILED) {
         log_warn("mmap ensure_buffer: %s", strerror(errno));
+        impl->buffer = NULL;
+        impl->failed = true;
+        return false;
+    }
+
+    impl->comp_buf =
+        coldtrace_malloc(FRAG_HDR_SIZE + LZ4_compressBound((int)impl->size));
+    if (impl->comp_buf == NULL) {
+        log_warn("ensure_buffer: compression buffer alloc failed");
         impl->buffer = NULL;
         impl->failed = true;
         return false;
@@ -248,6 +285,7 @@ coldtrace_writer_init(struct coldtrace_writer *ct, metadata_t *md)
     impl->failed     = false;
     impl->tid        = self_id(md);
     impl->buffer     = NULL;
+    impl->comp_buf   = NULL;
     impl->offset     = 0;
     impl->enumerator = 0;
     impl->size       = 0;
@@ -269,6 +307,10 @@ coldtrace_writer_fini(struct coldtrace_writer *ct)
 
     // Flush the final partial fragment
     flush_(impl);
+
+    if (impl->comp_buf != NULL) {
+        coldtrace_free(impl->comp_buf);
+    }
 
     if (coldtrace_writes_disabled()) {
         mempool_free(impl->buffer);

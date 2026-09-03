@@ -2,10 +2,10 @@
 """Display Coldtrace binary trace files in a human-readable form."""
 
 import argparse
-import mmap
 import re
 import struct
 import sys
+import lz4.block
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
@@ -17,6 +17,8 @@ TRACE_FILE_PATTERN = re.compile(
 )
 
 VERSION_HEADER = struct.Struct("<IBBBB")
+BLOCK_HEADER = struct.Struct("<I")
+FRAGMENT_HEADER_SIZE = VERSION_HEADER.size + BLOCK_HEADER.size
 ENTRY_HEADER = struct.Struct("<Q")
 FREE_FIELDS = struct.Struct("<QQII")
 ALLOC_FIELDS = struct.Struct("<QQQII")
@@ -29,6 +31,11 @@ ADDRESS = struct.Struct("<Q")
 ZERO_FLAG = 0x80
 TYPE_MASK = 0xFF
 POINTER_MASK = 0x0000_FFFF_FFFF_FFFF
+
+LZ4_MAX_INPUT_SIZE = 0x7E00_0000
+LZ4_MAX_RATIO = 255 
+
+MIN_SUPPORTED_VERSION = (0, 2, 0)
 
 
 class EntryType(IntEnum):
@@ -91,6 +98,10 @@ class TraceEntry:
     thread_stack_size: int | None = None
 
 
+def format_version(version: tuple[int, int, int]) -> str:
+    return ".".join(str(part) for part in version)
+
+
 def discover_trace_files(
     logfile: str | Path, standalone: bool = False
 ) -> tuple[int, list[Path]]:
@@ -132,154 +143,222 @@ class TraceReader:
     """Decode a sequence of trace fragments belonging to one thread."""
 
     def __init__(
-        self, tid: int, debug: bool = False, diagnostics: TextIO | None = None
+        self, tid: int, debug: bool = False, diagnostics: TextIO | None = None,
+        max_fragment_size: int = LZ4_MAX_INPUT_SIZE,
     ) -> None:
         self.tid = tid
         self.stack: list[int] = []
         self.debug = debug
         self.diagnostics = diagnostics if diagnostics is not None else sys.stderr
+        self.max_fragment_size = max_fragment_size
 
     def entries(self, files: list[Path]) -> Iterator[TraceEntry]:
         for path in files:
             yield from self._read_file(path)
 
+    def _check_version(self, path: Path, data: bytes) -> None:
+        """Reject fragments written by a Coldtrace older than supported."""
+        _, _, major, minor, patch = VERSION_HEADER.unpack_from(data, 0)
+        version = (major, minor, patch)
+        if version < MIN_SUPPORTED_VERSION:
+            raise self._format_error(
+                path,
+                0,
+                f"unsupported trace version {format_version(version)}; "
+                "this dumper reads traces from Coldtrace "
+                f"{format_version(MIN_SUPPORTED_VERSION)} or newer",
+            )
+
+    def _decompress(self, path: Path) -> bytes:
+        """Return the fragment as [version header][raw entries].
+
+        Fragments are stored as [version header][u32 raw_size][lz4(entries)].
+        """
+        try:
+            data = path.read_bytes()
+        except OSError as error:
+            raise TraceDumpError(
+                f"cannot read trace file '{path}': {error}"
+            ) from error
+
+        if len(data) < VERSION_HEADER.size:
+            raise self._format_error(
+                path,
+                0,
+                f"truncated version header: expected {VERSION_HEADER.size} "
+                f"bytes, found {len(data)}",
+            )
+
+        self._check_version(path, data)
+
+        if len(data) < FRAGMENT_HEADER_SIZE:
+            raise self._format_error(
+                path,
+                VERSION_HEADER.size,
+                f"truncated block header: expected {BLOCK_HEADER.size} bytes, "
+                f"found {len(data) - VERSION_HEADER.size}",
+            )
+
+        (raw_size,) = BLOCK_HEADER.unpack_from(data, VERSION_HEADER.size)
+        payload = data[FRAGMENT_HEADER_SIZE:]
+
+        limit = min(self.max_fragment_size, len(payload) * LZ4_MAX_RATIO)
+        if raw_size > limit:
+            raise self._format_error(
+                path,
+                VERSION_HEADER.size,
+                f"implausible uncompressed size {raw_size} for a "
+                f"{len(payload)}-byte payload (limit {limit}); "
+                "the file is corrupt or truncated",
+            )
+
+        if raw_size == 0:
+            entries = b""
+        else:
+            try:
+                entries = lz4.block.decompress(
+                    payload, uncompressed_size=raw_size
+                )
+            except Exception as error:
+                raise self._format_error(
+                    path,
+                    FRAGMENT_HEADER_SIZE,
+                    f"lz4 decompression failed: {error}",
+                ) from error
+            if len(entries) != raw_size:
+                raise self._format_error(
+                    path,
+                    FRAGMENT_HEADER_SIZE,
+                    f"decompressed size mismatch: header says {raw_size} "
+                    f"bytes, got {len(entries)}",
+                )
+
+        return data[: VERSION_HEADER.size] + entries
+
     def _read_file(self, path: Path) -> Iterator[TraceEntry]:
         if self.debug:
             self._debug(f"opening {path}")
-        try:
-            with path.open("rb") as trace_file:
-                file_size = trace_file.seek(0, 2)
-                if file_size < VERSION_HEADER.size:
-                    raise self._format_error(
-                        path,
-                        0,
-                        f"truncated version header: expected {VERSION_HEADER.size} "
-                        f"bytes, found {file_size}",
-                    )
 
-                with mmap.mmap(
-                    trace_file.fileno(), length=0, access=mmap.ACCESS_READ
-                ) as buffer:
-                    git_hash, padding, major, minor, patch = (
-                        VERSION_HEADER.unpack_from(buffer)
-                    )
-                    # Headers are informational here so traces from another build
-                    # remain inspectable, matching the original dumper behavior.
+        buffer = self._decompress(path)
+        file_size = len(buffer)
+
+        git_hash, padding, major, minor, patch = (
+            VERSION_HEADER.unpack_from(buffer)
+        )
+
+        if self.debug:
+            self._debug(
+                "Coldtrace Version Header fields: "
+                f"git-commit-hash={git_hash:08x} "
+                f"padding={padding} version={major}.{minor}.{patch}"
+            )
+
+        offset = VERSION_HEADER.size
+        while offset < file_size:
+            entry_offset = offset
+            header_end = offset + ENTRY_HEADER.size
+            if header_end > file_size:
+                if not any(buffer[offset:file_size]):
                     if self.debug:
                         self._debug(
-                            "Coldtrace Version Header fields: "
-                            f"git-commit-hash={git_hash:08x} "
-                            f"padding={padding} version={major}.{minor}.{patch}"
+                            f"{path}:{offset}: reached short "
+                            "zero-filled tail"
                         )
+                    break
+                raise self._format_error(
+                    path,
+                    offset,
+                    "truncated entry header: expected "
+                    f"{ENTRY_HEADER.size} bytes, found "
+                    f"{file_size - offset}",
+                )
 
-                    offset = VERSION_HEADER.size
-                    while offset < file_size:
-                        entry_offset = offset
-                        header_end = offset + ENTRY_HEADER.size
-                        if header_end > file_size:
-                            if not any(buffer[offset:file_size]):
-                                if self.debug:
-                                    self._debug(
-                                        f"{path}:{offset}: reached short "
-                                        "zero-filled tail"
-                                    )
-                                break
-                            raise self._format_error(
-                                path,
-                                offset,
-                                "truncated entry header: expected "
-                                f"{ENTRY_HEADER.size} bytes, found "
-                                f"{file_size - offset}",
-                            )
+            (typed_pointer,) = ENTRY_HEADER.unpack_from(buffer, offset)
+            offset = header_end
+            raw_type = typed_pointer & TYPE_MASK
+            type_value = raw_type & ~ZERO_FLAG
+            if type_value >= len(ENTRY_TYPES):
+                raise self._format_error(
+                    path,
+                    entry_offset,
+                    f"unknown entry type {raw_type:#x}",
+                )
+            entry_type = ENTRY_TYPES[type_value]
+            pointer = (typed_pointer >> 16) & POINTER_MASK
+            zero_flag = bool(raw_type & ZERO_FLAG)
 
-                        (typed_pointer,) = ENTRY_HEADER.unpack_from(buffer, offset)
-                        offset = header_end
-                        raw_type = typed_pointer & TYPE_MASK
-                        type_value = raw_type & ~ZERO_FLAG
-                        if type_value >= len(ENTRY_TYPES):
-                            raise self._format_error(
-                                path,
-                                entry_offset,
-                                f"unknown entry type {raw_type:#x}",
-                            )
-                        entry_type = ENTRY_TYPES[type_value]
-                        pointer = (typed_pointer >> 16) & POINTER_MASK
-                        zero_flag = bool(raw_type & ZERO_FLAG)
+            if self.debug:
+                self._debug(
+                    f"{path}:{entry_offset}: raw_type={raw_type} "
+                    f"type={entry_type.name} tid={self.tid} "
+                    f"ptr={pointer:x}"
+                )
 
-                        if self.debug:
-                            self._debug(
-                                f"{path}:{entry_offset}: raw_type={raw_type} "
-                                f"type={entry_type.name} tid={self.tid} "
-                                f"ptr={pointer:x}"
-                            )
-
-                        # Memory accesses dominate real traces, so keep their
-                        # successful decode path free of generic helper calls.
-                        if entry_type in STACK_ACCESS_TYPES:
-                            fields_end = offset + ACCESS_FIELDS.size
-                            if fields_end > file_size:
-                                raise self._format_error(
-                                    path,
-                                    offset,
-                                    "truncated access entry fields: expected "
-                                    f"{ACCESS_FIELDS.size} bytes, found "
-                                    f"{file_size - offset}",
-                                )
-                            size, caller, popped, depth = ACCESS_FIELDS.unpack_from(
-                                buffer, offset
-                            )
-                            stack_depth, caller_1, caller_2, offset = (
-                                self._read_stack(
-                                    buffer,
-                                    file_size,
-                                    path,
-                                    entry_offset,
-                                    fields_end,
-                                    popped,
-                                    depth,
-                                )
-                            )
-                            entry = TraceEntry(
-                                self.tid,
-                                entry_type,
-                                pointer,
-                                zero_flag=zero_flag,
-                                size=size,
-                                caller=caller,
-                                stack_depth=stack_depth,
-                                caller_1=caller_1,
-                                caller_2=caller_2,
-                            )
-                        else:
-                            entry, offset = self._read_entry(
-                                buffer,
-                                file_size,
-                                path,
-                                entry_offset,
-                                offset,
-                                typed_pointer,
-                                entry_type,
-                                pointer,
-                                zero_flag,
-                            )
-                        if entry is None:
-                            if self.debug:
-                                self._debug(
-                                    f"{path}:{entry_offset}: reached "
-                                    "zero-filled tail"
-                                )
-                            break
-                        if self.debug:
-                            self._debug(
-                                f"{path}:{entry_offset}: decoded {entry}"
-                            )
-                        yield entry
-        except OSError as error:
-            raise TraceDumpError(f"cannot read trace file '{path}': {error}") from error
+            # Memory accesses dominate real traces, so keep their
+            # successful decode path free of generic helper calls.
+            if entry_type in STACK_ACCESS_TYPES:
+                fields_end = offset + ACCESS_FIELDS.size
+                if fields_end > file_size:
+                    raise self._format_error(
+                        path,
+                        offset,
+                        "truncated access entry fields: expected "
+                        f"{ACCESS_FIELDS.size} bytes, found "
+                        f"{file_size - offset}",
+                    )
+                size, caller, popped, depth = ACCESS_FIELDS.unpack_from(
+                    buffer, offset
+                )
+                stack_depth, caller_1, caller_2, offset = (
+                    self._read_stack(
+                        buffer,
+                        file_size,
+                        path,
+                        entry_offset,
+                        fields_end,
+                        popped,
+                        depth,
+                    )
+                )
+                entry = TraceEntry(
+                    self.tid,
+                    entry_type,
+                    pointer,
+                    zero_flag=zero_flag,
+                    size=size,
+                    caller=caller,
+                    stack_depth=stack_depth,
+                    caller_1=caller_1,
+                    caller_2=caller_2,
+                )
+            else:
+                entry, offset = self._read_entry(
+                    buffer,
+                    file_size,
+                    path,
+                    entry_offset,
+                    offset,
+                    typed_pointer,
+                    entry_type,
+                    pointer,
+                    zero_flag,
+                )
+            if entry is None:
+                if self.debug:
+                    self._debug(
+                        f"{path}:{entry_offset}: reached "
+                        "zero-filled tail"
+                    )
+                break
+            if self.debug:
+                self._debug(
+                    f"{path}:{entry_offset}: decoded {entry}"
+                )
+            yield entry
 
     def _read_entry(
         self,
-        buffer: mmap.mmap,
+        buffer: bytes,
         file_size: int,
         path: Path,
         entry_offset: int,
@@ -406,7 +485,7 @@ class TraceReader:
 
     def _read_stack(
         self,
-        buffer: mmap.mmap,
+        buffer: bytes,
         file_size: int,
         path: Path,
         entry_offset: int,
@@ -454,7 +533,7 @@ class TraceReader:
 
     @staticmethod
     def _unpack_from(
-        buffer: mmap.mmap,
+        buffer: bytes,
         file_size: int,
         layout: struct.Struct,
         path: Path,
@@ -586,12 +665,18 @@ def dump_trace(
     output: TextIO | None = None,
     diagnostics: TextIO | None = None,
     standalone: bool = False,
+    max_fragment_size: int = LZ4_MAX_INPUT_SIZE,
 ) -> int:
     output = output if output is not None else sys.stdout
     diagnostics = diagnostics if diagnostics is not None else sys.stderr
 
     tid, files = discover_trace_files(logfile, standalone=standalone)
-    reader = TraceReader(tid, debug=debug, diagnostics=diagnostics)
+    reader = TraceReader(
+        tid,
+        debug=debug,
+        diagnostics=diagnostics,
+        max_fragment_size=max_fragment_size,
+    )
     write = output.write
     format_line = format_entry
     nentries = 0
@@ -620,13 +705,26 @@ def create_argument_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="show file and decoder diagnostics on stderr",
     )
+    parser.add_argument(
+        "--max-fragment-size",
+        type=int,
+        default=LZ4_MAX_INPUT_SIZE,
+        metavar="BYTES",
+        help="reject fragments claiming a larger uncompressed size "
+        "(default: %(default)s)",
+    )
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
     args = create_argument_parser().parse_args(argv)
     try:
-        dump_trace(args.logfile, debug=args.debug, standalone=args.standalone)
+        dump_trace(
+            args.logfile,
+            debug=args.debug,
+            standalone=args.standalone,
+            max_fragment_size=args.max_fragment_size,
+        )
     except (OSError, TraceDumpError) as error:
         print(f"trace_dump.py: error: {error}", file=sys.stderr)
         return 1

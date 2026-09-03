@@ -4,6 +4,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import lz4.block
 from pathlib import Path
 from unittest import mock
 
@@ -13,7 +14,7 @@ sys.path.insert(0, str(PROJECT_ROOT))
 
 from scripts import trace_dump  # noqa: E402
 
-
+BLOCK_STRUCT = struct.Struct("<I")
 VERSION_STRUCT = struct.Struct("<IBBBB")
 ENTRY_STRUCT = struct.Struct("<Q")
 FREE_STRUCT = struct.Struct("<QQII")
@@ -24,7 +25,9 @@ ATOMIC_STRUCT = struct.Struct("<Q")
 THREAD_START_STRUCT = struct.Struct("<QQQ")
 ADDRESS_STRUCT = struct.Struct("<Q")
 
-VERSION_HEADER = VERSION_STRUCT.pack(0x1234ABCD, 5, 0, 1, 0)
+VERSION_HEADER = VERSION_STRUCT.pack(
+    0x1234ABCD, 5, *trace_dump.MIN_SUPPORTED_VERSION
+)
 ZERO_FLAG = 0x80
 
 EXPECTED_ENTRY_TYPES = [
@@ -65,6 +68,18 @@ def entry_header(entry_type, pointer, zero_flag=False):
 def stack_addresses(*addresses):
     return b"".join(ADDRESS_STRUCT.pack(address) for address in addresses)
 
+
+def pack_fragment(contents):
+    """Pack [version header][entries] as a fragment file:
+    [version header][u32 raw_size][lz4(entries)]."""
+
+    header = contents[: VERSION_STRUCT.size]
+    entries = contents[VERSION_STRUCT.size :]
+    return (
+        header
+        + BLOCK_STRUCT.pack(len(entries))
+        + lz4.block.compress(entries, store_size=False)
+    )
 
 def make_entry(entry_type):
     value = int(entry_type)
@@ -126,6 +141,13 @@ class TraceDumpTest(unittest.TestCase):
         self.temporary_directory.cleanup()
 
     def write_trace(self, name, contents):
+        """Write a fragment file in the compressed format."""
+        path = self.trace_directory / name
+        path.write_bytes(pack_fragment(contents))
+        return path
+
+    def write_raw(self, name, contents):
+        """Write raw file bytes without compression."""
         path = self.trace_directory / name
         path.write_bytes(contents)
         return path
@@ -312,8 +334,14 @@ class TraceDumpTest(unittest.TestCase):
             )
 
     def test_reports_truncated_and_invalid_entries_with_offsets(self):
+        path = self.write_raw("freezer_log_1_0.bin", b"short")
+        with self.assertRaisesRegex(
+            trace_dump.TraceDumpError, "truncated version header"
+        ) as raised:
+            list(trace_dump.TraceReader(1).entries([path]))
+        self.assertIn(str(path), str(raised.exception))
+
         cases = {
-            "version header": b"short",
             "unknown entry type": VERSION_HEADER
             + ENTRY_STRUCT.pack(25),
             "truncated atomic entry fields": VERSION_HEADER
@@ -339,6 +367,57 @@ class TraceDumpTest(unittest.TestCase):
                 ) as raised:
                     list(trace_dump.TraceReader(1).entries([path]))
                 self.assertIn(str(path), str(raised.exception))
+
+    def test_reports_truncated_block_header(self):
+        # A version header followed by fewer than the 4 raw_size bytes.
+        path = self.write_raw("freezer_log_1_0.bin", VERSION_HEADER + b"\x00\x01")
+        with self.assertRaisesRegex(
+            trace_dump.TraceDumpError, "truncated block header"
+        ) as raised:
+            list(trace_dump.TraceReader(1).entries([path]))
+        self.assertIn(str(path), str(raised.exception))
+
+    def test_reports_corrupt_compressed_payload(self):
+        # Valid header claiming a large size, followed by an undecodable block.
+        path = self.write_raw(
+            "freezer_log_1_0.bin",
+            VERSION_HEADER
+            + BLOCK_STRUCT.pack(1000)
+            + b"\xff\xff\xff\xff\xff\xff",
+        )
+        with self.assertRaisesRegex(
+            trace_dump.TraceDumpError, "lz4 decompression failed"
+        ) as raised:
+            list(trace_dump.TraceReader(1).entries([path]))
+        self.assertIn(str(path), str(raised.exception))
+
+    def test_rejects_implausible_uncompressed_size(self):
+        # A corrupt raw_size must be rejected before lz4 allocates it.
+        path = self.write_raw(
+            "freezer_log_1_0.bin",
+            VERSION_HEADER
+            + BLOCK_STRUCT.pack(0xFFFFFFF0)
+            + lz4.block.compress(b"x" * 16, store_size=False),
+        )
+        with self.assertRaisesRegex(
+            trace_dump.TraceDumpError, "implausible uncompressed size"
+        ) as raised:
+            list(trace_dump.TraceReader(1).entries([path]))
+        self.assertIn(str(path), str(raised.exception))
+
+    def test_rejects_unsupported_trace_version(self):
+        major, minor, patch = trace_dump.MIN_SUPPORTED_VERSION
+        old_version = (major, minor - 1, 0) if minor else (major - 1, 0, 0)
+        path = self.write_raw(
+            "freezer_log_1_0.bin",
+            VERSION_STRUCT.pack(0x1234ABCD, 5, *old_version)
+            + make_entry(trace_dump.EntryType.THREAD_EXIT),
+        )
+        with self.assertRaisesRegex(
+            trace_dump.TraceDumpError, "unsupported trace version"
+        ) as raised:
+            list(trace_dump.TraceReader(1).entries([path]))
+        self.assertIn(str(path), str(raised.exception))
 
     def test_cli_reports_trace_errors_without_a_traceback(self):
         invalid = self.write_trace("trace.bin", VERSION_HEADER)
