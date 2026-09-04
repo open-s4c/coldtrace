@@ -1,13 +1,12 @@
+#!/usr/bin/env python3
 import sys
 
-CHECK_VARIANTS = (".coldtrace", ".nowrites")
+CHECK_VARIANTS = ("coldtrace", "nowrites")
 ERROR = 0.05  # threshold for regression
+METRIC = "time_ms"
 
 def parse_results(filepath):
-    """
-    Parses a Markdown file and extracts benchmark tables into a nested dictionary.
-    Format: { "BenchmarkName": { "variant_name": { "metric": value } } }
-    """
+    """Parse a benchmark Markdown report into {benchmark: {variant: {metric: value}}}."""
     results = {}
     current_section = None
     headers = []
@@ -16,37 +15,30 @@ def parse_results(filepath):
         with open(filepath, 'r') as f:
             for line in f:
                 line = line.strip()
-                
+
                 if line.startswith('## '):
                     section_name = line[3:].strip()
-                    if section_name != "Environment":
-                        current_section = section_name
+                    current_section = None if section_name == "Environment" else section_name
+                    if current_section:
                         results[current_section] = {}
-                        headers = []
-                    else:
-                        current_section = None
+                    headers = []
                     continue
-                
+
                 if current_section and line.startswith('|') and line.endswith('|'):
-                    cols = [col.strip() for col in line.split('|')[1:-1]]
-                    
-                    if all(col.replace('-', '').strip() == '' for col in cols):
+                    cols = [c.strip() for c in line.split('|')[1:-1]]
+                    if all(set(c) <= {'-'} for c in cols):
                         continue
-                    
                     if not headers:
                         headers = cols
                         continue
-                    
-                    variant = cols[0]
+
+                    variant = cols[0].lstrip('.')
                     metrics = {}
-                    
                     for i in range(1, len(cols)):
-                        metric_name = headers[i]
                         try:
-                            metrics[metric_name] = float(cols[i])
+                            metrics[headers[i]] = float(cols[i])
                         except ValueError:
-                            metrics[metric_name] = cols[i]
-                            
+                            metrics[headers[i]] = cols[i]
                     results[current_section][variant] = metrics
 
     except FileNotFoundError:
@@ -60,22 +52,28 @@ def compare_benchmarks(prev_data, curr_data):
     Compares two benchmark datasets and returns a summary of differences.
     """
     comparison = {}
-    
-    for benchmark in curr_data:
+    for benchmark, variants in curr_data.items():
         comparison[benchmark] = {}
-        for variant in curr_data[benchmark]:
-            if (benchmark in prev_data and variant in prev_data[benchmark] 
-                and variant in CHECK_VARIANTS):
-                
-                prev_time = prev_data[benchmark][variant].get("time_ms", 0)
-                curr_time = curr_data[benchmark][variant].get("time_ms", 0)
-                speedup = prev_time / curr_time if curr_time > 0 else float('inf')
+        for variant in variants:
+            if variant not in CHECK_VARIANTS:
+                continue
+            if benchmark not in prev_data or variant not in prev_data[benchmark]:
+                continue
 
-                comparison[benchmark][variant] = {
-                    "speedup": speedup,
-                    "regression": speedup < (1 - ERROR)
-                }
-    
+            prev_time = prev_data[benchmark][variant].get(METRIC, 0)
+            curr_time = curr_data[benchmark][variant].get(METRIC, 0)
+
+            if not curr_time or not prev_time:
+                comparison[benchmark][variant] = {"speedup": None, "regression": True,
+                                                  "note": f"missing/zero {METRIC}"}
+                continue
+
+            speedup = prev_time / curr_time
+            comparison[benchmark][variant] = {
+                "speedup": speedup,
+                "regression": speedup < (1 - ERROR),
+                "note": "",
+            }
     return comparison
 
 def print_md_summary(comparison_results):
@@ -90,17 +88,14 @@ def print_md_summary(comparison_results):
     failed = False
 
     for benchmark, variants in comparison_results.items():
-        for variant, metrics in variants.items():
-            speedup = metrics["speedup"]
-            is_regression = metrics["regression"]
-
-            if is_regression:
-                status = "❌"
-                failed = True
+        for variant, m in variants.items():
+            if m["regression"]:
+                status, failed = "❌", True
             else:
                 status = "✅"
-
-            print(f"| **{benchmark}** | `{variant}` | {speedup:.3f} | {status} |")
+            speedup = "N/A" if m["speedup"] is None else f"{m['speedup']:.3f}"
+            note = f" ({m['note']})" if m.get("note") else ""
+            print(f"| **{benchmark}** | `{variant}` | {speedup}{note} | {status} |")
 
     if failed:
         print(f"\nAll benchmarks must be within {ERROR*100:.1f}% of the previous results to pass.")
@@ -113,14 +108,9 @@ if __name__ == "__main__":
     if len(sys.argv) < 3:
         print("Usage: python3 scripts/compare.py <previous_summary.md> <current_summary.md>")
         sys.exit(1)
-        
-    prev_file = sys.argv[1]
-    curr_file = sys.argv[2]
-    
-    prev_data = parse_results(prev_file)
-    curr_data = parse_results(curr_file)
 
+    prev_data = parse_results(sys.argv[1])
+    curr_data = parse_results(sys.argv[2])
     comparison = compare_benchmarks(prev_data, curr_data)
-    failed = print_md_summary(comparison)
-
-    if failed: sys.exit(1)
+    if print_md_summary(comparison):
+        sys.exit(1)

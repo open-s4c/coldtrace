@@ -52,7 +52,6 @@ BENCHMARKS = {
 }
 
 VARIANTS = ["baseline", "tsan", "tsano", "coldtrace", "nowrites"]
-RUNS_RAYTRACING = 3
 VERDICT_PASS = "TRACE_CHECKER: TEST PASSED"
 VERDICT_FAIL = "TRACE_CHECKER: TEST FAILED"
 HIPERF_RECORD_ARGS = (
@@ -149,8 +148,8 @@ def build_benchmarks(clean: bool, selected: list, build_type: str):
             subprocess.run(["make", "-f", "Makefile.ohos", "clean"], cwd=b_dir, check=False)
             
         print(f"--> Compiling Benchmark: {name}")
-        subprocess.run(["make", "-f", "Makefile.ohos", "cfg"], cwd=b_dir, env=make_env, check=True)
-        subprocess.run(["make", "-f", "Makefile.ohos", "bld"], cwd=b_dir, env=make_env, check=True)
+        subprocess.run(["make", "-s", "-f", "Makefile.ohos", "cfg"], cwd=b_dir, env=make_env, check=True)
+        subprocess.run(["make", "-s", "-f", "Makefile.ohos", "bld"], cwd=b_dir, env=make_env, check=True)
         
     state_file.write_text(build_type)
 
@@ -210,7 +209,19 @@ def cleanup_remote(device):
 def get_variant_env(variant: str, trace_subdir=""):
     """Construct environment variables for the specified run variant."""
     trace_path = f"{REMOTE_TRACES}/{trace_subdir}" if trace_subdir else REMOTE_TRACES
-    
+
+    coldtrace_opts = (
+        f"COLDTRACE_PATH={trace_path} "
+        "COLDTRACE_MAX_FILES=3 "
+        "COLDTRACE_DISABLE_CLEANUP=true "
+        "COLDTRACE_DISABLE_COPY=true"
+    )
+    coldtrace_env = (
+        f"{coldtrace_opts} "
+        f"LD_LIBRARY_PATH={TSANO_DIR} "
+        f"LD_PRELOAD={REMOTE_BIN}/libcoldtrace.so"
+    )
+
     if variant == "baseline":
         return ""
     elif variant == "tsan":
@@ -218,9 +229,9 @@ def get_variant_env(variant: str, trace_subdir=""):
     elif variant == "tsano":
         return f"LD_LIBRARY_PATH={TSANO_DIR}"
     elif variant == "coldtrace":
-        return f"COLDTRACE_DISABLE_COPY=true LD_LIBRARY_PATH={TSANO_DIR} COLDTRACE_PATH={trace_path} LD_PRELOAD={REMOTE_BIN}/libcoldtrace.so"
+        return coldtrace_env
     elif variant == "nowrites":
-        return f"COLDTRACE_DISABLE_COPY=true COLDTRACE_DISABLE_WRITES=true LD_LIBRARY_PATH={TSANO_DIR} COLDTRACE_PATH={trace_path} LD_PRELOAD={REMOTE_BIN}/libcoldtrace.so"
+        return f"COLDTRACE_DISABLE_WRITES=true {coldtrace_env}"
     else:
         raise ValueError(f"Unknown variant requested: '{variant}'. Valid variants are: {', '.join(VARIANTS)}")
 
@@ -367,14 +378,13 @@ def cmd_bench(args):
                     
             for variant in args.variants:
                 bin_suffix = "vanilla" if variant == "baseline" else "sanitized"
-                runs_arg = f"--runs {RUNS_RAYTRACING} " if name == "raytracing" else ""
                 variant_env = get_variant_env(variant)
                 csv_out = f"{REMOTE_BASE}/hf_out.csv"
                 
                 with suppress_output():
                     device.cmd(f"rm -f {csv_out}")
                     
-                hf_cmd = f"cd {REMOTE_BASE} && {REMOTE_BIN}/hyperfine --warmup 1 {runs_arg}--export-csv {csv_out} '{variant_env} ./{name}_{bin_suffix} {config['run_cmd']}'"
+                hf_cmd = f"cd {REMOTE_BASE} && {REMOTE_BIN}/hyperfine --warmup 1 --export-csv {csv_out} '{variant_env} ./{name}_{bin_suffix} {config['run_cmd']}'"
                 print(f"  [{variant}]:")
                 
                 with suppress_output():
@@ -399,19 +409,32 @@ def cmd_bench(args):
         
         with suppress_output():
             os_version = device.cmd('param get const.ohos.fullname', capture_output=True, text=True).stdout.strip()
-            
+
+        def _git(args, default):
+            try:
+                out = subprocess.run(["git", *args], cwd=PROJECT_ROOT,
+                                     capture_output=True, text=True).stdout.strip()
+                return out or default
+            except Exception:
+                return default
+
+        tag = _git(["rev-parse", "--short", "HEAD"], "N/A")
+        branch = _git(["branch", "--show-current"], "") or "detached"
+
         md_file = RESULTS_DIR / f"ohos-bench-{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.md"
         with open(md_file, "w") as f:
-            f.write(f"# OpenHarmony Benchmark Report\n\n- **OS:** {os_version}\n")
-            f.write(f"- **Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n")
-            
+            f.write("## Environment\n\n")
+            f.write(f"- OS:  {os_version}\n")
+            f.write(f"- Tag: {tag} ({branch})\n\n")
+
             for bench in args.benchmarks:
-                f.write(f"## {bench.capitalize()}\n| Variant | Time (s) | StdDev |\n|---|---|---|\n")
+                f.write(f"## {bench.capitalize()}\n")
+                f.write("| variant | time_ms | stddev_ms |\n| --- | --- | --- |\n")
                 for var in args.variants:
-                    mean, std = results.get(bench, {}).get(var, (0.0, 0.0))
-                    f.write(f"| {var} | {mean:.3f} | {std:.3f} |\n")
+                    mean_s, std_s = results.get(bench, {}).get(var, (0.0, 0.0))
+                    f.write(f"| {var} | {mean_s * 1000:.3f} | {std_s * 1000:.3f} |\n")
                 f.write("\n")
-                
+
         print(f"Report saved to: {md_file}")
     finally:
         cleanup_remote(device)
