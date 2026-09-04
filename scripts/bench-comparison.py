@@ -1,7 +1,9 @@
+#!/usr/bin/env python3
 import sys
 
-CHECK_VARIANTS = (".coldtrace", ".nowrites")
+CHECK_VARIANTS = ("coldtrace", "nowrites")
 ERROR = 0.05  # threshold for regression
+METRIC = "time_ms"
 
 def parse_results(filepath):
     """
@@ -37,7 +39,7 @@ def parse_results(filepath):
                         headers = cols
                         continue
                     
-                    variant = cols[0]
+                    variant = cols[0].lstrip('.')
                     metrics = {}
                     
                     for i in range(1, len(cols)):
@@ -67,10 +69,14 @@ def compare_benchmarks(prev_data, curr_data):
             if (benchmark in prev_data and variant in prev_data[benchmark] 
                 and variant in CHECK_VARIANTS):
                 
-                prev_time = prev_data[benchmark][variant].get("time_ms", 0)
-                curr_time = curr_data[benchmark][variant].get("time_ms", 0)
-                speedup = prev_time / curr_time if curr_time > 0 else float('inf')
+                prev_time = prev_data[benchmark][variant].get(METRIC, 0)
+                curr_time = curr_data[benchmark][variant].get(METRIC, 0)
 
+                if not curr_time or not prev_time:
+                    comparison[benchmark][variant] = {"speedup": None, "regression": True}
+                    continue
+
+                speedup = prev_time / curr_time
                 comparison[benchmark][variant] = {
                     "speedup": speedup,
                     "regression": speedup < (1 - ERROR)
@@ -99,8 +105,8 @@ def print_md_summary(comparison_results):
                 failed = True
             else:
                 status = "✅"
-
-            print(f"| **{benchmark}** | `{variant}` | {speedup:.3f} | {status} |")
+            speedup = "N/A" if speedup is None else f"{speedup:.3f}"
+            print(f"| **{benchmark}** | `{variant}` | {speedup} | {status} |")
 
     if failed:
         print(f"\nAll benchmarks must be within {ERROR*100:.1f}% of the previous results to pass.")
