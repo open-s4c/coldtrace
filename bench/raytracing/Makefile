@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: MIT
 
 RUNCMD= 	./theRestOfYourLife
+BUILD_TYPE?=	Release
+PROFILE_FLAGS?=
 
 # ------------------------------------------------------------------------------
 # clone level, apply patches, build rendertri
@@ -18,17 +20,18 @@ TARGET+=	vanilla
 DEP.vanilla=	.clone.bld
 DIR.vanilla=	vanilla
 CFG.vanilla=	cmake ../$(DIR.clone) \
-			-DCMAKE_BUILD_TYPE=Release \
-			-DCMAKE_CXX_COMPILER=$(CXX)
+			-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+			-DCMAKE_CXX_COMPILER=$(CXX) \
+			-DCMAKE_CXX_FLAGS='$(PROFILE_FLAGS)'
 BLD.vanilla=	$(MAKE) -j 8
 
 TARGET+=	sanitized
 DEP.sanitized=	.clone.bld
 DIR.sanitized=	sanitized
 CFG.sanitized=	cmake ../$(DIR.clone) \
-			-DCMAKE_BUILD_TYPE=Release \
-			-DCMAKE_CXX_COMPILER=$(CXX)
-			-DCMAKE_CXX_FLAGS=-fsanitize=thread \
+			-DCMAKE_BUILD_TYPE=$(BUILD_TYPE) \
+			-DCMAKE_CXX_COMPILER=$(CXX) \
+			-DCMAKE_CXX_FLAGS='-fsanitize=thread $(PROFILE_FLAGS)' \
 			-DCMAKE_EXE_LINKER_FLAGS=$(LDFLAGS)
 BLD.sanitized=	$(MAKE) -j 8
 
