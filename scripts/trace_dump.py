@@ -2,10 +2,10 @@
 """Display Coldtrace binary trace files in a human-readable form."""
 
 import argparse
-import mmap
 import re
 import struct
 import sys
+import lz4.block
 from dataclasses import dataclass
 from enum import IntEnum
 from pathlib import Path
@@ -16,6 +16,7 @@ TRACE_FILE_PATTERN = re.compile(
     r"freezer_log_(?P<tid>\d+)_(?P<fragment>\d+)\.bin"
 )
 
+BLOCK_HEADER = struct.Struct("<I")
 VERSION_HEADER = struct.Struct("<IBBBB")
 ENTRY_HEADER = struct.Struct("<Q")
 FREE_FIELDS = struct.Struct("<QQII")
@@ -143,143 +144,168 @@ class TraceReader:
         for path in files:
             yield from self._read_file(path)
 
+    def _decompress(self, path: Path) -> bytes:
+        """Read a fragment file and return its decompressed trace bytes."""
+        try:
+            data = path.read_bytes()
+        except OSError as error:
+            raise TraceDumpError(
+                f"cannot read trace file '{path}': {error}"
+            ) from error
+
+        if len(data) < BLOCK_HEADER.size:
+            raise self._format_error(
+                path,
+                0,
+                f"truncated block header: expected {BLOCK_HEADER.size} bytes, "
+                f"found {len(data)}",
+            )
+
+        (raw_size,) = BLOCK_HEADER.unpack_from(data, 0)
+        payload = data[BLOCK_HEADER.size :]
+
+        try:
+            buffer = lz4.block.decompress(payload, uncompressed_size=raw_size)
+        except Exception as error:
+            raise self._format_error(
+                path, 0, f"lz4 decompression failed: {error}"
+            ) from error
+
+        return buffer
+
     def _read_file(self, path: Path) -> Iterator[TraceEntry]:
         if self.debug:
             self._debug(f"opening {path}")
-        try:
-            with path.open("rb") as trace_file:
-                file_size = trace_file.seek(0, 2)
-                if file_size < VERSION_HEADER.size:
-                    raise self._format_error(
-                        path,
-                        0,
-                        f"truncated version header: expected {VERSION_HEADER.size} "
-                        f"bytes, found {file_size}",
-                    )
 
-                with mmap.mmap(
-                    trace_file.fileno(), length=0, access=mmap.ACCESS_READ
-                ) as buffer:
-                    git_hash, padding, major, minor, patch = (
-                        VERSION_HEADER.unpack_from(buffer)
-                    )
-                    # Headers are informational here so traces from another build
-                    # remain inspectable, matching the original dumper behavior.
+        buffer = self._decompress(path)
+        file_size = len(buffer)
+
+        if file_size < VERSION_HEADER.size:
+            raise self._format_error(
+                path,
+                0,
+                f"truncated version header: expected {VERSION_HEADER.size} "
+                f"bytes, found {file_size}",
+            )
+
+        git_hash, padding, major, minor, patch = (
+            VERSION_HEADER.unpack_from(buffer)
+        )
+        # Headers are informational here so traces from another build
+        # remain inspectable, matching the original dumper behavior.
+        if self.debug:
+            self._debug(
+                "Coldtrace Version Header fields: "
+                f"git-commit-hash={git_hash:08x} "
+                f"padding={padding} version={major}.{minor}.{patch}"
+            )
+
+        offset = VERSION_HEADER.size
+        while offset < file_size:
+            entry_offset = offset
+            header_end = offset + ENTRY_HEADER.size
+            if header_end > file_size:
+                if not any(buffer[offset:file_size]):
                     if self.debug:
                         self._debug(
-                            "Coldtrace Version Header fields: "
-                            f"git-commit-hash={git_hash:08x} "
-                            f"padding={padding} version={major}.{minor}.{patch}"
+                            f"{path}:{offset}: reached short "
+                            "zero-filled tail"
                         )
+                    break
+                raise self._format_error(
+                    path,
+                    offset,
+                    "truncated entry header: expected "
+                    f"{ENTRY_HEADER.size} bytes, found "
+                    f"{file_size - offset}",
+                )
 
-                    offset = VERSION_HEADER.size
-                    while offset < file_size:
-                        entry_offset = offset
-                        header_end = offset + ENTRY_HEADER.size
-                        if header_end > file_size:
-                            if not any(buffer[offset:file_size]):
-                                if self.debug:
-                                    self._debug(
-                                        f"{path}:{offset}: reached short "
-                                        "zero-filled tail"
-                                    )
-                                break
-                            raise self._format_error(
-                                path,
-                                offset,
-                                "truncated entry header: expected "
-                                f"{ENTRY_HEADER.size} bytes, found "
-                                f"{file_size - offset}",
-                            )
+            (typed_pointer,) = ENTRY_HEADER.unpack_from(buffer, offset)
+            offset = header_end
+            raw_type = typed_pointer & TYPE_MASK
+            type_value = raw_type & ~ZERO_FLAG
+            if type_value >= len(ENTRY_TYPES):
+                raise self._format_error(
+                    path,
+                    entry_offset,
+                    f"unknown entry type {raw_type:#x}",
+                )
+            entry_type = ENTRY_TYPES[type_value]
+            pointer = (typed_pointer >> 16) & POINTER_MASK
+            zero_flag = bool(raw_type & ZERO_FLAG)
 
-                        (typed_pointer,) = ENTRY_HEADER.unpack_from(buffer, offset)
-                        offset = header_end
-                        raw_type = typed_pointer & TYPE_MASK
-                        type_value = raw_type & ~ZERO_FLAG
-                        if type_value >= len(ENTRY_TYPES):
-                            raise self._format_error(
-                                path,
-                                entry_offset,
-                                f"unknown entry type {raw_type:#x}",
-                            )
-                        entry_type = ENTRY_TYPES[type_value]
-                        pointer = (typed_pointer >> 16) & POINTER_MASK
-                        zero_flag = bool(raw_type & ZERO_FLAG)
+            if self.debug:
+                self._debug(
+                    f"{path}:{entry_offset}: raw_type={raw_type} "
+                    f"type={entry_type.name} tid={self.tid} "
+                    f"ptr={pointer:x}"
+                )
 
-                        if self.debug:
-                            self._debug(
-                                f"{path}:{entry_offset}: raw_type={raw_type} "
-                                f"type={entry_type.name} tid={self.tid} "
-                                f"ptr={pointer:x}"
-                            )
-
-                        # Memory accesses dominate real traces, so keep their
-                        # successful decode path free of generic helper calls.
-                        if entry_type in STACK_ACCESS_TYPES:
-                            fields_end = offset + ACCESS_FIELDS.size
-                            if fields_end > file_size:
-                                raise self._format_error(
-                                    path,
-                                    offset,
-                                    "truncated access entry fields: expected "
-                                    f"{ACCESS_FIELDS.size} bytes, found "
-                                    f"{file_size - offset}",
-                                )
-                            size, caller, popped, depth = ACCESS_FIELDS.unpack_from(
-                                buffer, offset
-                            )
-                            stack_depth, caller_1, caller_2, offset = (
-                                self._read_stack(
-                                    buffer,
-                                    file_size,
-                                    path,
-                                    entry_offset,
-                                    fields_end,
-                                    popped,
-                                    depth,
-                                )
-                            )
-                            entry = TraceEntry(
-                                self.tid,
-                                entry_type,
-                                pointer,
-                                zero_flag=zero_flag,
-                                size=size,
-                                caller=caller,
-                                stack_depth=stack_depth,
-                                caller_1=caller_1,
-                                caller_2=caller_2,
-                            )
-                        else:
-                            entry, offset = self._read_entry(
-                                buffer,
-                                file_size,
-                                path,
-                                entry_offset,
-                                offset,
-                                typed_pointer,
-                                entry_type,
-                                pointer,
-                                zero_flag,
-                            )
-                        if entry is None:
-                            if self.debug:
-                                self._debug(
-                                    f"{path}:{entry_offset}: reached "
-                                    "zero-filled tail"
-                                )
-                            break
-                        if self.debug:
-                            self._debug(
-                                f"{path}:{entry_offset}: decoded {entry}"
-                            )
-                        yield entry
-        except OSError as error:
-            raise TraceDumpError(f"cannot read trace file '{path}': {error}") from error
+            # Memory accesses dominate real traces, so keep their
+            # successful decode path free of generic helper calls.
+            if entry_type in STACK_ACCESS_TYPES:
+                fields_end = offset + ACCESS_FIELDS.size
+                if fields_end > file_size:
+                    raise self._format_error(
+                        path,
+                        offset,
+                        "truncated access entry fields: expected "
+                        f"{ACCESS_FIELDS.size} bytes, found "
+                        f"{file_size - offset}",
+                    )
+                size, caller, popped, depth = ACCESS_FIELDS.unpack_from(
+                    buffer, offset
+                )
+                stack_depth, caller_1, caller_2, offset = (
+                    self._read_stack(
+                        buffer,
+                        file_size,
+                        path,
+                        entry_offset,
+                        fields_end,
+                        popped,
+                        depth,
+                    )
+                )
+                entry = TraceEntry(
+                    self.tid,
+                    entry_type,
+                    pointer,
+                    zero_flag=zero_flag,
+                    size=size,
+                    caller=caller,
+                    stack_depth=stack_depth,
+                    caller_1=caller_1,
+                    caller_2=caller_2,
+                )
+            else:
+                entry, offset = self._read_entry(
+                    buffer,
+                    file_size,
+                    path,
+                    entry_offset,
+                    offset,
+                    typed_pointer,
+                    entry_type,
+                    pointer,
+                    zero_flag,
+                )
+            if entry is None:
+                if self.debug:
+                    self._debug(
+                        f"{path}:{entry_offset}: reached "
+                        "zero-filled tail"
+                    )
+                break
+            if self.debug:
+                self._debug(
+                    f"{path}:{entry_offset}: decoded {entry}"
+                )
+            yield entry
 
     def _read_entry(
         self,
-        buffer: mmap.mmap,
+        buffer: bytes,
         file_size: int,
         path: Path,
         entry_offset: int,
@@ -406,7 +432,7 @@ class TraceReader:
 
     def _read_stack(
         self,
-        buffer: mmap.mmap,
+        buffer: bytes,
         file_size: int,
         path: Path,
         entry_offset: int,
@@ -454,7 +480,7 @@ class TraceReader:
 
     @staticmethod
     def _unpack_from(
-        buffer: mmap.mmap,
+        buffer: bytes,
         file_size: int,
         layout: struct.Struct,
         path: Path,

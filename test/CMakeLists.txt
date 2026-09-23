@@ -4,10 +4,35 @@ include_directories(../deps/dice/test/include)
 
 find_package(Python3 3.10 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
-  add_test(NAME trace_dump-test
-           COMMAND ${Python3_EXECUTABLE} -m unittest test.test_trace_dump)
-  set_tests_properties(trace_dump-test PROPERTIES
-                       WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+
+  execute_process(
+    COMMAND ${Python3_EXECUTABLE} -c "import lz4.block"
+    RESULT_VARIABLE _lz4_missing
+    OUTPUT_QUIET ERROR_QUIET)
+
+  if(_lz4_missing)
+    message(STATUS "python 'lz4' not found; attempting to install it")
+    execute_process(
+      COMMAND ${Python3_EXECUTABLE} -m pip install --disable-pip-version-check lz4
+      RESULT_VARIABLE _lz4_pip_failed)
+
+    execute_process(
+      COMMAND ${Python3_EXECUTABLE} -c "import lz4.block"
+      RESULT_VARIABLE _lz4_missing
+      OUTPUT_QUIET ERROR_QUIET)
+  endif()
+
+  if(_lz4_missing)
+    message(WARNING
+      "python 'lz4' module unavailable for ${Python3_EXECUTABLE} and could not "
+      "be installed; skipping trace_dump-test. Install it manually with: "
+      "${Python3_EXECUTABLE} -m pip install lz4")
+  else()
+    add_test(NAME trace_dump-test
+             COMMAND ${Python3_EXECUTABLE} -m unittest test.test_trace_dump)
+    set_tests_properties(trace_dump-test PROPERTIES
+                         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+  endif()
 endif()
 
 add_library(trace_checker SHARED checkers/trace_checker.c checkers/indexes_checker.c)
