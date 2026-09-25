@@ -33,7 +33,7 @@ BENCHMARKS = {
         "vanilla_bin": "work/vanilla/db_bench",
         "sanitized_bin": "work/sanitized/db_bench",
         "setup_cmd": f"rm -rf {REMOTE_BASE}/bench.db && ./leveldb_vanilla --db={REMOTE_BASE}/bench.db --threads=1 --benchmarks=fillseq",
-        "run_cmd": f"--db={REMOTE_BASE}/bench.db --threads=1 --benchmarks=readrandom --reads=500000"
+        "run_cmd": f"--db={REMOTE_BASE}/bench.db --use_existing_db=1 --threads=1 --benchmarks=readrandom --reads=100000"
     },
     "raytracing": {
         "dir": "raytracing",
