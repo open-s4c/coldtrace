@@ -26,6 +26,8 @@ REMOTE_BIN = f"{REMOTE_BASE}/bin"
 REMOTE_TRACES = f"{REMOTE_BASE}/traces"
 REMOTE_PERF = f"{REMOTE_BASE}/perf"
 TSANO_DIR = "/data/local/tmp/tsano"
+# Benchmarks always run pinned to the big cores (policy2 = cpu10-11 -> taskset mask 0xc00).
+BENCH_CPU_MASK = "c00"
 
 BENCHMARKS = {
     "leveldb": {
@@ -235,6 +237,17 @@ def get_variant_env(variant: str, trace_subdir=""):
     else:
         raise ValueError(f"Unknown variant requested: '{variant}'. Valid variants are: {', '.join(VARIANTS)}")
 
+def verify_cpu_mask(device, mask: str) -> str:
+    """Check that taskset works on the device with this mask.
+       Returns the resulting CPU list (e.g. '10-11'); raises if pinning is not possible."""
+    with suppress_output():
+        res = device.cmd(f"taskset -a {mask} grep Cpus_allowed_list /proc/self/status",
+                         capture_output=True, text=True, check=False)
+    out = ((res.stdout or "") + (res.stderr or "")).strip()
+    if res.returncode != 0 or "Cpus_allowed_list" not in out:
+        raise RuntimeError(f"taskset {mask} failed on the device: {out or 'no output'}")
+    return out.split(":", 1)[1].strip()
+
 def evaluate_run(result, expect_verdict: bool, expect_fail: bool = False):
     output = (result.stdout or "") + (result.stderr or "")
 
@@ -346,7 +359,11 @@ def cmd_bench(args):
     try:
         setup_remote(device)
         transfer_core_libs(device)
-        
+
+        pinned_cpus = verify_cpu_mask(device, BENCH_CPU_MASK)
+        pin_prefix = f"taskset -a {BENCH_CPU_MASK} "
+        print(f"--> Pinning benchmarks to big cores: CPUs {pinned_cpus}")
+
         print("--> Transferring Hyperfine & Benchmarks...")
         with suppress_output():
             device.send_file(str(hyperfine_bin), f"{REMOTE_BIN}/hyperfine")
@@ -375,7 +392,7 @@ def cmd_bench(args):
             if config["setup_cmd"]:
                 with suppress_output():
                     device.cmd(f"cd {REMOTE_BASE} && {config['setup_cmd']}")
-                    
+
             for variant in args.variants:
                 bin_suffix = "vanilla" if variant == "baseline" else "sanitized"
                 variant_env = get_variant_env(variant)
@@ -387,9 +404,9 @@ def cmd_bench(args):
                     device.cmd(f"mkdir -p {REMOTE_TRACES}")
 
                 prepare = f"rm -rf {REMOTE_TRACES}; mkdir -p {REMOTE_TRACES}"
-                hf_cmd = f"cd {REMOTE_BASE} && {REMOTE_BIN}/hyperfine --prepare '{prepare}' --warmup 1 --export-csv {csv_out} '{variant_env} ./{name}_{bin_suffix} {config['run_cmd']}'"
+                hf_cmd = f"cd {REMOTE_BASE} && {REMOTE_BIN}/hyperfine --prepare '{prepare}' --warmup 1 --export-csv {csv_out} '{variant_env} {pin_prefix} ./{name}_{bin_suffix} {config['run_cmd']}'"
                 print(f"  [{variant}]:")
-                
+
                 with suppress_output():
                     device.cmd(hf_cmd)
                     csv_data = device.cmd(f"cat {csv_out}", capture_output=True, text=True).stdout
