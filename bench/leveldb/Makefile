@@ -6,7 +6,7 @@
 # ------------------------------------------------------------------------------
 DBDIR=		/tmp/bench.db
 COMMAND=	./db_bench --db=$(DBDIR)
-RUNCMD= 	$(COMMAND) --threads=1 --benchmarks=readrandom --reads=500000
+RUNCMD= 	$(COMMAND) --use_existing_db=1 --threads=1 --benchmarks=readrandom --reads=100000
 BUNDLE_DIR=	$(PROJECT)/build/bench/lib/
 BUILD_TYPE?=	Release
 PROFILE_FLAGS?=
