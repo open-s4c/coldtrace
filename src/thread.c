@@ -73,7 +73,7 @@ grow_stack_(struct coldtrace_thread *th)
     }
     bytes = (size_t)new_capacity * sizeof(*th->stack);
 
-    uint64_t *stack = realloc(th->stack, bytes);
+    uint64_t *stack = coldtrace_realloc(th->stack, bytes);
     if (stack == NULL) {
         log_warn(
             "error: Could not increase thread stack size, disabling tracing");
@@ -155,7 +155,7 @@ coldtrace_thread_fini(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
     coldtrace_writer_fini(&th->writer);
-    free(th->stack);
+    coldtrace_free(th->stack);
     th->stack          = NULL;
     th->stack_size     = 0;
     th->stack_capacity = 0;
