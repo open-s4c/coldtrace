@@ -42,6 +42,7 @@ endif()
 add_compile_options(-fPIC -g3 -D_GNU_SOURCE -DDICE_MAIN_START_DISABLE -DDICE_MEMPOOL_USE_MMAP)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(DICE_MEMSET ON)
+set(DICE_LAST_DISPATCH_SLOT 16 CACHE STRING "Last dice dispatch slot" FORCE)
 
 add_subdirectory(deps/dice)
 find_package(libvsync 4.2 CONFIG)

@@ -7,6 +7,7 @@
 #include <coldtrace/counters.h>
 #include <coldtrace/subs_utils.h>
 #include <coldtrace/thread.h>
+#include <coldtrace/worker.h>
 #include <dice/events/pthread.h>
 #include <dice/interpose.h>
 #include <dice/module.h>
@@ -65,6 +66,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
             e->atomic_index = coldtrace_next_atomic_idx();
         }
         coldtrace_thread_fini(md);
+        coldtrace_worker_finish();
         coldtrace_main_thread_fini();
     } else {
         coldtrace_thread_fini(md);

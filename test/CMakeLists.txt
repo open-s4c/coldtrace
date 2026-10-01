@@ -2,6 +2,19 @@ include_directories(../src)
 include_directories(checkers)
 include_directories(../deps/dice/test/include)
 
+# Copy the coldtrace worker next to the test binaries
+set(COLDTRACE_WORKER_TEST_COPY ${CMAKE_CURRENT_BINARY_DIR}/coldtrace-worker)
+
+add_custom_command(
+  OUTPUT ${COLDTRACE_WORKER_TEST_COPY}
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          $<TARGET_FILE:coldtrace-worker> ${COLDTRACE_WORKER_TEST_COPY}
+  DEPENDS coldtrace-worker $<TARGET_FILE:coldtrace-worker>
+  COMMENT "Copying coldtrace-worker to test directory")
+
+add_custom_target(coldtrace-worker-test-copy ALL
+                  DEPENDS ${COLDTRACE_WORKER_TEST_COPY})
+
 find_package(Python3 3.10 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
 
@@ -99,3 +112,6 @@ target_compile_options(trace_fence PRIVATE -fsanitize=thread -Wno-error=tsan
 # force a call to memcpy or __tsan_memcpy
 target_compile_options(trace_memcpy PRIVATE -fno-builtin)
 set_tests_properties(trace_fail-test PROPERTIES ENVIRONMENT "COLDTRACE_EXPECT_FAIL=1")
+
+# A directly spawned worker deadlocks waitpid(-1) until application teardown.
+set_tests_properties(worker_wait-test PROPERTIES TIMEOUT 10)
