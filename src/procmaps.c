@@ -23,6 +23,8 @@
 #define MAX_PATH_LENGTH  1024
 #define MAX_BUFFER_SIZE  4096
 #define MAX_UNIQUE_PATHS 1000
+#define CHANNEL_SHM_NAME "/coldtrace-"
+#define CHANNEL_SHM_PATH "/dev/shm" CHANNEL_SHM_NAME
 
 static int mkdir_(const char *path);
 static int cp_(const char *src, const char *dst);
@@ -73,6 +75,11 @@ copy_mapped_files_(const char *path)
         }
         // Remove newline if present.
         src[strcspn(src, "\n")] = 0;
+
+        // Skip shared memory files created from coldtrace.
+        if (strstr(src, CHANNEL_SHM_PATH) == src) {
+            continue;
+        }
 
         // Skip duplicates.
         if (strstr(unique, src)) {

@@ -14,6 +14,7 @@ extern "C" {
 #endif
 
 #include <dice/interpose.h>
+#include <semaphore.h>
 #include <vsync/atomic.h>
 
 #define COLDTRACE_REAL_(NAME)                                                  \
@@ -104,6 +105,32 @@ coldtrace_munmap(void *addr, size_t length)
     typedef int (*fn_t)(void *, size_t);
     fn_t fn = (fn_t)COLDTRACE_REAL_("munmap");
     return fn(addr, length);
+}
+
+/* --- (dice/events/semaphore.h) --- */
+
+static inline int
+coldtrace_sem_post(sem_t *sem)
+{
+    typedef int (*fn_t)(sem_t *);
+    fn_t fn = (fn_t)COLDTRACE_REAL_("sem_post");
+    return fn(sem);
+}
+
+static inline int
+coldtrace_sem_wait(sem_t *sem)
+{
+    typedef int (*fn_t)(sem_t *);
+    fn_t fn = (fn_t)COLDTRACE_REAL_("sem_wait");
+    return fn(sem);
+}
+
+static inline int
+coldtrace_sem_timedwait(sem_t *sem, const struct timespec *abstime)
+{
+    typedef int (*fn_t)(sem_t *, const struct timespec *);
+    fn_t fn = (fn_t)COLDTRACE_REAL_("sem_timedwait");
+    return fn(sem, abstime);
 }
 
 #ifdef __cplusplus

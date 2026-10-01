@@ -14,6 +14,7 @@
 // global configuration
 DICE_HIDE uint32_t max_file_count_ = -1;
 DICE_HIDE size_t trace_size_       = COLDTRACE_DEFAULT_TRACE_SIZE;
+DICE_HIDE uint32_t worker_timeout_ = COLDTRACE_DEFAULT_WORKER_TIMEOUT_MS;
 DICE_HIDE bool disable_writes_     = false;
 DICE_HIDE char path_[DEFAULT_PATH_SIZE];
 DICE_HIDE char pattern_[DEFAULT_PATH_SIZE];
@@ -41,6 +42,11 @@ DICE_MODULE_INIT({
     var = getenv("COLDTRACE_TRACE_SIZE");
     if (var) {
         coldtrace_set_trace_size(strtoull(var, NULL, 10));
+    }
+
+    var = getenv("COLDTRACE_WORKER_TIMEOUT_MS");
+    if (var) {
+        coldtrace_set_worker_timeout(strtoul(var, NULL, 10));
     }
 
     var = getenv("COLDTRACE_PATH");
@@ -108,6 +114,18 @@ DICE_HIDE size_t
 coldtrace_get_trace_size(void)
 {
     return trace_size_;
+}
+
+DICE_HIDE void
+coldtrace_set_worker_timeout(uint32_t timeout_ms)
+{
+    worker_timeout_ = timeout_ms;
+}
+
+DICE_HIDE uint32_t
+coldtrace_get_worker_timeout(void)
+{
+    return worker_timeout_;
 }
 
 DICE_HIDE void

@@ -1,3 +1,7 @@
+add_subdirectory(worker)
+set_target_properties(coldtrace-worker PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
 if(NOT DEFINED COLDTRACE_BASE_SLOT)
   set(COLDTRACE_BASE_SLOT
       3
@@ -7,17 +11,17 @@ endif()
 math(EXPR SLOT_config "${COLDTRACE_BASE_SLOT} + 1")
 math(EXPR SLOT_mod-self "${COLDTRACE_BASE_SLOT} + 0")
 math(EXPR SLOT_procmaps "${COLDTRACE_BASE_SLOT} + 2")
-math(EXPR SLOT_subs_sem "${COLDTRACE_BASE_SLOT} + 3")
-math(EXPR SLOT_subs_tsan "${COLDTRACE_BASE_SLOT} + 4")
-math(EXPR SLOT_subs_pthread "${COLDTRACE_BASE_SLOT} + 5")
-math(EXPR SLOT_subs_malloc "${COLDTRACE_BASE_SLOT} + 6")
-math(EXPR SLOT_subs_cxa "${COLDTRACE_BASE_SLOT} + 7")
-math(EXPR SLOT_subs_mman "${COLDTRACE_BASE_SLOT} + 8")
-math(EXPR SLOT_subs_annotate_rwlock "${COLDTRACE_BASE_SLOT} + 9")
-math(EXPR SLOT_subs_memcpy "${COLDTRACE_BASE_SLOT} + 10")
-math(EXPR SLOT_subs_marker "${COLDTRACE_BASE_SLOT} + 11")
-math(EXPR SLOT_subs_wait "${COLDTRACE_BASE_SLOT} + 12")
-math(EXPR SLOT_marker "${COLDTRACE_BASE_SLOT} + 13")
+math(EXPR SLOT_subs_worker "${COLDTRACE_BASE_SLOT} + 3")
+math(EXPR SLOT_subs_sem "${COLDTRACE_BASE_SLOT} + 4")
+math(EXPR SLOT_subs_tsan "${COLDTRACE_BASE_SLOT} + 5")
+math(EXPR SLOT_subs_pthread "${COLDTRACE_BASE_SLOT} + 6")
+math(EXPR SLOT_subs_malloc "${COLDTRACE_BASE_SLOT} + 7")
+math(EXPR SLOT_subs_cxa "${COLDTRACE_BASE_SLOT} + 8")
+math(EXPR SLOT_subs_mman "${COLDTRACE_BASE_SLOT} + 9")
+math(EXPR SLOT_subs_annotate_rwlock "${COLDTRACE_BASE_SLOT} + 10")
+math(EXPR SLOT_subs_memcpy "${COLDTRACE_BASE_SLOT} + 11")
+math(EXPR SLOT_subs_marker "${COLDTRACE_BASE_SLOT} + 12")
+math(EXPR SLOT_subs_wait "${COLDTRACE_BASE_SLOT} + 13")
 
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION true)
 
@@ -45,13 +49,14 @@ set(SRCS
     subs_memcpy.c
     subs_cxa.c
     subs_annotate_rwlock.c
-    subs_wait.c)
+    subs_wait.c
+    subs_worker.c)
 
 set(MODS)
 foreach(SRC ${SRCS})
   get_filename_component(TARGET ${SRC} NAME_WLE)
   add_library(${TARGET}.o OBJECT ${SRC})
-  target_link_libraries(${TARGET}.o PUBLIC vsync dice.h lz4)
+  target_link_libraries(${TARGET}.o PUBLIC vsync dice.h lz4_headers)
   if(SLOT_${TARGET})
     target_compile_options(
       ${TARGET}.o PRIVATE -DCOLDTRACE_BASE_SLOT=${COLDTRACE_BASE_SLOT}
@@ -90,7 +95,8 @@ set(MODS
 endif()
 
 add_library(coldtrace SHARED)
-target_link_libraries(coldtrace PUBLIC vsync dice.h lz4)
+add_dependencies(coldtrace coldtrace-worker)
+target_link_libraries(coldtrace PUBLIC vsync dice.h lz4_headers)
 target_link_libraries(coldtrace PUBLIC ${MODS} dice-self-box.o)
 
 # force libc++ to be loaded before coldtrace to ensure availability of cxa_guard

@@ -181,6 +181,7 @@ def transfer_core_libs(device):
     print("--> Transferring core libraries...")
     libs = [
         ("src/libcoldtrace.so", "libcoldtrace.so"),
+        ("src/coldtrace-worker", "coldtrace-worker"),
         ("deps/dice/deps/tsano/libtsano.so", "libtsano.so"),
         ("test/libtrace_checker.so", "libtrace_checker.so"),
         ("test/libmock_checker.so", "libmock_checker.so"),
@@ -194,6 +195,9 @@ def transfer_core_libs(device):
                 device.send_file(str(src), f"{REMOTE_BIN}/{remote_name}")
         else:
             raise FileNotFoundError(f"Required library missing: {src}")
+    
+    with suppress_output():
+        device.cmd(f"chmod +x {REMOTE_BIN}/coldtrace-worker")
                 
     # Create symlinks required for TSAN
     with suppress_output():
@@ -528,7 +532,8 @@ def cmd_test(args):
     if not TEST_DIR.exists():
         raise FileNotFoundError(f"Test directory missing: {TEST_DIR}")
         
-    tests = sorted([f for f in TEST_DIR.iterdir() if f.is_file() and os.access(f, os.X_OK) and not f.name.endswith(".so")])
+    tests = sorted([f for f in TEST_DIR.iterdir() if f.is_file() and os.access(f, os.X_OK) 
+                    and not f.name.endswith(".so") and not f.name.startswith("coldtrace-worker")])
     if not tests:
         print("No tests found.")
         return

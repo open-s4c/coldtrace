@@ -11,6 +11,7 @@
 #include <stdint.h>
 
 // per-thread writer
+bool coldtrace_thread_main_finished(void);
 void coldtrace_thread_init(struct metadata *md);
 void coldtrace_thread_fini(struct metadata *md);
 void *coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
