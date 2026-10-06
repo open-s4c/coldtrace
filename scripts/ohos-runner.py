@@ -383,8 +383,11 @@ def cmd_bench(args):
                 
                 with suppress_output():
                     device.cmd(f"rm -f {csv_out}")
-                    
-                hf_cmd = f"cd {REMOTE_BASE} && {REMOTE_BIN}/hyperfine --warmup 1 --export-csv {csv_out} '{variant_env} ./{name}_{bin_suffix} {config['run_cmd']}'"
+                    device.cmd(f"rm -rf {REMOTE_TRACES}")
+                    device.cmd(f"mkdir -p {REMOTE_TRACES}")
+
+                prepare = f"rm -rf {REMOTE_TRACES}; mkdir -p {REMOTE_TRACES}"
+                hf_cmd = f"cd {REMOTE_BASE} && {REMOTE_BIN}/hyperfine --prepare '{prepare}' --warmup 1 --export-csv {csv_out} '{variant_env} ./{name}_{bin_suffix} {config['run_cmd']}'"
                 print(f"  [{variant}]:")
                 
                 with suppress_output():
