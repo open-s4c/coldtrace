@@ -388,7 +388,6 @@ def cmd_bench(args):
             config = BENCHMARKS[name]
             print(f"\n--- Running {name} ---")
             results[name] = {}
-            
             if config["setup_cmd"]:
                 with suppress_output():
                     device.cmd(f"cd {REMOTE_BASE} && {config['setup_cmd']}")
@@ -400,14 +399,15 @@ def cmd_bench(args):
                 
                 with suppress_output():
                     device.cmd(f"rm -f {csv_out}")
-                    
-                hf_cmd = f"cd {REMOTE_BASE} && {pin_prefix}{REMOTE_BIN}/hyperfine --warmup 1 --export-csv {csv_out} '{variant_env} ./{name}_{bin_suffix} {config['run_cmd']}'"
+
+                prepare = f"rm -rf {REMOTE_TRACES}"
+                hf_cmd = f"cd {REMOTE_BASE} && {pin_prefix}{REMOTE_BIN}/hyperfine --prepare '{prepare}' --warmup 1 --export-csv {csv_out} '{variant_env} ./{name}_{bin_suffix} {config['run_cmd']}'"
                 print(f"  [{variant}]:")
                 
                 with suppress_output():
                     device.cmd(hf_cmd)
                     csv_data = device.cmd(f"cat {csv_out}", capture_output=True, text=True).stdout
-                    
+
                 # Parse Hyperfine CSV results
                 mean_time, std_dev = 0.0, 0.0
                 if csv_data:
