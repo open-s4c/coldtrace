@@ -93,8 +93,13 @@ add_library(coldtrace SHARED)
 target_link_libraries(coldtrace PUBLIC vsync dice.h)
 target_link_libraries(coldtrace PUBLIC ${MODS} dice-self-box.o)
 
-# force libc++ to be loaded before coldtrace to ensure availability of cxa_guard
-if(CMAKE_SYSTEM_NAME MATCHES "OHOS")
+# Resolve sanitizer annotations and optional test hooks at preload time.
+if(APPLE)
+  target_link_options(coldtrace PRIVATE -undefined dynamic_lookup)
+endif()
+
+# Load the C++ runtime for the cxa_guard interceptors.
+if(APPLE OR CMAKE_SYSTEM_NAME MATCHES "OHOS")
   set_target_properties(coldtrace PROPERTIES LINKER_LANGUAGE CXX)
 endif()
 

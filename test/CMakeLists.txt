@@ -13,9 +13,13 @@ endif()
 add_library(trace_checker SHARED checkers/trace_checker.c checkers/indexes_checker.c)
 target_link_libraries(trace_checker PUBLIC vsync dice.h ${COLDTRACE_OBJS})
 
-# force libc++ to be loaded before trace_checker to ensure availability of
-# cxa_guard
-if(CMAKE_SYSTEM_NAME MATCHES "OHOS")
+# Resolve sanitizer annotations and test hooks supplied by the test program.
+if(APPLE)
+  target_link_options(trace_checker PRIVATE -undefined dynamic_lookup)
+endif()
+
+# Load the C++ runtime for the cxa_guard interceptors.
+if(APPLE OR CMAKE_SYSTEM_NAME MATCHES "OHOS")
   set_target_properties(trace_checker PROPERTIES LINKER_LANGUAGE CXX)
 endif()
 
@@ -28,6 +32,15 @@ set(OPTIONS_atomic_test -ensure-traces)
 set(OPTIONS_spinlock -ensure-traces)
 
 file(GLOB SRCS *.c *.cpp)
+if(APPLE)
+  # macOS has no POSIX spinlocks, timed mutex/rwlock calls, or sem_timedwait.
+  list(REMOVE_ITEM SRCS
+       ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_spinlock.c
+       ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_spintrylock.c
+       ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_mutex_variants.c
+       ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_rwlock_variants.c
+       ${CMAKE_CURRENT_SOURCE_DIR}/trace_semaphore.c)
+endif()
 if(NOT HAVE_PTHREAD_CLOCKLOCK_CLOCKWAIT)
   list(REMOVE_ITEM SRCS ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_cond_clockwait.c ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_mutex_clocklock.c)
 endif()

@@ -1,6 +1,7 @@
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <inttypes.h>
 #include <marker.h>
 #include <trace_checker.h>
 
@@ -84,7 +85,7 @@ main(void)
     printf("Loaded 8-bit atomic: %u\n", val_8);
     printf("Loaded 16-bit atomic: %u\n", val_16);
     printf("Loaded 32-bit atomic: %u\n", val_32);
-    printf("Loaded 64-bit atomic: %lu\n", val_64);
+    printf("Loaded 64-bit atomic: %" PRIu64 "\n", val_64);
     printf("Loaded float atomic: %f\n", val_float);
     printf("Loaded double atomic: %f\n", val_double);
 

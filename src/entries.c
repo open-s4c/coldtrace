@@ -108,7 +108,7 @@ coldtrace_entry_parse_atomic_index(const void *buf)
     return atomic_index;
 }
 
-uint64_t
+size_t
 coldtrace_entry_parse_size(const void *buf)
 {
     // alloc, mmap, munmap, read, write have size

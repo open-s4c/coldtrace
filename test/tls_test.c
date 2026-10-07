@@ -19,7 +19,7 @@ to_call(void *ptr)
     time(&timer);
 
     diff = difftime(timer, *start_time);
-    printf("TLS address: %lx\n", (uint64_t)&diff);
+    printf("TLS address: %p\n", (void *)&diff);
     printf("Time difference: %f\n", diff);
     return &diff;
 }
@@ -49,7 +49,7 @@ main()
     for (int i = 0; i < NUM_THREADS; i++) {
         void *ret;
         pthread_join(threads[i], &ret);
-        printf("TLS address: %lx\n", (uint64_t)ret);
+        printf("TLS address: %p\n", ret);
     }
 
     return 0;

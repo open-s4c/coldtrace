@@ -1,8 +1,11 @@
+#include "pthread_barrier_compat.h"
+
 #include <atomic>
 #include <cstdint>
 #include <cstdio>
 #include <cstdlib>
 #include <dice/types.h>
+#include <inttypes.h>
 #include <pthread.h>
 #include <trace_checker.h>
 
@@ -25,7 +28,7 @@ x_times_plus_one(void *ptr)
     metadata_t *md       = self_md();
     struct storage *tls  = SELF_TLS(md, &thread_local_storage);
     tls->last_atomic_idx = -1;
-    log_info("thread_nr %lu", self_id(md));
+    log_info("thread_nr %" PRIu64, self_id(md));
     pthread_barrier_wait(&barrier);
     for (int i = 0; i < X_TIMES; i++) {
         // save return value of fetch add (read value)
@@ -36,7 +39,7 @@ x_times_plus_one(void *ptr)
     return NULL;
 }
 
-#define OFFSET_UNINITIALIZED (uint64_t) - 1
+#define OFFSET_UNINITIALIZED (uint64_t)-1
 
 bool
 check_conforming(const void *entry, metadata_t *md)
@@ -75,17 +78,17 @@ check_conforming(const void *entry, metadata_t *md)
         // (modulo offset)
         bool ret = true;
         if (last_atomic_idx - offset != fetch_add_return_values[count] * 2) {
-            log_warn(
-                "wrong atomic idx on read of fetch_add\n%ld: %d %u %ld %ld",
-                self_id(md), count, fetch_add_return_values[count],
-                last_atomic_idx, write_idx);
+            log_warn("wrong atomic idx on read of fetch_add\n%" PRIu64
+                     ": %u %u %" PRIu64 " %" PRIu64,
+                     self_id(md), count, fetch_add_return_values[count],
+                     last_atomic_idx, write_idx);
             ret = false;
         }
         if (write_idx - offset != fetch_add_return_values[count] * 2 + 1) {
-            log_warn(
-                "wrong atomic idx on write of fetch_add\n%ld: %d %u %ld %ld",
-                self_id(md), count, fetch_add_return_values[count],
-                last_atomic_idx, write_idx);
+            log_warn("wrong atomic idx on write of fetch_add\n%" PRIu64
+                     ": %u %u %" PRIu64 " %" PRIu64,
+                     self_id(md), count, fetch_add_return_values[count],
+                     last_atomic_idx, write_idx);
             ret = false;
         }
         count++;

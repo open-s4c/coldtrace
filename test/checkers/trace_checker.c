@@ -23,6 +23,7 @@
 #include <dice/module.h>
 #include <dice/self.h>
 #include <dice/types.h>
+#include <inttypes.h>
 #include <vsync/atomic.h>
 #include <vsync/spinlock/caslock.h>
 
@@ -72,7 +73,7 @@ INTERPOSE(void, register_expected_trace, uint64_t tid,
 {
     coldtrace_enable_test_wait();
     assert(tid > 0 && tid < MAX_NTHREADS);
-    log_info("register expected trace thread=%lu", tid);
+    log_info("register expected trace thread=%" PRIu64, tid);
     _expected[tid] = trace;
 
     for (size_t i = 0; i < MAX_ENTRY_VALUES; i++) {
@@ -117,7 +118,7 @@ iter_advance(struct entry_it *it)
     }
 
     if (size > it->size) {
-        log_info("unexpected size=%lu != it->size=%lu (type=%s)", size,
+        log_info("unexpected size=%zu != it->size=%zu (type=%s)", size,
                  it->size,
                  coldtrace_entry_type_str(coldtrace_entry_parse_type(it->buf)));
     }
@@ -284,10 +285,10 @@ _check_next_expected(struct entry_it it, struct expected_entry_iterator *exp_it,
                      uint64_t tid, int entry, const char *reason)
 {
     next_expected_entry_and_reset(exp_it);
-    log_warn("%lu %s (go to next)", tid, reason);
+    log_warn("%" PRIu64 " %s (go to next)", tid, reason);
     if (!exp_it->e->set) {
-        log_warn("thread=%lu entry=%d unexpected trailing entry=%s", tid, entry,
-                 coldtrace_entry_type_str(iter_type(it)));
+        log_warn("thread=%" PRIu64 " entry=%d unexpected trailing entry=%s",
+                 tid, entry, coldtrace_entry_type_str(iter_type(it)));
         return false;
     }
     return _check_entry(it, exp_it, tid, entry);
@@ -305,7 +306,7 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     bool t = _check_type(type, exp_it);
     if (!t && exp_it->atleast > 0) {
         // required entry
-        log_warn("thread=%lu entry=%d found=%s expected=%s", tid, entry,
+        log_warn("thread=%" PRIu64 " entry=%d found=%s expected=%s", tid, entry,
                  coldtrace_entry_type_str(type),
                  coldtrace_entry_type_str((exp_it->e)->type));
         return false;
@@ -321,8 +322,9 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
             return _check_next_expected(it, exp_it, tid, entry,
                                         "optional size mismatch");
         }
-        log_warn("thread=%lu entry=%d size mismatch found=%lu expected=%d", tid,
-                 entry, size, (exp_it->e)->size);
+        log_warn("thread=%" PRIu64 " entry=%d size mismatch found=%" PRIu64
+                 " expected=%d",
+                 tid, entry, size, (exp_it->e)->size);
         return false;
     }
 
@@ -333,24 +335,23 @@ _check_non_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
             return _check_next_expected(it, exp_it, tid, entry,
                                         "optional pointer mismatch");
         }
-        log_warn(
-            "thread=%lu entry=%d pointer mismatch found=%lu "
-            "expected=%lu",
-            tid, entry, ptr_value, _entry_ptr_values[exp_it->e->check]);
+        log_warn("thread=%" PRIu64 " entry=%d pointer mismatch found=%" PRIu64
+                 " expected=%" PRIu64,
+                 tid, entry, ptr_value, _entry_ptr_values[exp_it->e->check]);
         return false;
     }
 
     // 4. MATCH
     char ptr_buf[BUFFER_SIZE] = "";
     if (p == MATCH_INIT_PTR || p == MATCH_PTR) {
-        snprintf(ptr_buf, sizeof(ptr_buf), " ptr=%lu", ptr_value);
+        snprintf(ptr_buf, sizeof(ptr_buf), " ptr=%" PRIu64, ptr_value);
     }
     char size_buf[BUFFER_SIZE] = "";
     if (s == MATCH_SIZE) {
         snprintf(size_buf, sizeof(size_buf), " size=%d", exp_it->e->size);
     }
 
-    log_info("thread=%lu entry=%d match=%s%s%s", tid, entry,
+    log_info("thread=%" PRIu64 " entry=%d match=%s%s%s", tid, entry,
              coldtrace_entry_type_str(exp_it->e->type), ptr_buf, size_buf);
 
     // if it was required make it optional
@@ -378,28 +379,28 @@ _check_wildcard(struct entry_it it, struct expected_entry_iterator *exp_it,
     // 1. TYPE CHECK
     bool t = _check_type(type, exp_it);
     if (!t) {
-        log_info("thread=%lu entry=%d mismatch: looking for wildcard=%s", tid,
-                 entry, coldtrace_entry_type_str(exp_it->e->type));
+        log_info("thread=%" PRIu64
+                 " entry=%d mismatch: looking for wildcard=%s",
+                 tid, entry, coldtrace_entry_type_str(exp_it->e->type));
         return true;
     }
 
     // 2. POINTER CHECK
     enum pointer_match p = _check_ptr(ptr_value, exp_it);
     if (p == MISMATCH_PTR) {
-        log_warn(
-            "thread=%lu entry=%d pointer mismatch found=%lu "
-            "expected=%lu",
-            tid, entry, ptr_value, _entry_ptr_values[exp_it->e->check]);
+        log_warn("thread=%" PRIu64 " entry=%d pointer mismatch found=%" PRIu64
+                 " expected=%" PRIu64,
+                 tid, entry, ptr_value, _entry_ptr_values[exp_it->e->check]);
         return false;
     }
 
     // 3. MATCH
     char ptr_buf[BUFFER_SIZE] = "";
     if (p == MATCH_INIT_PTR || p == MATCH_PTR) {
-        sprintf(ptr_buf, " ptr=%lu", ptr_value);
+        sprintf(ptr_buf, " ptr=%" PRIu64, ptr_value);
     }
 
-    log_info("thread=%lu entry=%d match=%s%s", tid, entry,
+    log_info("thread=%" PRIu64 " entry=%d match=%s%s", tid, entry,
              coldtrace_entry_type_str(exp_it->e->type), ptr_buf);
 
     next_expected_entry_and_reset(exp_it);
@@ -473,7 +474,8 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
 
         coldtrace_entry_type type = iter_type(it);
         if (!(expected_it->e)->set) {
-            log_info("thread=%lu entry=%d found=%s but expected trace empty",
+            log_info("thread=%" PRIu64
+                     " entry=%d found=%s but expected trace empty",
                      tid, entry, coldtrace_entry_type_str(type));
             continue;
         }
@@ -484,7 +486,7 @@ coldtrace_writer_close(void *page, const size_t size, metadata_t *md)
     caslock_release(&loop_lock);
 
     if (failed) {
-        log_warn("trace check failed for thread=%lu", tid);
+        log_warn("trace check failed for thread=%" PRIu64, tid);
         vatomic32_write_rlx(&failed_writer_close, 1);
     }
 }
@@ -497,19 +499,19 @@ check_empty_expected_trace()
         struct expected_entry_iterator *expected_it = _expected_iterators + tid;
 
         if (expected_it->e == NULL) {
-            log_warn("thread=%lu trace was never checked", tid);
+            log_warn("thread=%zu trace was never checked", tid);
             ret = false;
             continue;
         }
 
         while (expected_it->e->set && expected_it->atleast == 0) {
-            log_info("thread=%lu skipping optional trailing entry=%s", tid,
+            log_info("thread=%zu skipping optional trailing entry=%s", tid,
                      coldtrace_entry_type_str(expected_it->e->type));
             next_expected_entry_and_reset(expected_it);
         }
 
         if ((expected_it->e)->set) {
-            log_warn("thread=%lu expected trace not empty", tid);
+            log_warn("thread=%zu expected trace not empty", tid);
             ret = false;
         }
     }

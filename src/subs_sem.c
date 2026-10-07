@@ -33,6 +33,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_TRYWAIT, {
     }
 })
 
+#if !defined(__APPLE__)
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
     const struct sem_timedwait_event *ev = EVENT_PAYLOAD(ev);
     if (ev->ret == 0) {
@@ -41,6 +42,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
         e->atomic_index = coldtrace_next_atomic_idx();
     }
 })
+#endif
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_SEM_POST, {
     const struct sem_post_event *ev = EVENT_PAYLOAD(ev);

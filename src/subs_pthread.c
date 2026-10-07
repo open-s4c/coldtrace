@@ -35,12 +35,17 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_THREAD_START, {
 
     void *stackaddr;
     size_t stacksize;
+    pthread_t s = REAL(pthread_self);
+#if defined(__APPLE__)
+    stacksize = pthread_get_stacksize_np(s);
+    stackaddr = (char *)pthread_get_stackaddr_np(s) - stacksize;
+#else
     pthread_attr_t attr;
     REAL(pthread_attr_init, &attr);
-    pthread_t s = REAL(pthread_self);
     REAL(pthread_getattr_np, s, &attr);
     REAL(pthread_attr_getstack, &attr, &stackaddr, &stacksize);
     REAL(pthread_attr_destroy, &attr);
+#endif
 
     struct coldtrace_thread_init_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_THREAD_START,
@@ -130,6 +135,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_TIMEDLOCK, {
     }
 })
 
+#if defined(HAVE_PTHREAD_CLOCKWAIT_LOCK)
 PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_CLOCKLOCK, {
     struct pthread_mutex_clocklock_event *ev = EVENT_PAYLOAD(ev);
     if (ev->ret == 0) {
@@ -139,6 +145,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MUTEX_CLOCKLOCK, {
         e->atomic_index = coldtrace_next_atomic_idx();
     }
 })
+#endif
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_COND_WAIT, {
     struct pthread_cond_wait_event *ev = EVENT_PAYLOAD(ev);
@@ -172,6 +179,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_COND_TIMEDWAIT, {
     e->atomic_index = coldtrace_next_atomic_idx();
 })
 
+#if defined(HAVE_PTHREAD_CLOCKWAIT_LOCK)
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_COND_CLOCKWAIT, {
     struct pthread_cond_clockwait_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e;
@@ -187,6 +195,8 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_COND_CLOCKWAIT, {
                                   (void *)ev->mutex);
     e->atomic_index = coldtrace_next_atomic_idx();
 })
+
+#endif
 
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_RWLOCK_UNLOCK, {
     struct pthread_rwlock_unlock_event *ev = EVENT_PAYLOAD(ev);
@@ -256,6 +266,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_RWLOCK_TIMEDWRLOCK, {
     }
 })
 
+#if !defined(__APPLE__)
 PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_SPIN_UNLOCK, {
     struct pthread_spin_unlock_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e;
@@ -284,3 +295,4 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SPIN_TRYLOCK, {
         e->atomic_index = coldtrace_next_atomic_idx();
     }
 })
+#endif
