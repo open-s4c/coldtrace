@@ -214,7 +214,6 @@ def get_variant_env(variant: str, trace_subdir=""):
 
     coldtrace_opts = (
         f"COLDTRACE_PATH={trace_path} "
-        "COLDTRACE_MAX_FILES=3 "
         "COLDTRACE_DISABLE_CLEANUP=true "
         "COLDTRACE_DISABLE_COPY=true"
     )
