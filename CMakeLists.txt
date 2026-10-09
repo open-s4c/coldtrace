@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(
   coldtrace
-  VERSION 0.1.0
+  VERSION 0.2.0
   LANGUAGES C CXX)
 
 # Get the short (8‑char) commit hash
@@ -50,6 +50,8 @@ if(NOT libvsync_DIR)
   find_package(libvsync 4.2 CONFIG REQUIRED)
 endif()
 add_library(vsync ALIAS libvsync::vsync)
+
+add_subdirectory(deps/lz4)
 
 add_compile_options(
   -Wall

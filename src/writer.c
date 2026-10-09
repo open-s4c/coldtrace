@@ -9,6 +9,7 @@
 #include <dice/types.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <lz4.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -17,6 +18,8 @@
 #include <sys/mman.h>
 #include <unistd.h>
 
+#define FRAG_HDR_SIZE          (sizeof(struct version_header) + sizeof(uint32_t))
+#define LZ4_ACCELERATION       1
 #define FORMAT_EXPANSION_SPACE 20
 #define FILE_PERMISSIONS                                                       \
     (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
@@ -24,7 +27,9 @@
 struct writer_impl {
     bool initd;
     bool failed;
+    bool mmapped;
     uint64_t *buffer;
+    char *comp_buf;
     uint64_t size;
     uint64_t offset;
     uint64_t tid;
@@ -32,142 +37,250 @@ struct writer_impl {
     metadata_t *md;
 };
 
-void
-create_coldtrace_version_header(struct writer_impl *impl)
-{
-    struct version_header *header =
-        (struct version_header *)coldtrace_writer_reserve(
-            (struct coldtrace_writer *)impl, sizeof(struct version_header));
-
-    if (header == NULL) {
-        log_warn("error: Could not reserve version header in writer");
-        impl->buffer = NULL;
-        return;
-    }
-    *header = current_version_header;
-}
-
 // Ensure the size of implementation matches the public size.
 STATIC_ASSERT(sizeof(struct writer_impl) == sizeof(struct coldtrace_writer),
               "incorrect writer_impl size");
 
-static void
-get_trace_(struct writer_impl *impl)
+// A fragment must at least hold the version header.
+// When fragments are compressed, the size must also fit LZ4's input limit.
+static bool
+validate_trace_size_(size_t size, bool compressed)
 {
-    if (!impl->initd) {
-        log_warn("Writer not initialized (at %s:%d)", __FILE__, __LINE__);
-        impl->buffer = NULL;
-        return;
+    if (size < sizeof(struct version_header)) {
+        return false;
     }
-    if (impl->failed) {
-        impl->buffer = NULL;
-        return;
+    if (compressed && size > (size_t)LZ4_MAX_INPUT_SIZE) {
+        return false;
     }
-    if (impl->buffer) {
+    return true;
+}
+
+// Release every allocation owned by the writer.
+static void
+release_buffers_(struct writer_impl *impl)
+{
+    if (impl->buffer != NULL) {
+        if (impl->mmapped) {
+            coldtrace_munmap(impl->buffer, impl->size);
+        } else {
+            mempool_free(impl->buffer);
+        }
+        impl->buffer = NULL;
+    }
+    if (impl->comp_buf != NULL) {
+        coldtrace_free(impl->comp_buf);
+        impl->comp_buf = NULL;
+    }
+}
+
+// Enter the permanent failed state, releasing all memory on the way.
+static void
+fail_(struct writer_impl *impl)
+{
+    release_buffers_(impl);
+    impl->failed = true;
+}
+
+static bool
+first_fragment_(struct writer_impl *impl)
+{
+    const char *pattern = coldtrace_get_file_pattern();
+    char file_name[strlen(pattern) + FORMAT_EXPANSION_SPACE];
+
+    for (;;) {
+        sprintf(file_name, pattern, impl->tid, impl->enumerator);
+        int fd = open(file_name, O_WRONLY | O_CREAT | O_EXCL, FILE_PERMISSIONS);
+        if (fd != -1) {
+            close(fd);
+            return true;
+        }
+        if (errno != EEXIST) {
+            log_warn("open first_fragment: %s", strerror(errno));
+            return false;
+        }
+        impl->enumerator++;
+    }
+}
+
+static bool
+write_all_(int fd, const void *buf, size_t count)
+{
+    const char *p    = (const char *)buf;
+    size_t remaining = count;
+    while (remaining > 0) {
+        ssize_t w = write(fd, p, remaining);
+        if (w == -1) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return false;
+        }
+        p += (size_t)w;
+        remaining -= (size_t)w;
+    }
+    return true;
+}
+
+// Write the fragment file as [version_header][uint32_t raw_size][lz4(entries)],
+// where raw_size is the size of the uncompressed entries.
+static void
+flush_(struct writer_impl *impl)
+{
+    coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
+
+    if (!impl->mmapped) {
         return;
     }
 
+    const size_t hdr = sizeof(struct version_header);
+    const char *src  = (const char *)impl->buffer + hdr;
+    size_t raw       = impl->offset - hdr;
+
+    struct version_header *file_hdr = (struct version_header *)impl->comp_buf;
+    *file_hdr                       = current_version_header;
+
+    uint32_t *file_raw = (uint32_t *)(impl->comp_buf + sizeof(*file_hdr));
+    *file_raw          = (uint32_t)raw;
+
+    int comp =
+        LZ4_compress_fast(src, impl->comp_buf + FRAG_HDR_SIZE, (int)raw,
+                          LZ4_compressBound((int)impl->size), LZ4_ACCELERATION);
+    if (comp <= 0) {
+        log_warn("flush: LZ4 compression failed");
+        fail_(impl);
+        return;
+    }
+
+    const char *pattern = coldtrace_get_file_pattern();
+    char file_name[strlen(pattern) + FORMAT_EXPANSION_SPACE];
+    sprintf(file_name, pattern, impl->tid, impl->enumerator);
+
+    int fd = open(file_name, O_WRONLY | O_CREAT | O_TRUNC, FILE_PERMISSIONS);
+    if (fd == -1) {
+        log_warn("open flush: %s", strerror(errno));
+        fail_(impl);
+        return;
+    }
+
+    if (!write_all_(fd, impl->comp_buf, FRAG_HDR_SIZE + (size_t)comp)) {
+        log_warn("write flush: %s", strerror(errno));
+        close(fd);
+        unlink(file_name);
+        fail_(impl);
+        return;
+    }
+
+    close(fd);
+}
+
+// Stamp the version header at the front of a fresh fragment and position
+// offset just past it
+static void
+begin_fragment_(struct writer_impl *impl)
+{
+    struct version_header *header = (struct version_header *)impl->buffer;
+    *header                       = current_version_header;
+    impl->offset                  = sizeof(struct version_header);
+}
+
+static bool
+ensure_buffer_(struct writer_impl *impl)
+{
+    if (!impl->initd) {
+        log_warn("Writer not initialized (at %s:%d)", __FILE__, __LINE__);
+        return false;
+    }
+    if (impl->failed) {
+        return false;
+    }
+    if (impl->buffer) {
+        return true;
+    }
+
+    bool disabled    = coldtrace_writes_disabled();
     impl->size       = coldtrace_get_trace_size();
     impl->offset     = 0;
     impl->enumerator = 0;
 
-    if (coldtrace_writes_disabled()) {
-        impl->buffer = mempool_alloc(impl->size);
-        create_coldtrace_version_header(impl);
-        return;
+    if (!validate_trace_size_(impl->size, !disabled)) {
+        log_warn("ensure_buffer: invalid trace size %zu", (size_t)impl->size);
+        impl->failed = true;
+        return false;
     }
 
-    const char *pattern = coldtrace_get_file_pattern();
-    char file_name[strlen(pattern) + FORMAT_EXPANSION_SPACE];
-    sprintf(file_name, pattern, impl->tid, impl->enumerator);
-    int fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, FILE_PERMISSIONS);
-    while (fd == -1) {
-        if (errno == EEXIST) {
-            impl->enumerator++;
-            sprintf(file_name, pattern, impl->tid, impl->enumerator);
-            fd = open(file_name, O_RDWR | O_CREAT | O_EXCL, FILE_PERMISSIONS);
-        } else {
-            log_warn("open get_trace: %s", strerror(errno));
-            impl->buffer = NULL;
-            impl->failed = true;
-            return;
+    if (disabled) {
+        impl->buffer  = mempool_alloc(impl->size);
+        impl->mmapped = false;
+        if (impl->buffer == NULL) {
+            return false;
         }
+        begin_fragment_(impl);
+        return true;
     }
-    if (ftruncate(fd, impl->size) == -1) {
-        log_warn("ftruncate get_trace: %s", strerror(errno));
-        unlink(file_name);
-        close(fd);
-        impl->buffer = NULL;
-        impl->failed = true;
-        return;
-    }
-    impl->buffer = coldtrace_mmap(NULL, impl->size, PROT_READ | PROT_WRITE,
-                                  MAP_SHARED, fd, 0);
+
+    // Allocate the trace buffer once and reuse it for every fragment
+    impl->buffer =
+        coldtrace_mmap(NULL, impl->size, PROT_READ | PROT_WRITE,
+                       MAP_PRIVATE | MAP_ANONYMOUS | MAP_POPULATE, -1, 0);
     if (impl->buffer == MAP_FAILED) {
-        log_warn("mmap get_trace: %s", strerror(errno));
-        unlink(file_name);
-        close(fd);
+        log_warn("mmap ensure_buffer: %s", strerror(errno));
         impl->buffer = NULL;
         impl->failed = true;
-        return;
+        return false;
     }
-    close(fd);
-    create_coldtrace_version_header(impl);
+    impl->mmapped = true;
+
+    impl->comp_buf =
+        coldtrace_malloc(FRAG_HDR_SIZE + LZ4_compressBound((int)impl->size));
+    if (impl->comp_buf == NULL) {
+        log_warn("ensure_buffer: compression buffer alloc failed");
+        fail_(impl);
+        return false;
+    }
+
+    if (!first_fragment_(impl)) {
+        fail_(impl);
+        return false;
+    }
+
+    begin_fragment_(impl);
+    return true;
 }
 
+// Move to the next fragment after a flush
+static void
+advance_fragment_(struct writer_impl *impl)
+{
+    if (!impl->mmapped) {
+        size_t trace_size = coldtrace_get_trace_size();
+
+        if (impl->size != trace_size &&
+            validate_trace_size_(trace_size, false)) {
+            void *buf = mempool_alloc(trace_size);
+            if (buf != NULL) {
+                mempool_free(impl->buffer);
+                impl->buffer = buf;
+                impl->size   = trace_size;
+            }
+        }
+        impl->offset = 0;
+        return;
+    }
+
+    impl->enumerator = (impl->enumerator + 1) % coldtrace_get_max();
+}
+
+// Flush the current fragment and open a fresh one
 static void
 new_trace_(struct writer_impl *impl)
 {
-    coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
-    if (coldtrace_writes_disabled()) {
-        size_t trace_size = coldtrace_get_trace_size();
-
-        if (impl->size != trace_size) {
-            impl->size = trace_size;
-            mempool_free(impl->buffer);
-            impl->buffer = mempool_alloc(impl->size);
-        }
-        impl->offset = 0;
-        create_coldtrace_version_header(impl);
-        return;
-    }
-    coldtrace_munmap(impl->buffer, impl->size);
-
-    impl->enumerator = (impl->enumerator + 1) % coldtrace_get_max();
-    impl->size       = coldtrace_get_trace_size();
-    impl->offset     = 0;
-
-    const char *pattern = coldtrace_get_file_pattern();
-    char file_name[strlen(pattern) + FORMAT_EXPANSION_SPACE];
-    sprintf(file_name, pattern, impl->tid, impl->enumerator);
-    int fd = open(file_name, O_RDWR | O_CREAT | O_TRUNC, FILE_PERMISSIONS);
-    if (fd == -1) {
-        log_warn("open new_trace: %s", strerror(errno));
-        impl->buffer = NULL;
-        impl->failed = true;
-        return;
-    }
-    if (ftruncate(fd, impl->size) == -1) {
-        log_warn("ftruncate new_trace: %s", strerror(errno));
-        unlink(file_name);
-        close(fd);
-        impl->buffer = NULL;
-        impl->failed = true;
+    flush_(impl);
+    if (impl->buffer == NULL) {
         return;
     }
 
-    impl->buffer = coldtrace_mmap(NULL, impl->size, PROT_READ | PROT_WRITE,
-                                  MAP_SHARED, fd, 0);
-    if (impl->buffer == MAP_FAILED) {
-        log_warn("mmap new_trace: %s", strerror(errno));
-        unlink(file_name);
-        close(fd);
-        impl->buffer = NULL;
-        impl->failed = true;
-        return;
-    }
-    close(fd);
-    create_coldtrace_version_header(impl);
+    advance_fragment_(impl);
+    begin_fragment_(impl);
 }
 
 DICE_HIDE bool
@@ -188,8 +301,7 @@ DICE_HIDE void *
 coldtrace_writer_reserve(struct coldtrace_writer *ct, size_t size)
 {
     struct writer_impl *impl = (struct writer_impl *)ct;
-    get_trace_(impl);
-    if (impl->buffer == NULL) {
+    if (!ensure_buffer_(impl)) {
         return NULL;
     }
 
@@ -211,14 +323,17 @@ coldtrace_writer_init(struct coldtrace_writer *ct, metadata_t *md)
     struct writer_impl *impl = (struct writer_impl *)ct;
     if (md == NULL) {
         log_warn("No metadata provided (at %s:%d)", __FILE__, __LINE__);
-        impl->initd  = false;
-        impl->buffer = NULL;
+        impl->initd    = false;
+        impl->buffer   = NULL;
+        impl->comp_buf = NULL;
         return;
     }
     impl->initd      = true;
     impl->failed     = false;
+    impl->mmapped    = false;
     impl->tid        = self_id(md);
     impl->buffer     = NULL;
+    impl->comp_buf   = NULL;
     impl->offset     = 0;
     impl->enumerator = 0;
     impl->size       = 0;
@@ -232,11 +347,14 @@ coldtrace_writer_fini(struct coldtrace_writer *ct)
     if (!impl->initd) {
         return;
     }
-    coldtrace_writer_close(impl->buffer, impl->offset, impl->md);
 
-    if (coldtrace_writes_disabled()) {
-        mempool_free(impl->buffer);
+    // Flush the final partial fragment
+    if (impl->buffer != NULL) {
+        flush_(impl);
     }
+
+    release_buffers_(impl);
+    impl->initd = false;
 }
 
 

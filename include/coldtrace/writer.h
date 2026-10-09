@@ -12,7 +12,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define COLDTRACE_DESCRIPTOR_SIZE 56
+#define COLDTRACE_DESCRIPTOR_SIZE 64
 struct coldtrace_writer {
     char _[COLDTRACE_DESCRIPTOR_SIZE];
 };
