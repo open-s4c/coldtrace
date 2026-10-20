@@ -30,6 +30,8 @@ register_final_callback(bool (*callback)(void))
     abort();
 }
 
+/* Mach-O test executables resolve these from the preloaded runtime. */
+#ifndef __APPLE__
 thread_id
 self_id(struct metadata *self)
 {
@@ -47,3 +49,5 @@ self_md(void)
 {
     abort();
 };
+
+#endif

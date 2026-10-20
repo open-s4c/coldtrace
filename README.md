@@ -5,7 +5,7 @@ Clone and build coldtrace:
     git clone ssh://git@github.com/open-s4c/coldtrace.git
     cd coldtrace
     git submodule update --init
-    cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=Release
+    cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=Release -DDICE_SOURCE=../dice
     cmake --build build
 
 Build silly example of a write-write race:
@@ -48,3 +48,85 @@ stack state.
 Run freezer analysis (optional):
 
     freezer -f traces
+
+## Experimental generated Dice runtime
+
+This branch uses a Dice checkout with `dice-roll` namespace imports,
+`add_dice_core`, and `add_dice_mods`, including the definitions in
+`src/mod/*.dice`. Set `DICE_SOURCE` to that checkout; the default is `../dice`.
+The existing `deps/dice` submodule is not changed or used by this experiment.
+
+`coldtrace.dice` is the application configuration, maintained at the repository
+root. It imports Dice's reusable interceptor definitions, declares every
+Coldtrace slot inside `(module coldtrace ...)`, and selects dispatch priorities.
+The settings `(plugins false)` and `(mempool-size 200Mi)` are top-level forms.
+The binary size suffix means 200 * 1024 * 1024 bytes.
+
+CMake generates only `platform.dice` in the build directory, imported as
+`(import (coldtrace platform))`. On non-Apple platforms it imports
+`pthread_spinlock` and adds `(after (dice pthread_spinlock) (coldtrace marker))`.
+These standalone ordering constraints preserve initialization order without
+redeclaring the slots. The generated directory is mounted under `coldtrace`;
+no source-directory mapping or individual subscriber `.dice` files are needed.
+
+Each Coldtrace subscriber has a named slot and explicit consumption routes.
+For example, the `procmaps` slot in the `coldtrace` module follows `(dice self)`.
+The generator assigns its number and emits `SLOT_COLDTRACE_PROCMAPS`.
+CMake compiles `procmaps.c` with
+`DICE_MODULE_SLOT=SLOT_COLDTRACE_PROCMAPS` and force-includes the generated
+header. Its `PS_SUBSCRIBE` and `DICE_MODULE_INIT` declarations therefore use
+that slot without knowing the numeric value. Other subscriber sources use the
+same convention. Dice's own modules retain names such as `SLOT_DICE_SELF`.
+
+Ordering constraints replace `COLDTRACE_BASE_SLOT` and numeric slot arithmetic.
+`EVENT_TEST_MARKER` is allocated by the generator. Importing a definition does
+not add its C implementation: CMake still selects and compiles module sources.
+
+The `prioritize` form in `coldtrace.dice` selects chain-first dispatch for
+`INTERCEPT_EVENT` and `CAPTURE_EVENT`, then `EVENT_MA_READ` and `EVENT_MA_WRITE`.
+This is the policy that performed best in the Release/LTO LevelDB comparison.
+Other routes use Dice's shared fallback, with inlining left to the compiler.
+Tune this form for another workload; priorities do not change handler order.
+
+`coldtrace-runtime` is an object target containing the generated dispatcher,
+Dice core sources, and the selected interceptor sources. Both `coldtrace` and
+`trace_checker` reuse it. Subscriber object targets consume `coldtrace-dice`,
+which propagates the generated-header dependency and forces that header before
+ordinary Dice headers. Utility objects shared with instrumented applications
+keep ordinary header settings. The generator embeds no core or module sources.
+The runtime is sealed (`plugins false`): all consumers are linked, matching the
+legacy `dice-box` build. The `self-box` and `mempool-box` wrappers keep Dice helper
+calls private so LTO can optimize them without dynamic symbol lookup.
+
+To check declared routes as well as build and run tests:
+
+    cmake -S . -B build-roll -DDICE_SOURCE=../dice -DCMAKE_BUILD_TYPE=Release \
+        -DCOLDTRACE_CHECK_ROUTES=ON
+    cmake --build build-roll -j8
+    ctest --test-dir build-roll --output-on-failure
+
+The generated files are in `build-roll/src/coldtrace-runtime-dice/`.
+CTest supplies the selected build paths to the preload scripts. For manual use:
+
+    COLDTRACE_BUILD="$PWD/build-roll" COLDTRACE_DICE_SOURCE="$PWD/../dice" \
+        COLDTRACE_PATH=/tmp/coldtrace-traces scripts/coldtrace ./program
+
+On macOS, capture starts after Coldtrace's configuration constructor, because
+interposition can begin during libSystem's allocator initialization. The Linux
+`/proc` collector is disabled there. Instrumented test applications use flat
+symbol lookup so sanitizer calls reach the preloaded runtime. Tests retain
+unoptimized calls because their expectations describe individual operations.
+
+Validated on macOS arm64 with AppleClang 21: normal and route-checked
+Release/LTO builds succeed. The latest full runs passed 45 of 51 tests, with
+these six failures also present before the namespace migration: `trace_atomic`,
+`trace_hb_check`, `trace_hb_check_2`, `trace_memcpy`, `trace_pthread_cond_wait`,
+and `trace_read_write_size`. No undeclared-route errors were reported.
+The trace expectations and timing-sensitive atomic checks still need
+investigation; the complete suite is not green.
+
+After consolidating the configuration, allocation/free, thread create/join,
+and main-thread-close smoke tests pass. Generated C and headers are identical
+to the previous configuration, with and without the optional spinlock slot.
+The spinlock comparison validates generation only; Linux and other platforms
+have not been built or tested for this integration.

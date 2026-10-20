@@ -1,0 +1,154 @@
+; Common configuration shared by the runtime and trace checker.
+(plugins false)
+(mempool-size 200Mi)
+
+; Custom test-marker event; Dice assigns its numeric ID.
+; The routes below also infer it; this declaration makes it explicit.
+(events EVENT_TEST_MARKER)
+
+(import (dice self)
+        (dice pthread_create)
+        (dice pthread_mutex)
+        (dice pthread_rwlock)
+        (dice pthread_cond)
+        (dice malloc)
+        (dice mman)
+        (dice memcpy)
+        (dice sem)
+        (dice cxa)
+        (dice tsan)
+        (dice stacktrace)
+        (dice annotate_rwlock))
+
+; The build selects optional interceptors and their ordering here.
+(import (coldtrace platform))
+
+(module coldtrace
+  (slot config
+    (before (dice self))
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (INTERCEPT_EVENT ANY_EVENT)
+      (INTERCEPT_BEFORE ANY_EVENT)
+      (INTERCEPT_AFTER ANY_EVENT)))
+
+  (slot procmaps
+    (after (dice self))
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CAPTURE_EVENT EVENT_SELF_INIT EVENT_SELF_FINI)))
+
+  (slot subs-sem
+    (after procmaps)
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CAPTURE_AFTER EVENT_SEM_WAIT EVENT_SEM_TRYWAIT EVENT_SEM_TIMEDWAIT)
+      (CAPTURE_BEFORE EVENT_SEM_POST)))
+
+  (slot subs-tsan
+    (after subs-sem)
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CAPTURE_EVENT
+        EVENT_STACKTRACE_ENTER EVENT_STACKTRACE_EXIT
+        EVENT_MA_READ EVENT_MA_WRITE
+        EVENT_MA_READ_RANGE EVENT_MA_WRITE_RANGE)
+      (CAPTURE_BEFORE
+        EVENT_MA_AREAD EVENT_MA_AWRITE
+        EVENT_MA_RMW EVENT_MA_XCHG EVENT_MA_CMPXCHG EVENT_MA_FENCE)
+      (CAPTURE_AFTER
+        EVENT_MA_AREAD EVENT_MA_AWRITE
+        EVENT_MA_RMW EVENT_MA_XCHG EVENT_MA_CMPXCHG EVENT_MA_FENCE)))
+
+  (slot subs-pthread
+    (after subs-tsan)
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CAPTURE_EVENT EVENT_THREAD_START EVENT_THREAD_EXIT EVENT_SELF_FINI)
+      (CAPTURE_BEFORE
+        EVENT_THREAD_CREATE
+        EVENT_MUTEX_UNLOCK
+        EVENT_COND_WAIT EVENT_COND_TIMEDWAIT EVENT_COND_CLOCKWAIT
+        EVENT_RWLOCK_UNLOCK
+        EVENT_SPIN_UNLOCK)
+      (CAPTURE_AFTER
+        EVENT_THREAD_CREATE EVENT_THREAD_JOIN
+        EVENT_MUTEX_LOCK EVENT_MUTEX_TRYLOCK
+        EVENT_MUTEX_TIMEDLOCK EVENT_MUTEX_CLOCKLOCK
+        EVENT_COND_WAIT EVENT_COND_TIMEDWAIT EVENT_COND_CLOCKWAIT
+        EVENT_RWLOCK_RDLOCK EVENT_RWLOCK_TRYRDLOCK EVENT_RWLOCK_TIMEDRDLOCK
+        EVENT_RWLOCK_WRLOCK EVENT_RWLOCK_TRYWRLOCK EVENT_RWLOCK_TIMEDWRLOCK
+        EVENT_SPIN_LOCK EVENT_SPIN_TRYLOCK)))
+
+  (slot subs-malloc
+    (after subs-pthread)
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CAPTURE_AFTER
+        EVENT_MALLOC EVENT_CALLOC EVENT_REALLOC
+        EVENT_POSIX_MEMALIGN EVENT_ALIGNED_ALLOC)
+      (CAPTURE_BEFORE EVENT_REALLOC EVENT_FREE)))
+
+  (slot subs-cxa
+    (after subs-malloc)
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CAPTURE_AFTER EVENT_CXA_GUARD_ACQUIRE)
+      (CAPTURE_BEFORE EVENT_CXA_GUARD_RELEASE EVENT_CXA_GUARD_ABORT)))
+
+  (slot subs-mman
+    (after subs-cxa)
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CAPTURE_AFTER EVENT_MMAP)
+      (CAPTURE_BEFORE EVENT_MUNMAP)))
+
+  (slot subs-annotate-rwlock
+    (after subs-mman)
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CAPTURE_EVENT
+        EVENT_ANNOTATE_RWLOCK_CREATE EVENT_ANNOTATE_RWLOCK_DESTROY
+        EVENT_ANNOTATE_RWLOCK_ACQ EVENT_ANNOTATE_RWLOCK_REL)))
+
+  (slot subs-memcpy
+    (after subs-annotate-rwlock)
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CAPTURE_BEFORE EVENT_MEMCPY EVENT_MEMMOVE)
+      (CAPTURE_AFTER EVENT_MEMCPY EVENT_MEMMOVE EVENT_MEMSET)))
+
+  (slot subs-marker
+    (after subs-memcpy)
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CAPTURE_EVENT EVENT_TEST_MARKER)))
+
+  (slot subs-wait
+    (after subs-marker)
+    (consumes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CAPTURE_EVENT EVENT_SELF_WAIT)))
+
+  (slot marker
+    (after subs-wait)
+    (before
+      (dice pthread_create)
+      (dice pthread_mutex)
+      (dice pthread_rwlock)
+      (dice pthread_cond)
+      (dice malloc)
+      (dice mman)
+      (dice memcpy)
+      (dice sem)
+      (dice cxa)
+      (dice tsan)
+      (dice stacktrace)
+      (dice annotate_rwlock))
+    (consumes (CHAIN_DICE_CONTROL EVENT_DICE_INIT))
+    (produces (INTERCEPT_EVENT EVENT_TEST_MARKER))))
+
+; Chain-first policy selected for Release/LTO.
+(prioritize
+  (chains INTERCEPT_EVENT CAPTURE_EVENT)
+  (events EVENT_MA_READ EVENT_MA_WRITE))

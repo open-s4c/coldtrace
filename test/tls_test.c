@@ -42,9 +42,12 @@ main()
     char buffer[MAX_BUFFER_SIZE];
     sprintf(buffer, "/proc/%d/maps", getpid());
     FILE *map = fopen(buffer, "r");
-    while (fgets(buffer, sizeof(buffer), map) != 0) {
+    while (map && fgets(buffer, sizeof(buffer), map) != 0) {
         printf("%s", buffer);
     }
+
+    if (map)
+        fclose(map);
 
     for (int i = 0; i < NUM_THREADS; i++) {
         void *ret;

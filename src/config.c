@@ -23,11 +23,32 @@ DICE_HIDE char pattern_[DEFAULT_PATH_SIZE];
         if (cond) {                                                            \
             log_warn(msg ", disabling coldtrace writes", ##__VA_ARGS__);       \
             coldtrace_disable_writes();                                        \
-            return true;                                                       \
+            return;                                                            \
         }                                                                      \
     } while (0)
 
-DICE_MODULE_INIT({
+/* Interposition can run during libSystem initialization on macOS. Keep
+ * capture disabled until constructors may safely use libc allocation. */
+static bool config_ready_;
+
+PS_SUBSCRIBE(INTERCEPT_EVENT, ANY_EVENT, {
+    if (!config_ready_)
+        return PS_STOP_CHAIN;
+})
+PS_SUBSCRIBE(INTERCEPT_BEFORE, ANY_EVENT, {
+    if (!config_ready_)
+        return PS_STOP_CHAIN;
+})
+PS_SUBSCRIBE(INTERCEPT_AFTER, ANY_EVENT, {
+    if (!config_ready_)
+        return PS_STOP_CHAIN;
+})
+
+DICE_MODULE_INIT()
+
+static void
+configure_(void)
+{
     char *var = getenv("COLDTRACE_MAX_FILES");
     if (var) {
         uint32_t val = strtoul(var, NULL, 10);
@@ -59,7 +80,14 @@ DICE_MODULE_INIT({
                              "COLDTRACE_PATH '%s' is not empty, "
                              "the directory must be empty",
                              var);
-})
+}
+
+static void __attribute__((constructor))
+configure_ctor_(void)
+{
+    configure_();
+    config_ready_ = true;
+}
 
 DICE_HIDE bool
 coldtrace_set_path(const char *path)

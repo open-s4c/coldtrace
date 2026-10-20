@@ -43,7 +43,16 @@ add_compile_options(-fPIC -g3 -D_GNU_SOURCE -DDICE_MAIN_START_DISABLE -DDICE_MEM
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(DICE_MEMSET ON)
 
-add_subdirectory(deps/dice)
+set(DICE_SOURCE
+    "${CMAKE_CURRENT_SOURCE_DIR}/../dice"
+    CACHE PATH "Dice checkout providing dice-roll namespaces and add_dice_core")
+if(NOT EXISTS "${DICE_SOURCE}/cmake/roll.cmake"
+   OR NOT EXISTS "${DICE_SOURCE}/src/mod/self.dice")
+  message(FATAL_ERROR
+          "DICE_SOURCE must point to a Dice checkout with namespace imports "
+          "and src/mod/*.dice definitions")
+endif()
+add_subdirectory("${DICE_SOURCE}" deps/dice EXCLUDE_FROM_ALL)
 find_package(libvsync 4.2 CONFIG)
 if(NOT libvsync_DIR)
   set(CMAKE_FIND_ROOT_PATH ${CMAKE_CURRENT_BINARY_DIR}/deps)

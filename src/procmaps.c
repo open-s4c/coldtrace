@@ -121,9 +121,14 @@ static bool maps_copied_ = false;
 static caslock_t lock_;
 
 DICE_MODULE_INIT({
+#if defined(__APPLE__)
+    /* This collector uses Linux /proc files and cannot run on macOS. */
+    maps_copied_ = true;
+#else
     if (getenv("COLDTRACE_DISABLE_COPY")) {
         maps_copied_ = true;
     }
+#endif
 })
 
 static inline void
