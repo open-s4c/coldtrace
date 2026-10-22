@@ -52,8 +52,7 @@ add_dice_core(
   IMPORT_PATHS "coldtrace=${CMAKE_CURRENT_BINARY_DIR}/dice")
 add_dice_mods(coldtrace-runtime ${dice_modules})
 # Coldtrace links all consumers and keeps Dice helpers private, as dice-box did.
-target_sources(coldtrace-runtime PRIVATE "${DICE_SOURCE}/src/dice/mempool-box.c"
-                                         "${DICE_SOURCE}/src/mod/self-box.c")
+target_sources(coldtrace-runtime PRIVATE "${DICE_SOURCE}/src/dice/mempool-box.c")
 
 # The interface target supplies the generation dependency to each object target.
 add_library(coldtrace-dice INTERFACE)
@@ -117,6 +116,8 @@ else()
 endif()
 add_dependencies(coldtrace coldtrace-preload)
 target_link_libraries(coldtrace PRIVATE vsync coldtrace-dice ${MODS})
+# The checker exports self accessors to test programs; only the tracer hides them.
+target_sources(coldtrace PRIVATE "${DICE_SOURCE}/src/mod/self-box.c")
 if(APPLE)
   target_link_options(coldtrace PRIVATE -undefined dynamic_lookup)
 endif()
