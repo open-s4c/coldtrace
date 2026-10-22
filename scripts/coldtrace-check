@@ -10,7 +10,7 @@ else
 fi
 SOEXT="${COLDTRACE_LIBRARY_SUFFIX:-$SOEXT}"
 PRELOAD="$COLDTRACE_BUILD/test/libtrace_checker$SOEXT"
-TSANO="${COLDTRACE_DICE_SOURCE:-$COLDTRACE_ROOT/../dice}/deps/tsano/tsano"
+TSANO="${COLDTRACE_DICE_SOURCE:-$COLDTRACE_ROOT/deps/dice}/deps/tsano/tsano"
 run_coldtrace()
 {
     if [ "$(uname)" = Darwin ]; then

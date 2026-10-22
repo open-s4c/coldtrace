@@ -44,7 +44,7 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(DICE_MEMSET ON)
 
 set(DICE_SOURCE
-    "${CMAKE_CURRENT_SOURCE_DIR}/../dice"
+    "${CMAKE_CURRENT_SOURCE_DIR}/deps/dice"
     CACHE PATH "Dice checkout providing dice-roll namespaces and add_dice_core")
 if(NOT EXISTS "${DICE_SOURCE}/cmake/roll.cmake"
    OR NOT EXISTS "${DICE_SOURCE}/src/mod/self.dice")

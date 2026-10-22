@@ -1,5 +1,5 @@
 ; Common configuration shared by the runtime and trace checker.
-(plugins false)
+(callbacks false)
 (mempool-size 200Mi)
 
 ; Custom test-marker event; Dice assigns its numeric ID.

@@ -1,3 +1,4 @@
 [submodule "deps/dice"]
 	path = deps/dice
-	url = ../dice
+	url = ssh://git@github.com/db7/dice.git
+	branch = dice-roll-improvements

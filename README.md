@@ -4,8 +4,8 @@ Clone and build coldtrace:
 
     git clone ssh://git@github.com/open-s4c/coldtrace.git
     cd coldtrace
-    git submodule update --init
-    cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=Release -DDICE_SOURCE=../dice
+    git submodule update --init --recursive
+    cmake -S . -Bbuild -DCMAKE_BUILD_TYPE=Release
     cmake --build build
 
 Build silly example of a write-write race:
@@ -51,15 +51,21 @@ Run freezer analysis (optional):
 
 ## Experimental generated Dice runtime
 
-This branch uses a Dice checkout with `dice-roll` namespace imports,
-`add_dice_core`, and `add_dice_mods`, including the definitions in
-`src/mod/*.dice`. Set `DICE_SOURCE` to that checkout; the default is `../dice`.
-The existing `deps/dice` submodule is not changed or used by this experiment.
+The `deps/dice` submodule uses [db7/dice](https://github.com/db7/dice), with
+`dice-roll-improvements` configured as its update branch. A normal submodule
+update checks out the exact commit recorded by Coldtrace. To advance it to the
+latest commit on that branch, run `git submodule update --remote deps/dice`
+and commit the updated submodule reference.
+
+Builds use `deps/dice` by default. It supplies `dice-roll` namespace imports,
+`add_dice_core`, `add_dice_mods`, and the definitions in `src/mod/*.dice`.
+Set `DICE_SOURCE` to use another checkout; for an existing build directory,
+set `-DDICE_SOURCE="$PWD/deps/dice"` to replace a cached sibling path.
 
 `coldtrace.dice` is the application configuration, maintained at the repository
 root. It imports Dice's reusable interceptor definitions, declares every
 Coldtrace slot inside `(module coldtrace ...)`, and selects dispatch priorities.
-The settings `(plugins false)` and `(mempool-size 200Mi)` are top-level forms.
+The settings `(callbacks false)` and `(mempool-size 200Mi)` are top-level forms.
 The binary size suffix means 200 * 1024 * 1024 bytes.
 
 CMake generates only `platform.dice` in the build directory, imported as
@@ -94,13 +100,14 @@ Dice core sources, and the selected interceptor sources. Both `coldtrace` and
 which propagates the generated-header dependency and forces that header before
 ordinary Dice headers. Utility objects shared with instrumented applications
 keep ordinary header settings. The generator embeds no core or module sources.
-The runtime is sealed (`plugins false`): all consumers are linked, matching the
-legacy `dice-box` build. The `self-box` and `mempool-box` wrappers keep Dice helper
+The top-level `(callbacks false)` setting disables extension callbacks and is
+inherited by every declared slot. All consumers are linked, matching the legacy
+`dice-box` build. The `self-box` and `mempool-box` wrappers keep Dice helper
 calls private so LTO can optimize them without dynamic symbol lookup.
 
 To check declared routes as well as build and run tests:
 
-    cmake -S . -B build-roll -DDICE_SOURCE=../dice -DCMAKE_BUILD_TYPE=Release \
+    cmake -S . -B build-roll -DCMAKE_BUILD_TYPE=Release \
         -DCOLDTRACE_CHECK_ROUTES=ON
     cmake --build build-roll -j8
     ctest --test-dir build-roll --output-on-failure
@@ -108,7 +115,7 @@ To check declared routes as well as build and run tests:
 The generated files are in `build-roll/src/coldtrace-runtime-dice/`.
 CTest supplies the selected build paths to the preload scripts. For manual use:
 
-    COLDTRACE_BUILD="$PWD/build-roll" COLDTRACE_DICE_SOURCE="$PWD/../dice" \
+    COLDTRACE_BUILD="$PWD/build-roll" \
         COLDTRACE_PATH=/tmp/coldtrace-traces scripts/coldtrace ./program
 
 On macOS, capture starts after Coldtrace's configuration constructor, because
