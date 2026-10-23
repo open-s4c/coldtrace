@@ -15,7 +15,7 @@
 
 DICE_MODULE_INIT()
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_WAIT, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_SEM_WAIT, {
     const struct sem_wait_event *ev = EVENT_PAYLOAD(ev);
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e;
@@ -24,7 +24,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_WAIT, {
     }
 })
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_TRYWAIT, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_SEM_TRYWAIT, {
     const struct sem_trywait_event *ev = EVENT_PAYLOAD(ev);
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e;
@@ -34,7 +34,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_TRYWAIT, {
 })
 
 #if !defined(__APPLE__)
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
     const struct sem_timedwait_event *ev = EVENT_PAYLOAD(ev);
     if (ev->ret == 0) {
         struct coldtrace_atomic_entry *e;
@@ -44,7 +44,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_SEM_TIMEDWAIT, {
 })
 #endif
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_SEM_POST, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_SEM_POST, {
     const struct sem_post_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_LOCK_RELEASE, ev->sem);

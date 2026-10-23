@@ -17,17 +17,17 @@
 
 DICE_MODULE_INIT()
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_ENTER, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_STACKTRACE_ENTER, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     coldtrace_thread_stack_push(md, (void *)ev->caller);
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_STACKTRACE_EXIT, {
     const stacktrace_event_t *ev = EVENT_PAYLOAD(ev);
     coldtrace_thread_stack_pop(md);
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_MA_READ, {
     struct ma_read_event *ev  = EVENT_PAYLOAD(ev);
     coldtrace_entry_type type = COLDTRACE_READ;
     if (ev->size == sizeof(uint64_t) && *(uint64_t *)ev->addr == 0) {
@@ -39,7 +39,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ, {
     e->caller = (uint64_t)ev->pc;
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_WRITE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_MA_WRITE, {
     struct ma_write_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_access_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_WRITE, ev->addr);
@@ -123,68 +123,68 @@ area_t areas_[AREAS];
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_FENCE, addr);               \
     e->atomic_index = idx_a;
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_AREAD, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_MA_AREAD, {
     struct ma_aread_event *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_AREAD, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_MA_AREAD, {
     struct ma_aread_event *ev = EVENT_PAYLOAD(ev);
     REL_LOG_R(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_AWRITE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_MA_AWRITE, {
     struct ma_awrite_event *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_AWRITE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_MA_AWRITE, {
     struct ma_awrite_event *ev = EVENT_PAYLOAD(ev);
     REL_LOG_W(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_RMW, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_MA_RMW, {
     struct ma_rmw_event *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_RMW, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_MA_RMW, {
     struct ma_rmw_event *ev = EVENT_PAYLOAD(ev);
     REL_LOG_RW(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_XCHG, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_MA_XCHG, {
     struct ma_xchg_event *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_XCHG, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_MA_XCHG, {
     struct ma_xchg_event *ev = EVENT_PAYLOAD(ev);
     REL_LOG_RW(ev->addr, ev->size);
 })
 
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_CMPXCHG, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_MA_CMPXCHG, {
     struct ma_cmpxchg_event *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->addr, ev->size);
 })
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_MA_CMPXCHG, {
     struct ma_cmpxchg_event *ev = EVENT_PAYLOAD(ev);
     REL_LOG_RW_COND(ev->addr, ev->size, ev->ok);
 })
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MA_FENCE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_MA_FENCE, {
     struct ma_fence_event *ev = EVENT_PAYLOAD(ev);
     FETCH_STACK_ACQ(ev->pc, ev->mo);
 })
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MA_FENCE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_MA_FENCE, {
     struct ma_fence_event *ev = EVENT_PAYLOAD(ev);
     REL_LOG_FENCE(ev->pc);
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ_RANGE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_MA_READ_RANGE, {
     struct ma_read_range_event *ev = EVENT_PAYLOAD(ev);
     coldtrace_entry_type type      = COLDTRACE_READ;
     if (ev->size == sizeof(uint64_t) && *(uint64_t *)ev->addr == 0) {
@@ -196,7 +196,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_READ_RANGE, {
     e->caller = (uint64_t)ev->pc;
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_MA_WRITE_RANGE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_MA_WRITE_RANGE, {
     struct ma_write_range_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_access_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_WRITE, ev->addr);

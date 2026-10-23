@@ -15,7 +15,7 @@
 
 DICE_MODULE_INIT()
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MMAP, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_MMAP, {
     struct mmap_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_alloc_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_MMAP, ev->ret);
@@ -24,7 +24,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MMAP, {
     e->caller      = (uint64_t)ev->pc;
 })
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MUNMAP, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_MUNMAP, {
     struct munmap_event *ev = EVENT_PAYLOAD(ev);
 
     struct coldtrace_alloc_entry *e;

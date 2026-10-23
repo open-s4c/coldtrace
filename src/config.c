@@ -31,15 +31,15 @@ DICE_HIDE char pattern_[DEFAULT_PATH_SIZE];
  * capture disabled until constructors may safely use libc allocation. */
 static bool config_ready_;
 
-PS_SUBSCRIBE(INTERCEPT_EVENT, ANY_EVENT, {
+PS_SUBSCRIBE(CHAIN_INTERCEPT_EVENT, ANY_EVENT, {
     if (!config_ready_)
         return PS_STOP_CHAIN;
 })
-PS_SUBSCRIBE(INTERCEPT_BEFORE, ANY_EVENT, {
+PS_SUBSCRIBE(CHAIN_INTERCEPT_BEFORE, ANY_EVENT, {
     if (!config_ready_)
         return PS_STOP_CHAIN;
 })
-PS_SUBSCRIBE(INTERCEPT_AFTER, ANY_EVENT, {
+PS_SUBSCRIBE(CHAIN_INTERCEPT_AFTER, ANY_EVENT, {
     if (!config_ready_)
         return PS_STOP_CHAIN;
 })

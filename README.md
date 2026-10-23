@@ -89,7 +89,7 @@ Ordering constraints replace `COLDTRACE_BASE_SLOT` and numeric slot arithmetic.
 not add its C implementation: CMake still selects and compiles module sources.
 
 The `prioritize` form in `coldtrace.dice` selects chain-first dispatch for
-`INTERCEPT_EVENT` and `CAPTURE_EVENT`, then `EVENT_MA_READ` and `EVENT_MA_WRITE`.
+`CHAIN_INTERCEPT_EVENT` and `CHAIN_CAPTURE_EVENT`, then `EVENT_MA_READ` and `EVENT_MA_WRITE`.
 This is the policy that performed best in the Release/LTO LevelDB comparison.
 Other routes use Dice's shared fallback, with inlining left to the compiler.
 Tune this form for another workload; priorities do not change handler order.

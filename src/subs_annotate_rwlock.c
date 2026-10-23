@@ -12,7 +12,7 @@
 
 DICE_MODULE_INIT();
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_ANNOTATE_RWLOCK_CREATE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_ANNOTATE_RWLOCK_CREATE, {
     struct AnnotateRWLockCreate_event *ev = EVENT_PAYLOAD(ev);
 
     struct coldtrace_atomic_entry *e;
@@ -21,7 +21,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_ANNOTATE_RWLOCK_CREATE, {
     e->atomic_index = coldtrace_next_atomic_idx();
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_ANNOTATE_RWLOCK_DESTROY, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_ANNOTATE_RWLOCK_DESTROY, {
     struct AnnotateRWLockDestroy_event *ev = EVENT_PAYLOAD(ev);
 
     struct coldtrace_atomic_entry *e;
@@ -30,7 +30,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_ANNOTATE_RWLOCK_DESTROY, {
     e->atomic_index = coldtrace_next_atomic_idx();
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_ANNOTATE_RWLOCK_ACQ, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_ANNOTATE_RWLOCK_ACQ, {
     struct AnnotateRWLockAcquired_event *ev = EVENT_PAYLOAD(ev);
 
     struct coldtrace_atomic_entry *e;
@@ -39,7 +39,7 @@ PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_ANNOTATE_RWLOCK_ACQ, {
         (void *)ev->lock);
     e->atomic_index = coldtrace_next_atomic_idx();
 })
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_ANNOTATE_RWLOCK_REL, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_ANNOTATE_RWLOCK_REL, {
     struct AnnotateRWLockReleased_event *ev = EVENT_PAYLOAD(ev);
 
     struct coldtrace_atomic_entry *e;

@@ -15,21 +15,21 @@
 
 DICE_MODULE_INIT()
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_CXA_GUARD_ACQUIRE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_CXA_GUARD_ACQUIRE, {
     struct __cxa_guard_acquire_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_CXA_GUARD_ACQUIRE, ev->addr);
     e->atomic_index = coldtrace_next_atomic_idx();
 })
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_CXA_GUARD_RELEASE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_CXA_GUARD_RELEASE, {
     struct __cxa_guard_release_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_CXA_GUARD_RELEASE, ev->addr);
     e->atomic_index = coldtrace_next_atomic_idx();
 })
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_CXA_GUARD_ABORT, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_CXA_GUARD_ABORT, {
     struct __cxa_guard_abort_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_atomic_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_CXA_GUARD_RELEASE, ev->addr);

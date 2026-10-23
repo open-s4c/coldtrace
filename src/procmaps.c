@@ -158,7 +158,7 @@ copy_maps_and_mapped_files_(void)
     }
 }
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_INIT, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_SELF_INIT, {
     caslock_acquire(&lock_);
 
     // copy on main thread's init might be too early to get useful information
@@ -173,7 +173,7 @@ out:
     return PS_OK;
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_SELF_FINI, {
     caslock_acquire(&lock_);
     if (maps_copied_) {
         goto out;

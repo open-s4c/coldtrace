@@ -23,7 +23,7 @@ coldtrace_enable_test_wait(void)
     _test_wait = true;
 }
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_WAIT, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_SELF_WAIT, {
     if (_test_wait) {
         struct self_wait_event *ev = EVENT_PAYLOAD(ev);
         ev->wait                   = true;

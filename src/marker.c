@@ -21,7 +21,7 @@ INTERPOSE(int, coldtrace_test_marker)
     };
     struct metadata md = {0};
 
-    PS_PUBLISH(INTERCEPT_EVENT, EVENT_TEST_MARKER, &ev, &md);
+    PS_PUBLISH(CHAIN_INTERCEPT_EVENT, EVENT_TEST_MARKER, &ev, &md);
 
     return ev.ret;
 }
