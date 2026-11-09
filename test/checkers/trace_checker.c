@@ -530,9 +530,13 @@ coldtrace_main_thread_fini()
         log_info("final check %s", status ? "OK" : "FAILED");
     }
 
+    // Print the verdict with printf rather than log_info: log_* emits
+    // the prefix and the message as two separate write() calls, so output
+    // from another process sharing the same terminal (e.g. coldtrace-worker)
+    // can land in between and split the line.
     if (failed || vatomic32_read_rlx(&failed_writer_close) == 1) {
-        log_warn("TEST FAILED");
+        printf("TRACE_CHECKER: TEST FAILED\n");
     } else {
-        log_info("TEST PASSED");
+        printf("TRACE_CHECKER: TEST PASSED\n");
     }
 }

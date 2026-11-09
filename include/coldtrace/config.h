@@ -13,6 +13,10 @@
  * file will be created. */
 #define COLDTRACE_DEFAULT_TRACE_SIZE 2097152
 
+/* How long the main thread waits at exit for the worker to finish writing the
+ * remaining fragments. The default is 30s. */
+#define COLDTRACE_DEFAULT_WORKER_TIMEOUT_MS 30000
+
 void coldtrace_set_trace_size(size_t size);
 size_t coldtrace_get_trace_size(void);
 bool coldtrace_set_path(const char *path);
@@ -20,6 +24,8 @@ const char *coldtrace_get_path(void);
 const char *coldtrace_get_file_pattern(void);
 void coldtrace_set_max(uint32_t max_file_count);
 uint32_t coldtrace_get_max(void);
+void coldtrace_set_worker_timeout(uint32_t timeout_ms);
+uint32_t coldtrace_get_worker_timeout(void);
 void coldtrace_disable_writes(void);
 bool coldtrace_writes_disabled(void);
 
