@@ -1,6 +1,7 @@
 ; Common configuration shared by the runtime and trace checker.
 (callbacks false)
 (mempool-size 200Mi)
+(seal (dice mempool))
 
 ; Custom test-marker event; Dice assigns its numeric ID.
 ; The routes below also infer it; this declaration makes it explicit.
@@ -38,8 +39,14 @@
       (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
       (CHAIN_CAPTURE_EVENT EVENT_SELF_INIT EVENT_SELF_FINI)))
 
-  (slot subs-sem
+  (slot subs-worker
     (after procmaps)
+    (subscribes
+      (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
+      (CHAIN_CAPTURE_EVENT EVENT_SELF_INIT)))
+
+  (slot subs-sem
+    (after subs-worker)
     (subscribes
       (CHAIN_DICE_CONTROL EVENT_DICE_INIT)
       (CHAIN_CAPTURE_AFTER EVENT_SEM_WAIT EVENT_SEM_TRYWAIT EVENT_SEM_TIMEDWAIT)

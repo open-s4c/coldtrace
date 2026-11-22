@@ -2,17 +2,55 @@ include_directories(../src)
 include_directories(checkers)
 include_directories("${DICE_SOURCE}/test/include")
 
+# Copy the coldtrace worker next to the test binaries
+set(COLDTRACE_WORKER_TEST_COPY ${CMAKE_CURRENT_BINARY_DIR}/coldtrace-worker)
+
+add_custom_command(
+  OUTPUT ${COLDTRACE_WORKER_TEST_COPY}
+  COMMAND ${CMAKE_COMMAND} -E copy_if_different
+          $<TARGET_FILE:coldtrace-worker> ${COLDTRACE_WORKER_TEST_COPY}
+  DEPENDS coldtrace-worker $<TARGET_FILE:coldtrace-worker>
+  COMMENT "Copying coldtrace-worker to test directory")
+
+add_custom_target(coldtrace-worker-test-copy ALL
+                  DEPENDS ${COLDTRACE_WORKER_TEST_COPY})
+
 find_package(Python3 3.10 COMPONENTS Interpreter)
 if(Python3_Interpreter_FOUND)
-  add_test(NAME trace_dump-test COMMAND ${Python3_EXECUTABLE} -m unittest
-                                        test.test_trace_dump)
-  set_tests_properties(trace_dump-test PROPERTIES WORKING_DIRECTORY
-                                                  ${PROJECT_SOURCE_DIR})
+
+  execute_process(
+    COMMAND ${Python3_EXECUTABLE} -c "import lz4.block"
+    RESULT_VARIABLE _lz4_missing
+    OUTPUT_QUIET ERROR_QUIET)
+
+  if(_lz4_missing)
+    message(STATUS "python 'lz4' not found; attempting to install it")
+    execute_process(
+      COMMAND ${Python3_EXECUTABLE} -m pip install --disable-pip-version-check lz4
+      RESULT_VARIABLE _lz4_pip_failed)
+
+    execute_process(
+      COMMAND ${Python3_EXECUTABLE} -c "import lz4.block"
+      RESULT_VARIABLE _lz4_missing
+      OUTPUT_QUIET ERROR_QUIET)
+  endif()
+
+  if(_lz4_missing)
+    message(WARNING
+      "python 'lz4' module unavailable for ${Python3_EXECUTABLE} and could not "
+      "be installed; skipping trace_dump-test. Install it manually with: "
+      "${Python3_EXECUTABLE} -m pip install lz4")
+  else()
+    add_test(NAME trace_dump-test
+             COMMAND ${Python3_EXECUTABLE} -m unittest test.test_trace_dump)
+    set_tests_properties(trace_dump-test PROPERTIES
+                         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
+  endif()
 endif()
 
 add_library(trace_checker SHARED checkers/trace_checker.c
                                  checkers/indexes_checker.c)
-target_link_libraries(trace_checker PRIVATE vsync coldtrace-dice
+target_link_libraries(trace_checker PRIVATE vsync lz4_headers coldtrace-dice
                                             ${COLDTRACE_OBJS})
 
 # Resolve sanitizer annotations and test hooks supplied by the test program.
@@ -120,3 +158,6 @@ foreach(test IN LISTS coldtrace_tests)
 endforeach()
 
 set_tests_properties(${coldtrace_tests} PROPERTIES TIMEOUT 30)
+
+# A directly spawned worker deadlocks waitpid(-1) until application teardown.
+set_tests_properties(worker_wait-test PROPERTIES TIMEOUT 10)

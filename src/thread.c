@@ -31,6 +31,7 @@ struct coldtrace_thread {
 };
 
 static struct coldtrace_thread tls_key_;
+static bool main_finished_ = false;
 
 static inline struct coldtrace_thread *
 get_coldtrace_thread(metadata_t *md)
@@ -86,6 +87,12 @@ grow_stack_(struct coldtrace_thread *th)
     return true;
 }
 
+DICE_HIDE bool
+coldtrace_thread_main_finished(void)
+{
+    return main_finished_;
+}
+
 DICE_HIDE void *
 coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
                         const void *ptr)
@@ -124,7 +131,6 @@ coldtrace_thread_append(struct metadata *md, coldtrace_entry_type type,
     }
     void *e = coldtrace_writer_reserve(&th->writer, len + stack_size);
     if (e == NULL) {
-        log_warn("error: Could not reserve entry in writer, dropping entry");
         return NULL;
     }
 
@@ -154,6 +160,9 @@ DICE_HIDE void
 coldtrace_thread_fini(struct metadata *md)
 {
     struct coldtrace_thread *th = get_coldtrace_thread(md);
+    if (self_id(md) == MAIN_THREAD) {
+        main_finished_ = true;
+    }
     coldtrace_writer_fini(&th->writer);
     coldtrace_free(th->stack);
     th->stack          = NULL;

@@ -1,8 +1,13 @@
+add_subdirectory(worker)
+set_target_properties(coldtrace-worker PROPERTIES
+  RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
 # All users, including the trace checker, share one declared configuration.
 option(COLDTRACE_CHECK_ROUTES "Check declared Dice routes" OFF)
 set(config_modules
     config
     procmaps
+    subs_worker
     subs_sem
     subs_tsan
     subs_pthread
@@ -51,8 +56,6 @@ add_dice_core(
   coldtrace-runtime "${PROJECT_SOURCE_DIR}/coldtrace.dice" ${checks}
   IMPORT_PATHS "coldtrace=${CMAKE_CURRENT_BINARY_DIR}/dice")
 add_dice_mods(coldtrace-runtime ${dice_modules})
-# Coldtrace links all consumers and keeps Dice helpers private, as dice-box did.
-target_sources(coldtrace-runtime PRIVATE "${DICE_SOURCE}/src/dice/mempool-box.c")
 
 # The interface target supplies the generation dependency to each object target.
 add_library(coldtrace-dice INTERFACE)
@@ -84,13 +87,14 @@ set(SRCS
     subs_memcpy.c
     subs_cxa.c
     subs_annotate_rwlock.c
-    subs_wait.c)
+    subs_wait.c
+    subs_worker.c)
 
 set(MODS coldtrace-runtime)
 foreach(SRC IN LISTS SRCS)
   get_filename_component(TARGET ${SRC} NAME_WLE)
   add_library(${TARGET}.o OBJECT ${SRC})
-  target_link_libraries(${TARGET}.o PRIVATE vsync)
+  target_link_libraries(${TARGET}.o PRIVATE vsync lz4_headers)
   if("${TARGET}" IN_LIST config_modules)
     target_link_libraries(${TARGET}.o PRIVATE coldtrace-dice)
     string(TOUPPER "${TARGET}" slot)
@@ -114,7 +118,7 @@ if(APPLE)
 else()
   add_custom_target(coldtrace-preload DEPENDS tsano)
 endif()
-add_dependencies(coldtrace coldtrace-preload)
+add_dependencies(coldtrace coldtrace-preload coldtrace-worker)
 target_link_libraries(coldtrace PRIVATE vsync coldtrace-dice ${MODS})
 # The checker exports self accessors to test programs; only the tracer hides them.
 target_sources(coldtrace PRIVATE "${DICE_SOURCE}/src/mod/self-box.c")

@@ -51,11 +51,11 @@ Run freezer analysis (optional):
 
 ## Experimental generated Dice runtime
 
-The `deps/dice` submodule uses [db7/dice](https://github.com/db7/dice), with
-`dice-roll-improvements` configured as its update branch. A normal submodule
-update checks out the exact commit recorded by Coldtrace. To advance it to the
-latest commit on that branch, run `git submodule update --remote deps/dice`
-and commit the updated submodule reference.
+The `deps/dice` submodule uses [open-s4c/dice](https://github.com/open-s4c/dice),
+tracking `main` and pinned to `18ad7af` (including the merged Roll generator,
+optimizations, and qualified chain names). A normal submodule update checks out
+the exact commit recorded by Coldtrace. To advance it, run
+`git submodule update --remote deps/dice` and commit the updated reference.
 
 Builds use `deps/dice` by default. It supplies `dice-roll` namespace imports,
 `add_dice_core`, `add_dice_mods`, and the definitions in `src/mod/*.dice`.
@@ -65,8 +65,9 @@ set `-DDICE_SOURCE="$PWD/deps/dice"` to replace a cached sibling path.
 `coldtrace.dice` is the application configuration, maintained at the repository
 root. It imports Dice's reusable interceptor definitions, declares every
 Coldtrace slot inside `(module coldtrace ...)`, and selects dispatch priorities.
-The settings `(callbacks false)` and `(mempool-size 200Mi)` are top-level forms.
-The binary size suffix means 200 * 1024 * 1024 bytes.
+The settings `(callbacks false)`, `(mempool-size 200Mi)`, and
+`(seal (dice mempool))` are top-level forms. The binary size suffix means
+200 * 1024 * 1024 bytes. Allocator sealing replaces the legacy mempool wrapper.
 
 CMake generates only `platform.dice` in the build directory, imported as
 `(import (coldtrace platform))`. On non-Apple platforms it imports
@@ -83,6 +84,12 @@ CMake compiles `procmaps.c` with
 header. Its `PS_SUBSCRIBE` and `DICE_MODULE_INIT` declarations therefore use
 that slot without knowing the numeric value. Other subscriber sources use the
 same convention. Dice's own modules retain names such as `SLOT_DICE_SELF`.
+
+The `subs-worker` slot follows `procmaps` and precedes `subs-sem`, preserving
+the worker startup order from the current writer implementation. It subscribes
+to main-thread initialization and participates in the generated runtime used by
+both the tracer and checker. LZ4 and the separate `coldtrace-worker` executable
+remain part of the build.
 
 Ordering constraints replace `COLDTRACE_BASE_SLOT` and numeric slot arithmetic.
 `EVENT_TEST_MARKER` is allocated by the generator. Importing a definition does
@@ -102,8 +109,9 @@ ordinary Dice headers. Utility objects shared with instrumented applications
 keep ordinary header settings. The generator embeds no core or module sources.
 The top-level `(callbacks false)` setting disables extension callbacks and is
 inherited by every declared slot. All consumers are linked, matching the legacy
-`dice-box` build. The `self-box` and `mempool-box` wrappers keep Dice helper
-calls private so LTO can optimize them without dynamic symbol lookup.
+`dice-box` build. Allocator sealing and the tracer's `self-box` wrapper keep
+Dice helper calls private so LTO can optimize them without dynamic symbol
+lookup. The checker keeps Self accessors exported for its test programs.
 
 To check declared routes as well as build and run tests:
 
@@ -118,22 +126,17 @@ CTest supplies the selected build paths to the preload scripts. For manual use:
     COLDTRACE_BUILD="$PWD/build-roll" \
         COLDTRACE_PATH=/tmp/coldtrace-traces scripts/coldtrace ./program
 
-On macOS, capture starts after Coldtrace's configuration constructor, because
-interposition can begin during libSystem's allocator initialization. The Linux
-`/proc` collector is disabled there. Instrumented test applications use flat
-symbol lookup so sanitizer calls reach the preloaded runtime. Tests retain
-unoptimized calls because their expectations describe individual operations.
+The current worker/writer implementation requires Linux facilities, including
+`pipe2`, close-on-exec socket flags, and process-shared unnamed semaphores. The
+earlier experiment's macOS accommodations remain in place, but a complete
+macOS build is not supported by the new writer code.
 
-Validated on macOS arm64 with AppleClang 21: normal and route-checked
-Release/LTO builds succeed. The latest full runs passed 45 of 51 tests, with
-these six failures also present before the namespace migration: `trace_atomic`,
-`trace_hb_check`, `trace_hb_check_2`, `trace_memcpy`, `trace_pthread_cond_wait`,
-and `trace_read_write_size`. No undeclared-route errors were reported.
-The trace expectations and timing-sensitive atomic checks still need
-investigation; the complete suite is not green.
+Validation of this refresh on macOS arm64 with AppleClang 21:
 
-After consolidating the configuration, allocation/free, thread create/join,
-and main-thread-close smoke tests pass. Generated C and headers are identical
-to the previous configuration, with and without the optional spinlock slot.
-The spinlock comparison validates generation only; Linux and other platforms
-have not been built or tested for this integration.
+- Release/LTO CMake configuration with `COLDTRACE_CHECK_ROUTES=ON` succeeds.
+- The generated Dice runtime and existing subscriber object targets compile.
+- The Linux configuration, including the optional spinlock module, validates.
+- All 15 trace decoder unit tests pass with Python 3.13 and LZ4.
+- The full build stops in the writer on platform-specific compilation errors.
+- A full Linux build and CTest run are still required; the configured local
+  Ubuntu VM was unreachable during this refresh.

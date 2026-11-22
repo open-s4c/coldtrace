@@ -26,6 +26,8 @@ REMOTE_BIN = f"{REMOTE_BASE}/bin"
 REMOTE_TRACES = f"{REMOTE_BASE}/traces"
 REMOTE_PERF = f"{REMOTE_BASE}/perf"
 TSANO_DIR = "/data/local/tmp/tsano"
+# Benchmarks always run pinned to the big cores (policy2 = cpu10-11 -> taskset mask 0xc00).
+BENCH_CPU_MASK = "c00"
 
 BENCHMARKS = {
     "leveldb": {
@@ -179,6 +181,7 @@ def transfer_core_libs(device):
     print("--> Transferring core libraries...")
     libs = [
         ("src/libcoldtrace.so", "libcoldtrace.so"),
+        ("src/coldtrace-worker", "coldtrace-worker"),
         ("deps/dice/deps/tsano/libtsano.so", "libtsano.so"),
         ("test/libtrace_checker.so", "libtrace_checker.so"),
         ("test/libmock_checker.so", "libmock_checker.so"),
@@ -192,6 +195,9 @@ def transfer_core_libs(device):
                 device.send_file(str(src), f"{REMOTE_BIN}/{remote_name}")
         else:
             raise FileNotFoundError(f"Required library missing: {src}")
+    
+    with suppress_output():
+        device.cmd(f"chmod +x {REMOTE_BIN}/coldtrace-worker")
                 
     # Create symlinks required for TSAN
     with suppress_output():
@@ -212,7 +218,6 @@ def get_variant_env(variant: str, trace_subdir=""):
 
     coldtrace_opts = (
         f"COLDTRACE_PATH={trace_path} "
-        "COLDTRACE_MAX_FILES=3 "
         "COLDTRACE_DISABLE_CLEANUP=true "
         "COLDTRACE_DISABLE_COPY=true"
     )
@@ -234,6 +239,17 @@ def get_variant_env(variant: str, trace_subdir=""):
         return f"COLDTRACE_DISABLE_WRITES=true {coldtrace_env}"
     else:
         raise ValueError(f"Unknown variant requested: '{variant}'. Valid variants are: {', '.join(VARIANTS)}")
+
+def verify_cpu_mask(device, mask: str) -> str:
+    """Check that taskset works on the device with this mask.
+       Returns the resulting CPU list (e.g. '10-11'); raises if pinning is not possible."""
+    with suppress_output():
+        res = device.cmd(f"taskset {mask} grep Cpus_allowed_list /proc/self/status",
+                         capture_output=True, text=True, check=False)
+    out = ((res.stdout or "") + (res.stderr or "")).strip()
+    if res.returncode != 0 or "Cpus_allowed_list" not in out:
+        raise RuntimeError(f"taskset {mask} failed on the device: {out or 'no output'}")
+    return out.split(":", 1)[1].strip()
 
 def evaluate_run(result, expect_verdict: bool, expect_fail: bool = False):
     output = (result.stdout or "") + (result.stderr or "")
@@ -346,6 +362,10 @@ def cmd_bench(args):
     try:
         setup_remote(device)
         transfer_core_libs(device)
+
+        pinned_cpus = verify_cpu_mask(device, BENCH_CPU_MASK)
+        pin_prefix = f"taskset {BENCH_CPU_MASK} "
+        print(f"--> Pinning benchmarks to big cores: CPUs {pinned_cpus}")
         
         print("--> Transferring Hyperfine & Benchmarks...")
         with suppress_output():
@@ -371,7 +391,6 @@ def cmd_bench(args):
             config = BENCHMARKS[name]
             print(f"\n--- Running {name} ---")
             results[name] = {}
-            
             if config["setup_cmd"]:
                 with suppress_output():
                     device.cmd(f"cd {REMOTE_BASE} && {config['setup_cmd']}")
@@ -383,14 +402,15 @@ def cmd_bench(args):
                 
                 with suppress_output():
                     device.cmd(f"rm -f {csv_out}")
-                    
-                hf_cmd = f"cd {REMOTE_BASE} && {REMOTE_BIN}/hyperfine --warmup 1 --export-csv {csv_out} '{variant_env} ./{name}_{bin_suffix} {config['run_cmd']}'"
+
+                prepare = f"rm -rf {REMOTE_TRACES}"
+                hf_cmd = f"cd {REMOTE_BASE} && {pin_prefix}{REMOTE_BIN}/hyperfine --prepare '{prepare}' --warmup 1 --export-csv {csv_out} '{variant_env} ./{name}_{bin_suffix} {config['run_cmd']}'"
                 print(f"  [{variant}]:")
                 
                 with suppress_output():
                     device.cmd(hf_cmd)
                     csv_data = device.cmd(f"cat {csv_out}", capture_output=True, text=True).stdout
-                    
+
                 # Parse Hyperfine CSV results
                 mean_time, std_dev = 0.0, 0.0
                 if csv_data:
@@ -512,7 +532,8 @@ def cmd_test(args):
     if not TEST_DIR.exists():
         raise FileNotFoundError(f"Test directory missing: {TEST_DIR}")
         
-    tests = sorted([f for f in TEST_DIR.iterdir() if f.is_file() and os.access(f, os.X_OK) and not f.name.endswith(".so")])
+    tests = sorted([f for f in TEST_DIR.iterdir() if f.is_file() and os.access(f, os.X_OK) 
+                    and not f.name.endswith(".so") and not f.name.startswith("coldtrace-worker")])
     if not tests:
         print("No tests found.")
         return

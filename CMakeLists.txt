@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
 project(
   coldtrace
-  VERSION 0.1.0
+  VERSION 0.2.0
   LANGUAGES C CXX)
 
 # Get the short (8‑char) commit hash
@@ -39,6 +39,12 @@ elseif(NOT CMAKE_SYSTEM_NAME MATCHES "NetBSD" AND NOT APPLE)
   set(HAVE_PTHREAD_CLOCKLOCK_CLOCKWAIT ON)
 endif()
 
+# Override Clang's default ThinLTO with Full LTO
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    set(CMAKE_C_COMPILE_OPTIONS_IPO "-flto=full")
+    set(CMAKE_CXX_COMPILE_OPTIONS_IPO "-flto=full")
+endif()
+
 add_compile_options(-fPIC -g3 -D_GNU_SOURCE -DDICE_MAIN_START_DISABLE -DDICE_MEMPOOL_USE_MMAP)
 set(CMAKE_INTERPROCEDURAL_OPTIMIZATION TRUE)
 set(DICE_MEMSET ON)
@@ -59,6 +65,8 @@ if(NOT libvsync_DIR)
   find_package(libvsync 4.2 CONFIG REQUIRED)
 endif()
 add_library(vsync ALIAS libvsync::vsync)
+
+add_subdirectory(deps/lz4)
 
 add_compile_options(
   -Wall
