@@ -8,6 +8,11 @@
 #include <dice/module.h>
 #include <dice/self.h>
 
+#if defined(__APPLE__)
+// The marker is supplied by test programs and is optional for other clients.
+extern int coldtrace_test_marker(void) __attribute__((weak_import));
+#endif
+
 INTERPOSE(int, coldtrace_test_marker)
 {
     struct coldtrace_marker_event ev = {
@@ -16,7 +21,7 @@ INTERPOSE(int, coldtrace_test_marker)
     };
     struct metadata md = {0};
 
-    PS_PUBLISH(INTERCEPT_EVENT, EVENT_TEST_MARKER, &ev, &md);
+    PS_PUBLISH(CHAIN_INTERCEPT_EVENT, EVENT_TEST_MARKER, &ev, &md);
 
     return ev.ret;
 }

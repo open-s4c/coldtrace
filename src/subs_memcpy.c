@@ -11,7 +11,7 @@
 
 DICE_MODULE_INIT();
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MEMCPY, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_MEMCPY, {
     struct memcpy_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_access_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_READ, ev->src);
@@ -19,7 +19,7 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MEMCPY, {
     e->caller = (uint64_t)ev->pc;
 })
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MEMCPY, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_MEMCPY, {
     struct memcpy_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_access_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_WRITE, ev->dest);
@@ -27,7 +27,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MEMCPY, {
     e->caller = (uint64_t)ev->pc;
 })
 
-PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MEMMOVE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_BEFORE, EVENT_MEMMOVE, {
     struct memmove_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_access_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_READ, ev->src);
@@ -35,7 +35,7 @@ PS_SUBSCRIBE(CAPTURE_BEFORE, EVENT_MEMMOVE, {
     e->caller = (uint64_t)ev->pc;
 })
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MEMMOVE, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_MEMMOVE, {
     struct memmove_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_access_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_WRITE, ev->dest);
@@ -43,7 +43,7 @@ PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MEMMOVE, {
     e->caller = (uint64_t)ev->pc;
 })
 
-PS_SUBSCRIBE(CAPTURE_AFTER, EVENT_MEMSET, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_AFTER, EVENT_MEMSET, {
     struct memset_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_access_entry *e;
     COLDTRACE_APPEND_OR_RETURN_OK(e, md, COLDTRACE_WRITE, ev->ptr);

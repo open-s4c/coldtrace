@@ -21,7 +21,7 @@ main()
     if (write(fd, &fd, 1) != 1) {
         return -1;
     }
-    printf("%lx\n", (uint64_t)map + 5 * pagesize);
+    printf("%p\n", (void *)((char *)map + 5 * pagesize));
     map[0] = 'a';
     sleep(1);
     printf("munmap(map, pagesize): %d\n", munmap(map, pagesize));

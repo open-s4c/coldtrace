@@ -1,6 +1,6 @@
 include_directories(../src)
 include_directories(checkers)
-include_directories(../deps/dice/test/include)
+include_directories("${DICE_SOURCE}/test/include")
 
 # Copy the coldtrace worker next to the test binaries
 set(COLDTRACE_WORKER_TEST_COPY ${CMAKE_CURRENT_BINARY_DIR}/coldtrace-worker)
@@ -48,14 +48,22 @@ if(Python3_Interpreter_FOUND)
   endif()
 endif()
 
-add_library(trace_checker SHARED checkers/trace_checker.c checkers/indexes_checker.c)
-target_link_libraries(trace_checker PUBLIC vsync dice.h ${COLDTRACE_OBJS})
+add_library(trace_checker SHARED checkers/trace_checker.c
+                                 checkers/indexes_checker.c)
+target_link_libraries(trace_checker PRIVATE vsync lz4_headers coldtrace-dice
+                                            ${COLDTRACE_OBJS})
 
-# force libc++ to be loaded before trace_checker to ensure availability of
-# cxa_guard
-if(CMAKE_SYSTEM_NAME MATCHES "OHOS")
+# Resolve sanitizer annotations and test hooks supplied by the test program.
+if(APPLE)
+  target_link_options(trace_checker PRIVATE -undefined dynamic_lookup)
+endif()
+
+# Load the C++ runtime for the cxa_guard interceptors.
+if(APPLE OR CMAKE_SYSTEM_NAME MATCHES "OHOS")
   set_target_properties(trace_checker PROPERTIES LINKER_LANGUAGE CXX)
 endif()
+
+add_dependencies(trace_checker coldtrace-preload)
 
 add_library(mock_checker SHARED checkers/mock_checker.c)
 target_link_libraries(mock_checker PUBLIC vsync dice.h)
@@ -66,8 +74,21 @@ set(OPTIONS_atomic_test -ensure-traces)
 set(OPTIONS_spinlock -ensure-traces)
 
 file(GLOB SRCS *.c *.cpp)
+if(APPLE)
+  # macOS has no POSIX spinlocks, timed mutex/rwlock calls, or sem_timedwait.
+  list(
+    REMOVE_ITEM
+    SRCS
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_spinlock.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_spintrylock.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_mutex_variants.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_rwlock_variants.c
+    ${CMAKE_CURRENT_SOURCE_DIR}/trace_semaphore.c)
+endif()
 if(NOT HAVE_PTHREAD_CLOCKLOCK_CLOCKWAIT)
-  list(REMOVE_ITEM SRCS ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_cond_clockwait.c ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_mutex_clocklock.c)
+  list(REMOVE_ITEM SRCS
+       ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_cond_clockwait.c
+       ${CMAKE_CURRENT_SOURCE_DIR}/trace_pthread_mutex_clocklock.c)
 endif()
 foreach(SRC ${SRCS})
   get_filename_component(TARGET ${SRC} NAME_WLE)
@@ -75,9 +96,13 @@ foreach(SRC ${SRCS})
 
   add_executable(${TARGET} ${SRC})
   target_link_libraries(${TARGET} PRIVATE dice.h vsync pthread marker)
+  if(APPLE)
+    target_link_options(${TARGET} PRIVATE LINKER:-flat_namespace
+                        LINKER:-undefined,dynamic_lookup)
+  endif()
 
   # handle instrumentation and linking of target against TSAN
-  target_compile_options(${TARGET} PRIVATE -fsanitize=thread)
+  target_compile_options(${TARGET} PRIVATE -O0 -fno-builtin -fsanitize=thread)
   target_link_options(${TARGET} PRIVATE -fsanitize=thread)
   if(CMAKE_C_COMPILER_ID STREQUAL "GNU")
     target_compile_options(${TARGET} PRIVATE -Wno-use-after-free)
@@ -92,7 +117,9 @@ foreach(SRC ${SRCS})
     add_test(NAME ${TARGET}-test
              COMMAND ${PROJECT_SOURCE_DIR}/scripts/coldtrace-check
                      ${CMAKE_CURRENT_BINARY_DIR}/${TARGET})
-    set_tests_properties(${TARGET}-test PROPERTIES LABELS "trace")
+    set_tests_properties(
+      ${TARGET}-test PROPERTIES LABELS "trace" ENVIRONMENT
+                                "COLDTRACE_PATH=${TRACES_DIR}")
   else()
     add_test(
       NAME ${TARGET}-test
@@ -108,10 +135,29 @@ target_link_libraries(trace_hb_check_2 PRIVATE entries.o)
 target_link_libraries(trace_stack_growth PRIVATE entries.o)
 target_compile_options(trace_stack_growth PRIVATE -fno-optimize-sibling-calls)
 target_compile_options(trace_fence PRIVATE -fsanitize=thread -Wno-error=tsan
-                                            -Wno-unknown-warning-option)
+                                           -Wno-unknown-warning-option)
 # force a call to memcpy or __tsan_memcpy
 target_compile_options(trace_memcpy PRIVATE -fno-builtin)
-set_tests_properties(trace_fail-test PROPERTIES ENVIRONMENT "COLDTRACE_EXPECT_FAIL=1")
+set_property(
+  TEST trace_fail-test
+  APPEND
+  PROPERTY ENVIRONMENT "COLDTRACE_EXPECT_FAIL=1")
+
+# Pass locations from the active CMake build, including non-default build dirs.
+get_property(
+  coldtrace_tests
+  DIRECTORY
+  PROPERTY TESTS)
+foreach(test IN LISTS coldtrace_tests)
+  set_property(
+    TEST ${test}
+    APPEND
+    PROPERTY ENVIRONMENT "COLDTRACE_BUILD=${PROJECT_BINARY_DIR}"
+             "COLDTRACE_DICE_SOURCE=${DICE_SOURCE}"
+             "COLDTRACE_LIBRARY_SUFFIX=${CMAKE_SHARED_LIBRARY_SUFFIX}")
+endforeach()
+
+set_tests_properties(${coldtrace_tests} PROPERTIES TIMEOUT 30)
 
 # A directly spawned worker deadlocks waitpid(-1) until application teardown.
 set_tests_properties(worker_wait-test PROPERTIES TIMEOUT 10)

@@ -1,6 +1,9 @@
+#include "pthread_barrier_compat.h"
+
 #include <atomic>
 #include <cstdio>
 #include <cstdlib>
+#include <inttypes.h>
 #include <pthread.h>
 #include <trace_checker.h>
 
@@ -36,7 +39,8 @@ check_conforming(const void *entry, metadata_t *md)
     } else if (type == COLDTRACE_ATOMIC_WRITE) {
         uint64_t write_idx = coldtrace_entry_parse_atomic_index(entry);
         if (write_idx < (2 * X_TIMES) && last_atomic_idx + 1 != write_idx) {
-            log_warn("atomic fetch_add was split: read_idx: %ld write_idx: %ld",
+            log_warn("atomic fetch_add was split: read_idx: %" PRIu64
+                     " write_idx: %" PRIu64,
                      last_atomic_idx, write_idx);
             return false;
         }

@@ -1,3 +1,5 @@
+#include "pthread_barrier_compat.h"
+
 #include <dice/log.h>
 #include <errno.h>
 #include <marker.h>

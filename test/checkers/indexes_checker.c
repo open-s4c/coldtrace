@@ -5,9 +5,10 @@
 #include <dice/log.h>
 #include <dice/mempool.h>
 #include <indexes_checker.h>
+#include <inttypes.h>
 #include <string.h>
 
-#define INVALID_INDEX (uint64_t) - 1
+#define INVALID_INDEX (uint64_t)-1
 
 struct index_set {
     uint64_t max_idx;
@@ -85,9 +86,8 @@ check_ascending_generic(uint64_t *prev, uint64_t idx, struct index_set *set,
         if (*prev != UINT64_MAX) {
             if (idx <= *prev) {
                 log_warn(
-                    "Ascending order violation for %s indexes: prev=%lu "
-                    "current=%lu "
-                    "(thread=%lu entry=%d)",
+                    "Ascending order violation for %s indexes: prev=%" PRIu64
+                    " current=%" PRIu64 " (thread=%" PRIu64 " entry=%d)",
                     index_name, *prev, idx, tid, entry);
                 return false;
             }
@@ -119,11 +119,11 @@ check_not_seen_generic_indexes(struct index_set *set, char *index_name)
 {
     uint64_t cap_snapshot = set->max_idx;
     bool ret              = true;
-    log_info(" %s indexes %lu", index_name, cap_snapshot + 1);
+    log_info(" %s indexes %" PRIu64, index_name, cap_snapshot + 1);
     log_info("Missing %s indexes (up to %s_max_idx):", index_name, index_name);
     for (uint64_t idx = 0; idx < cap_snapshot; idx++) {
         if (!contains(set, idx)) {
-            log_warn("missing %s index: %zu", index_name, idx);
+            log_warn("missing %s index: %" PRIu64, index_name, idx);
             ret = false;
         }
     }

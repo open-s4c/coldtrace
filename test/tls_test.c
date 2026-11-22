@@ -19,7 +19,7 @@ to_call(void *ptr)
     time(&timer);
 
     diff = difftime(timer, *start_time);
-    printf("TLS address: %lx\n", (uint64_t)&diff);
+    printf("TLS address: %p\n", (void *)&diff);
     printf("Time difference: %f\n", diff);
     return &diff;
 }
@@ -42,14 +42,17 @@ main()
     char buffer[MAX_BUFFER_SIZE];
     sprintf(buffer, "/proc/%d/maps", getpid());
     FILE *map = fopen(buffer, "r");
-    while (fgets(buffer, sizeof(buffer), map) != 0) {
+    while (map && fgets(buffer, sizeof(buffer), map) != 0) {
         printf("%s", buffer);
     }
+
+    if (map)
+        fclose(map);
 
     for (int i = 0; i < NUM_THREADS; i++) {
         void *ret;
         pthread_join(threads[i], &ret);
-        printf("TLS address: %lx\n", (uint64_t)ret);
+        printf("TLS address: %p\n", ret);
     }
 
     return 0;

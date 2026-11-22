@@ -6,7 +6,9 @@
 #ifndef COLDTRACE_MARKER_H
 #define COLDTRACE_MARKER_H
 
-#define EVENT_TEST_MARKER 103
+#ifndef DICE_ROLLED
+    #define EVENT_TEST_MARKER 103
+#endif
 
 struct coldtrace_marker_event {
     const void *pc;

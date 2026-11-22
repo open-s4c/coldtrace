@@ -13,7 +13,7 @@
 
 DICE_MODULE_INIT()
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_TEST_MARKER, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_TEST_MARKER, {
     struct coldtrace_marker_event *ev = EVENT_PAYLOAD(ev);
     struct coldtrace_marker_entry *e =
         coldtrace_thread_append(md, COLDTRACE_TEST_MARKER, 0);

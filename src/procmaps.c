@@ -128,9 +128,14 @@ static bool maps_copied_ = false;
 static caslock_t lock_;
 
 DICE_MODULE_INIT({
+#if defined(__APPLE__)
+    /* This collector uses Linux /proc files and cannot run on macOS. */
+    maps_copied_ = true;
+#else
     if (getenv("COLDTRACE_DISABLE_COPY")) {
         maps_copied_ = true;
     }
+#endif
 })
 
 static inline void
@@ -160,7 +165,7 @@ copy_maps_and_mapped_files_(void)
     }
 }
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_INIT, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_SELF_INIT, {
     caslock_acquire(&lock_);
 
     // copy on main thread's init might be too early to get useful information
@@ -175,7 +180,7 @@ out:
     return PS_OK;
 })
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_FINI, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_SELF_FINI, {
     caslock_acquire(&lock_);
     if (maps_copied_) {
         goto out;

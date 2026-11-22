@@ -1,3 +1,4 @@
 [submodule "deps/dice"]
 	path = deps/dice
 	url = ../dice
+	branch = main

@@ -311,7 +311,7 @@ coldtrace_worker_finish(void)
 
 DICE_MODULE_INIT()
 
-PS_SUBSCRIBE(CAPTURE_EVENT, EVENT_SELF_INIT, {
+PS_SUBSCRIBE(CHAIN_CAPTURE_EVENT, EVENT_SELF_INIT, {
     if (self_id(md) != MAIN_THREAD || spawn_attempted_) {
         return PS_OK;
     }
